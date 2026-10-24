@@ -22,6 +22,7 @@
             </div>
             <div class="badge coins"><span class="coin" data-icon="coin"></span><span id="hud-coins" class="num">0</span></div>
           </div>
+          <button type="button" id="goal-chip" class="goal-chip" hidden></button>
           <div class="clock" aria-label="Hora do dia"><span class="clock-icon" id="hud-clock-icon"></span><span id="hud-time">09:00</span></div>
         </div>
         <div class="hud-right">
@@ -29,6 +30,7 @@
             <span class="shop-pic" data-icon="shop"></span><span class="shop-label">Loja</span>
           </button>
           <div class="hud-round">
+            <button type="button" id="book-btn" class="round-btn" aria-label="Livro da Fazenda" title="Livro da Fazenda"><span class="dot" hidden></span></button>
             <button type="button" id="sound-btn" class="round-btn" aria-label="Som" title="Som"></button>
             <button type="button" id="menu-btn" class="round-btn" aria-label="Menu" title="Menu"></button>
           </div>
@@ -47,6 +49,7 @@
     <div id="shop" hidden></div>
     <div id="barn" hidden></div>
     <div id="pen" hidden></div>
+    <div id="book" hidden></div>
     <div id="menu" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

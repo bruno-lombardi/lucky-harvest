@@ -595,6 +595,7 @@ button.poor .cost {
 }
 
 .shop-tabs {
+  flex: 0 0 auto;
   display: flex;
   gap: 6px;
   padding: 12px 12px 0;
@@ -1527,3 +1528,261 @@ button.tool {
 .seed.rar-epica .pic { box-shadow: 0 0 0 2px #e0a21a, 0 0 12px rgba(255, 200, 60, 0.75); border-radius: 12px; }
 .shop-row.rar-incomum .pic,
 .seed.rar-incomum .pic { box-shadow: 0 0 0 2px rgba(79, 174, 58, 0.7); border-radius: 12px; }
+
+/* ---------- Livro da Fazenda ---------- */
+.goal-chip {
+  display: block;
+  max-width: 230px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  font: 600 14px/1.15 var(--font);
+  text-align: left;
+  color: #fff8e6;
+  cursor: pointer;
+  border-radius: 12px;
+  border: 2px solid #5b3517;
+  background: linear-gradient(to bottom, #c98a4a, var(--wood-2));
+  box-shadow: inset 0 2px 0 rgba(255, 220, 160, 0.5), 0 3px 0 rgba(60, 30, 10, 0.55);
+  text-shadow: 0 1px 0 rgba(60, 30, 10, 0.7);
+}
+
+.goal-chip[hidden] {
+  display: none;
+}
+
+.goal-chip.ready {
+  color: #3a2208;
+  text-shadow: none;
+  border-color: var(--gold-3);
+  background: linear-gradient(to bottom, var(--gold-1), var(--gold-2));
+  animation: nudge 1.4s ease-in-out infinite;
+}
+
+.round-btn {
+  position: relative;
+}
+
+.round-btn .dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff4dc;
+  background: #e0392b;
+}
+
+.round-btn .dot[hidden] {
+  display: none;
+}
+
+button.tool.point,
+.shop-btn.point {
+  animation: point-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes point-pulse {
+  50% {
+    transform: translateY(-4px) scale(1.07);
+    filter: brightness(1.18) drop-shadow(0 0 7px rgba(255, 230, 120, 0.95));
+  }
+}
+
+.dot-count {
+  display: inline-block;
+  min-width: 1.2em;
+  margin-left: 3px;
+  padding: 0 4px;
+  font-size: 0.8em;
+  line-height: 1.35;
+  text-align: center;
+  color: #fff;
+  border-radius: 999px;
+  background: #e0392b;
+}
+
+.book-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 15px;
+}
+
+.chapter-intro {
+  margin: 0 2px 8px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+h4.section small {
+  margin-left: 6px;
+  font-weight: 500;
+  opacity: 0.65;
+}
+
+.goal-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  margin-bottom: 7px;
+  border-radius: 13px;
+  border: 2px solid #d9bd85;
+  background: linear-gradient(to bottom, #fffaf0, #f7e7bf);
+}
+
+.goal-row .num {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  font: 700 14px/22px var(--font);
+  text-align: center;
+  color: #fff8e6;
+  border-radius: 50%;
+  border: 2px solid #5b3517;
+  background: #b48a52;
+}
+
+.goal-row .info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.goal-row .info b {
+  font-size: 16px;
+}
+
+.goal-row .info small {
+  font-size: 12.5px;
+  opacity: 0.8;
+}
+
+.goal-row .reward {
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+
+.goal-row .buttons {
+  flex: 0 0 auto;
+}
+
+.goal-row.now {
+  border-color: var(--gold-3);
+  box-shadow: 0 0 0 2px rgba(255, 210, 80, 0.55);
+}
+
+.goal-row.now .num {
+  background: var(--gold-2);
+  color: #3a2208;
+}
+
+.goal-row.ready {
+  border-color: #4fa83a;
+  background: linear-gradient(to bottom, #f4ffe8, #d8f3b8);
+}
+
+.goal-row.claimed {
+  opacity: 0.55;
+}
+
+.goal-row.claimed .num {
+  background: #5fae48;
+}
+
+.goal-row .check {
+  font: 700 20px var(--font);
+  color: #3a8a28;
+}
+
+.prog {
+  display: block;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(90, 60, 20, 0.2);
+}
+
+.prog i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(to bottom, #9be860, #4fc23a);
+}
+
+.medals {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 1px;
+}
+
+.medal {
+  width: 26px;
+  height: 26px;
+  filter: grayscale(1) opacity(0.35);
+}
+
+.medal.got {
+  filter: none;
+}
+
+.medal svg {
+  width: 100%;
+  height: 100%;
+}
+
+.guide-card {
+  margin-bottom: 9px;
+  padding: 9px 12px 6px;
+  border-radius: 13px;
+  border: 2px solid #d9bd85;
+  background: linear-gradient(to bottom, #fffaf0, #f7e7bf);
+}
+
+.guide-card h4 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+
+.guide-card h4 small {
+  margin-left: 6px;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.guide-card p {
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.guide-card.here {
+  border-color: var(--gold-3);
+  box-shadow: 0 0 0 2px rgba(255, 210, 80, 0.55);
+}
+
+.guide-card.later {
+  opacity: 0.7;
+}
+
+.guide-card .you {
+  display: inline-block;
+  margin-right: 7px;
+  padding: 1px 7px;
+  font-size: 12px;
+  color: #3a2208;
+  border-radius: 99px;
+  background: var(--gold-2);
+}
+
+@media (max-width: 560px) {
+  .goal-chip {
+    max-width: 170px;
+    font-size: 12.5px;
+  }
+}

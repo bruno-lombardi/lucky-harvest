@@ -57,6 +57,11 @@ export class Toolbar {
     this.syncActive();
   }
 
+  /** Makes one tool button pulse (the current goal points at it), or none. */
+  point(mode: ToolMode | null): void {
+    for (const [id, button] of this.toolButtons) button.classList.toggle('point', id === mode);
+  }
+
   /** Re-evaluates seed availability (level) and affordability (coins). Cheap to call often. */
   refresh(farm: Farm): void {
     const signature = `${farm.level}|${CROP_ORDER.map((id) => farm.seeds[id]).join(',')}`;

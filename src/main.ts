@@ -22,7 +22,10 @@ import { Floaters, Toast } from './ui/feedback';
 import { Hud } from './ui/hud';
 import { describeTile, reasonMessage } from './ui/messages';
 import { COIN_ICON, MOON_ICON, SOUND_OFF_ICON, SOUND_ON_ICON, SUN_ICON, hydrateIcons } from './ui/icons';
+import { BookDialog } from './ui/book';
 import { Shop, ShopTab } from './ui/shop';
+import { CHIP_GOALS, achievementKey, claimableSteps, claimableGoals, currentGoal, goalDone, goalKey } from './core/progress';
+import { BOOK_ICON } from './ui/icons';
 import { Toolbar } from './ui/toolbar';
 import { cursorFor } from './ui/cursors';
 import { InfoCard } from './ui/info-card';
@@ -91,6 +94,7 @@ document.addEventListener('click', (event) => {
 let selected: TileCoord | null = null;
 let toolbar: Toolbar;
 let shop: Shop;
+let book: BookDialog;
 let barn: BarnDialog;
 let pen: PenDialog;
 let lastLevelShown = 1;
@@ -108,6 +112,9 @@ function countPests(now: number): number {
 
 const unpaidKnown = new Set<HelperId>();
 let knownLevel = 0;
+/** Goals and medal steps already announced, so each toasts once when it first completes. */
+const announced = new Set<string>();
+let announcedReady = false;
 const QUIET_VOLUME = 0.5;
 
 /** Shows what helpers did since the last look: bursts, floating crops and quiet sounds (only for recent events). */
@@ -171,6 +178,43 @@ function showDeliveries(now: number): void {
   }
 }
 
+const goalChip = required('goal-chip');
+const bookButton = required('book-btn');
+const bookDot = bookButton.querySelector<HTMLElement>('.dot')!;
+
+/** The goal chip, the book's red dot and the "done!" toasts. */
+function refreshGoals(): void {
+  const ready = [
+    ...claimableGoals(farm).map((g) => ({ key: goalKey(g.id), text: `Meta cumprida: ${g.text}` })),
+    ...claimableSteps(farm).map((c) => ({ key: achievementKey(c.achievement.id, c.step), text: `Medalha de ${['bronze', 'prata', 'ouro'][c.step] ?? 'ouro'}: ${c.achievement.name}` })),
+  ];
+  for (const item of ready) {
+    if (announced.has(item.key)) continue;
+    announced.add(item.key);
+    if (announcedReady) {
+      toast.show(`${item.text}! Abra o Livro para resgatar`, 3200);
+      audio.play('levelup', 0.7);
+    }
+  }
+  announcedReady = true;
+  bookDot.hidden = ready.length === 0;
+
+  const goal = currentGoal(farm);
+  const show = goal !== null && goal.id <= CHIP_GOALS;
+  goalChip.hidden = !show;
+  toolbar.point(null);
+  shopButton.classList.remove('point');
+  if (!show) return;
+  const done = goalDone(goal, farm);
+  const text = done ? `Meta pronta! Toque para resgatar` : `Meta: ${goal.text}`;
+  if (goalChip.textContent !== text) goalChip.textContent = text;
+  goalChip.classList.toggle('ready', done);
+  if (!done && goal.point) {
+    if (goal.point === 'loja') shopButton.classList.add('point');
+    else if (goal.point === 'arar' || goal.point === 'semear' || goal.point === 'regar' || goal.point === 'colher' || goal.point === 'cuidar') toolbar.point(goal.point);
+  }
+}
+
 function refreshUi(now: number): void {
   showHelperEvents(now);
   showDeliveries(now);
@@ -183,7 +227,9 @@ function refreshUi(now: number): void {
   }
   hud.update(farm);
   toolbar.refresh(farm);
+  refreshGoals();
   shop.refresh();
+  book.refresh();
   barn.refresh();
   pen.refresh();
   const pests = countPests(now);
@@ -479,6 +525,14 @@ const menu = new MenuDialog(required('menu'), {
   lastSaved: () => saves.lastSaved,
   sync: () => 'Cada ação é registrada para poder sincronizar com um servidor no futuro.',
 });
+book = new BookDialog(required('book'), farm, dispatch);
+bookButton.insertAdjacentHTML('afterbegin', BOOK_ICON);
+bookButton.addEventListener('click', () => {
+  const goal = currentGoal(farm);
+  book.open(claimableGoals(farm).length > 0 || (goal !== null && goal.id <= CHIP_GOALS) ? 'metas' : 'conquistas');
+});
+goalChip.addEventListener('click', () => book.open('metas'));
+if (params.has('book')) book.open(['guia', 'metas', 'conquistas'].includes(params.get('book')!) ? (params.get('book') as 'guia' | 'metas' | 'conquistas') : 'metas');
 const menuButton = required('menu-btn');
 menuButton.innerHTML = GEAR_ICON;
 menuButton.addEventListener('click', () => menu.open());

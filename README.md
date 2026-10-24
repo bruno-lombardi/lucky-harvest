@@ -28,24 +28,28 @@ You start with 100 coins, a few seeds and a 6×6 plot.
 5. **Colher:** when a gold coin spins over the crop, tap it. The harvest goes to your barn.
 6. **Limpar:** clears withered crops, or turns bare soil back to grass.
 7. **Sound and time:** the speaker button mutes everything. A day lasts 8 real minutes, and at night the windows light up and fireflies come out.
-8. **Loja:** buy seeds (**Sementes**) and animal feed (**Ração**), sell crops and animal products (**Vender**), build pens and buy animals (**Animais**), and expand the plot (**Terreno**: 6×6, 8×8, 10×10).
+8. **Loja:** buy seeds (**Sementes**) and animal feed (**Ração**), sell crops and animal products (**Vender**), build pens and buy animals (**Animais**), and expand the plot and buy truck upgrades and decorations (**Fazenda**: plot 6×6, 8×8, 10×10, 12×12).
 9. **Celeiro:** tap the barn to see everything you own, and to mill feed from your crops for free (2 trigo → 3 rações de galinha, 2 milho → 2 de vaca, 3 tomate → 2 de porco).
-10. **Animais:** each species lives in its own pen (Galinheiro Nv 2, Curral Nv 4, Chiqueiro Nv 6) on the east side of the island. Tap a pen to feed its animals with the matching feed, wait out the timer, and collect eggs, milk or truffles. Pens are built to be upgradable later.
+10. **Animais:** each species lives in its own pen (Galinheiro Nv 2, Curral Nv 4, Chiqueiro Nv 6) on the east side of the island. Tap a pen to feed its animals with the matching feed, wait out the timer, and collect eggs, milk or truffles. Pens upgrade to tiers 2 and 3 (Nv 9 and 15): more room and a faster cycle.
 11. **Olhar:** the neutral tool (default). It never changes anything: tap or hover a tile or building to read what it is. Every other tool shows its own icon as the cursor.
-12. **Ajudantes (Loja):** three helpers that work by themselves and charge a wage every 10 minutes (taken automatically; if you can't pay, they stop and show a crossed-out coin until you pay them):
+12. **Ajudantes (Loja):** four helpers that work by themselves and charge a wage every 10 minutes (taken automatically; if you can't pay, they stop and show a crossed-out coin until you pay them):
     - **Regador do moinho** (Nv 3): sprinkler heads across the plot water thirsty crops. Levels add heads and speed.
     - **Tonico, o ajudante** (Nv 5): a farmhand who walks to the nearest ripe crop, pulls it and tosses it in his basket.
     - **Mingau, o gato** (Nv 7): stalks and pounces on weeds and bugs.
+    - **Rex, o cão** (Nv 12): trots from pen to pen and collects eggs, milk and truffles.
     Each can be upgraded to level 3. Away from the game they work for at most 30 minutes.
 13. **Detalhes:** hover (or long-press on touch) any seed, tool, feed, animal, pen, helper or land item for a card with its story, how long it takes, what it costs and what it earns.
 14. **Entrega de sementes:** every 5 minutes (on the wall clock) a little green farm truck comes down the country road, stops beside the barn and lobs 6 sacks of seeds into the loft. Two of the six are always cheap staples (cenoura or trigo) and the rest are drawn from every crop you have unlocked, so even a broke farm can always start over. If you were away you find up to 6 deliveries waiting.
 15. **Campo:** the farm sits in the countryside: a gravel road circles it and runs off to the horizon past telephone poles, with fields of wheat and plowed rows, pastures, woods, hedges, hay bales and hills.
-16. **Menu (gear):** the game saves itself every few seconds on this device. Export or import the save file, or start over.
+16. **Raridade:** every seed is comum, incomum, rara or épica. Rarer seeds cost far more, come on the truck less often, wear a coloured badge and sometimes ripen *golden* (rara: 1 in 10, épica: 1 in 6) for a double harvest. Pitaya (Nv 15) and Uva (Nv 18) are rare, Flor-da-lua (Nv 25) is epic.
+17. **Livro da Fazenda (book button):** a short guide, 24 *Metas* in five chapters that teach the game (the first ten are also shown as a chip under the HUD, pointing at the tool to use) and *Conquistas* with bronze, prata and ouro medals. Everything is claimed whenever you like and pays coins.
+18. **Caminhão e enfeites:** *Entrega maior* (Nv 10) brings 10 seeds instead of 6, *Entrega rápida* (Nv 20) makes the truck come every 4 minutes. Enfeites (Nv 14) are six decorations to buy for the farm.
+19. **Menu (gear):** the game saves itself every few seconds on this device. Export or import the save file, or start over.
 
-Level up to unlock more valuable crops: 🥕 🌾 → 🌽 (Nv 2) → 🍅 (Nv 3) → 🍓 (Nv 5) → 🎃 (Nv 8).
-Growth times are short for now (45 s to 25 min); tune them in `src/core/crops.ts`.
+Level up to unlock more valuable crops: 🥕 🌾 → 🌽 (Nv 2) → 🍅 (Nv 3) → 🍓 (Nv 5) → 🎃 (Nv 8) → 🌻 (Nv 10) → 🍉 (Nv 14) → pitaya (Nv 15) → 🍇 (Nv 18) → flor-da-lua (Nv 25).
+Profit per tile-minute climbs with level; prices live in `src/core/crops.ts` and the pace is checked by `tests/pace.test.ts` (a simulated casual player must reach level 8, 12 and 20 in about 45 minutes, 2 hours and 8 hours).
 
-Debug URLs: `?demo` loads a showcase farm with every crop at every stage; `?view=x,z,zoom` sets the camera; `?shop=seeds|feed|sell|animals|land` opens the shop, `?barn` / `?barn=feed` the barn, `?pen=galinha|vaca|porco` a pen, `?menu` the menu; `?follow=ajudante|gato&zoom=6` keeps the camera on a helper, `?spray` keeps the sprinklers running, `?reset` wipes the save (`?demo` never touches it); `?truck=-4` sets the clock four seconds before the next seed truck arrives (add `&stopclock` to hold it there); `?time=21` sets the hour and `?freeze` stops the clock; `?fx` replays every particle burst.
+Debug URLs: `?demo` loads a showcase farm with every crop at every stage; `?view=x,z,zoom` sets the camera; `?shop=seeds|feed|sell|animals|land` opens the shop, `?barn` / `?barn=feed` the barn, `?pen=galinha|vaca|porco` a pen, `?menu` the menu, `?book=guia|metas|conquistas` the book; `?follow=ajudante|gato|cao&zoom=6` keeps the camera on a helper, `?spray` keeps the sprinklers running, `?reset` wipes the save (`?demo` never touches it); `?truck=-4` sets the clock four seconds before the next seed truck arrives (add `&stopclock` to hold it there); `?time=21` sets the hour and `?freeze` stops the clock; `?fx` replays every particle burst.
 
 | | Desktop | Mobile |
 |---|---|---|
@@ -64,7 +68,7 @@ src/ui/       DOM HUD: top bar, toolbar + seed tray, shop / barn / pen / menu di
 src/persistence.ts  Browser save manager (localStorage, backup slot, autosave).
 src/audio.ts  Web Audio synthesis: effects, generated music, birds by day and crickets by night.
 src/game.ts   Renderer, scene and main loop.
-tests/        Vitest suites for src/core plus render smoke tests.
+tests/        Vitest suites for src/core plus render smoke tests and the pace simulator (tests/support/pace-bot.ts).
 ```
 
 ## Roadmap
@@ -77,8 +81,10 @@ tests/        Vitest suites for src/core plus render smoke tests.
 - [x] **6. Animals and saves:** a pen per species (chickens, cows, pigs), species-specific feed (milled from crops or bought), clickable barn, versioned save game with backup, determinism for server sync
 - [x] **7. Helpers:** neutral look tool and tool cursors, sprinklers, Tonico the farmhand, Mingau the cat, wages, upgrades (all deterministic, offline-capped)
 - [x] **7b. Countryside and seed truck:** rural scenery with a road around the farm, a truck that delivers 6 random seeds every 5 minutes (deterministic, offline-capped)
-- [ ] **8. PWA:** install to home screen, offline cache
-- [ ] **9. Server and social:** neighbors, visiting, stealing, gifts, pen upgrades
+- [x] **8. Progression and guide:** rarity, five new crops, rebalanced prices, 12×12 plot, pen tiers, Rex, truck upgrades, decorations, lifetime stats, Livro da Fazenda (24 goals, 27 achievements), pace simulator
+- [ ] **9. PWA:** install to home screen, offline cache
+- [ ] **10. Server and social:** neighbors, visiting, stealing, gifts
+- [ ] Later: fruit trees, cosmetics as medal rewards
 
 ## Determinism and server sync
 
@@ -86,6 +92,7 @@ The rules in `src/core` are a pure function of *(state, command, now)*; nothing 
 Pests are rolled from `hashUnit(seed, revision, ...)`, so the same farm seed and command history always give the same result.
 Helpers are part of the same rules: `Farm.runHelpers(now)` plays their routines forward in time order (each event depends only on state and its own timestamp), and `applyCommand` calls it first, so the client's per-frame catch-up and a server's replay agree.
 The seed truck rides the same timeline: delivery slot *k* happens at `k * 5 min` of wall-clock time, its contents are `rollDelivery(seed, slot, level)` (pure hash draws), and `Farm.deliveredSlot` is the only state. Deliveries and helper steps are processed in one time-ordered loop, so the level used for a roll never depends on how often the client ticked. A long absence leaves at most 6 deliveries. The truck on screen is a pure function of the clock, so it needs no state at all.
+Counters (`Farm.stats`) are bumped inside the same actions that change state, and goal and achievement claims are commands (`claimGoal`, `claimAchievement`), so progress replays like everything else. What counts as done lives in `src/core/progress.ts` as pure functions of the farm.
 Every player action is a plain-data `Command` (`src/core/commands.ts`) applied through `applyCommand`.
 
 The save file (`src/core/save.ts`, checksummed JSON) holds the current state plus a *baseline snapshot* and an *outbox* of commands since that baseline.

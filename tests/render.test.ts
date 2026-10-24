@@ -4,6 +4,8 @@ import { CropStage, Farm, START_LAND, landBounds } from '../src/core/farm';
 import { levelThreshold } from '../src/core/levels';
 import { CropKit, buildCropModel } from '../src/render/crop-models';
 import { FarmView } from '../src/render/farm-view';
+import { CharacterKit } from '../src/render/characters';
+import { DecorView } from '../src/render/decor-view';
 import { Terrain } from '../src/render/terrain';
 import { createToonGradient } from '../src/render/toon';
 
@@ -120,5 +122,27 @@ describe('FarmView', () => {
     view.update(0.016, CROPS.abobora.growthMs); // thirsty: droplet indicator
     view.update(0.016, CROPS.abobora.growthMs / 2 + CROPS.abobora.witherMs + 1000); // withered
     expect(view.group.children).toHaveLength(2);
+  });
+});
+
+describe('Rex and the decorations', () => {
+  it('animates the dog in every mode', () => {
+    const dog = new CharacterKit(createToonGradient()).dog();
+    for (const mode of ['walking', 'working', 'resting'] as const) {
+      dog.update({ pose: { at: { u: 0, v: 0 }, heading: 0, mode, workProgress: 0.5 }, dt: 0.016, time: 1, carry: null, night: 0 });
+    }
+    expect(dog.root.children.length).toBeGreaterThan(0);
+  });
+
+  it('shows only what was bought', () => {
+    const farm = new Farm({ seed: 1 });
+    farm.xp = levelThreshold(14);
+    farm.coins = 50_000;
+    const view = new DecorView(farm, createToonGradient());
+    view.update(0.016);
+    expect(view.group.children.length).toBe(0);
+    for (const id of ['banco', 'flores', 'lanterna', 'balanco', 'fonte', 'coreto'] as const) farm.buyDecor(id);
+    view.update(0.016);
+    expect(view.group.children.length).toBe(6);
   });
 });

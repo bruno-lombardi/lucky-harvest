@@ -178,3 +178,17 @@ export const TRUCK_ICON = `${open}>
   <circle cx="36" cy="36" r="1.8" fill="#fff4dc"/>
   <path d="M10 16 V11 M18 16 V9 M24 16 V12" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>
 </svg>`;
+
+export const BOOK_ICON = `${open}>
+  <path d="M7 10 Q15 6 24 10 Q33 6 41 10 V39 Q33 35 24 39 Q15 35 7 39 Z" fill="#fff4dc" ${line}/>
+  <path d="M24 10 V39" stroke="${INK}" stroke-width="2.4"/>
+  <path d="M12 16 Q17 14 21 16 M12 22 Q17 20 21 22 M12 28 Q17 26 21 28" fill="none" stroke="#b48a52" stroke-width="2" stroke-linecap="round"/>
+  <path d="M27 17 L30 14 L33 17 L36 14" fill="none" stroke="#d6372b" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M27 26 H37 M27 31 H34" stroke="#b48a52" stroke-width="2" stroke-linecap="round"/>
+</svg>`;
+
+export const MEDAL_ICON = (fill: string): string => `${open}>
+  <path d="M14 4 L24 20 L34 4 Z" fill="#d6372b" ${line}/>
+  <circle cx="24" cy="30" r="12.5" fill="${fill}" ${line}/>
+  <path d="M24 22.5 L26.4 27.6 L32 28.3 L27.9 32.1 L29 37.6 L24 34.9 L19 37.6 L20.1 32.1 L16 28.3 L21.6 27.6 Z" fill="#fff4dc" stroke="${INK}" stroke-width="1.6" stroke-linejoin="round"/>
+</svg>`;

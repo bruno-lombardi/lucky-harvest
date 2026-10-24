@@ -5,6 +5,7 @@ import { SPECIES, SPECIES_ORDER, SpeciesId, animalStatus } from './core/animals'
 import { Command, applyCommand } from './core/commands';
 import { Farm, Gain } from './core/farm';
 import { SaveManager } from './persistence';
+import { HELPERS, HELPER_ORDER, HOME, HelperId, walkerPose } from './core/helpers';
 import { PEN_LAYOUT } from './render/pens';
 import { BarnDialog } from './ui/barn';
 import { MenuDialog } from './ui/menu';
@@ -102,7 +103,51 @@ function countPests(now: number): number {
   return count;
 }
 
+const unpaidKnown = new Set<HelperId>();
+let knownLevel = 0;
+const QUIET_VOLUME = 0.5;
+
+/** Shows what helpers did since the last look: bursts, floating crops and quiet sounds (only for recent events). */
+function showHelperEvents(now: number): void {
+  const events = farm.helperEvents.splice(0);
+  let sprinkled = false;
+  for (const e of events) {
+    if (now - e.at > 2500 || e.i === undefined || e.j === undefined) continue;
+    const tile = { i: e.i, j: e.j };
+    if (e.kind === 'harvest') {
+      game.burst('harvest', tile);
+      audio.play('harvest', QUIET_VOLUME);
+      const at = game.screenPositionOf(tile);
+      if (e.crop) floaters.spawn('+1', at.x, at.y, 'coins', `<img alt="" src="${cropIcons[e.crop]}" />`);
+    } else if (e.kind === 'care') {
+      game.burst('care', tile);
+      audio.play('meow', QUIET_VOLUME);
+    } else if (e.kind === 'water' && !sprinkled) {
+      sprinkled = true;
+      audio.play('sprinkle', QUIET_VOLUME);
+    }
+  }
+  for (const id of HELPER_ORDER) {
+    const state = farm.helpers[id];
+    if (state && !state.paid) {
+      if (!unpaidKnown.has(id)) {
+        unpaidKnown.add(id);
+        toast.show(`${HELPERS[id].name} parou: sem moedas para o salário!`, 3600);
+        audio.play('error');
+      }
+    } else unpaidKnown.delete(id);
+  }
+}
+
 function refreshUi(now: number): void {
+  showHelperEvents(now);
+  if (farm.level > knownLevel) {
+    if (knownLevel > 0) {
+      toast.show(`Você chegou ao nível ${farm.level}!`, 2800);
+      audio.play('levelup');
+    }
+    knownLevel = farm.level;
+  }
   hud.update(farm);
   toolbar.refresh(farm);
   shop.refresh();
@@ -164,6 +209,18 @@ function commandEffects(command: Command): void {
     case 'upgradePen':
       audio.play('build');
       break;
+    case 'hireHelper': {
+      audio.play('build');
+      const home = command.helper === 'regador' ? { u: 12, v: 12 } : HOME[command.helper];
+      game.burstAt('expand', home.u - 12, home.v - 12);
+      break;
+    }
+    case 'upgradeHelper':
+      audio.play('levelup');
+      break;
+    case 'payHelper':
+      audio.play('buy');
+      break;
     case 'tool':
       break;
   }
@@ -190,10 +247,6 @@ function dispatch(command: Command, anchor?: { x: number; y: number }): boolean 
   saves.record(command, now);
   if (command.type !== 'tool') commandEffects(command);
   if (anchor) showGain(result.gain, anchor);
-  if (result.gain.levelUp !== null) {
-    toast.show(`Você chegou ao nível ${result.gain.levelUp}!`, 2800);
-    audio.play('levelup');
-  }
   refreshUi(now);
   return true;
 }
@@ -248,7 +301,7 @@ function handleHover(hit: { tile: TileCoord | null; object: string | null; x: nu
   let text = '';
   if (hit.object) {
     const species = hit.object.startsWith('pen:') ? (hit.object.slice(4) as SpeciesId) : null;
-    text = species ? penTip(species) : (OBJECT_NAMES[hit.object] ?? '');
+    text = species ? penTip(species) : hit.object.startsWith('helper:') ? helperTip(hit.object.slice(7) as HelperId) : (OBJECT_NAMES[hit.object] ?? '');
   } else if (hit.tile) {
     text = describeTile(farm, hit.tile.i, hit.tile.j, Date.now());
   }
@@ -259,6 +312,14 @@ function handleHover(hit: { tile: TileCoord | null; object: string | null; x: nu
   const x = Math.min(hit.x + 18, window.innerWidth - rect.width - 8);
   const y = hit.y + 24 + rect.height > window.innerHeight ? hit.y - rect.height - 12 : hit.y + 24;
   tip.style.transform = `translate(${Math.max(8, x)}px, ${Math.max(8, y)}px)`;
+}
+
+function helperTip(id: HelperId): string {
+  const def = HELPERS[id];
+  const state = farm.helpers[id];
+  if (!state) return def.name;
+  if (!state.paid) return `${def.name}: parou, sem salário`;
+  return `${def.name} · nível ${state.level}: ${def.job}`;
 }
 
 function penTip(species: SpeciesId): string {
@@ -283,11 +344,18 @@ function handleObjectTap(id: string): void {
   audio.play('click');
   if (id === 'barn') {
     barn.open();
+  } else if (id.startsWith('helper:')) {
+    shop.open('helpers');
   } else if (id.startsWith('pen:')) {
     const species = id.slice(4) as SpeciesId;
     if (SPECIES_ORDER.includes(species)) pen.open(species);
   }
 }
+
+// Debug: ?follow=ajudante|gato keeps the camera on a helper (&zoom=4 to get close).
+const followParam = params.get('follow');
+const follow = followParam === 'ajudante' || followParam === 'gato' ? followParam : null;
+const followZoom = Number(params.get('zoom') ?? 4) || 4;
 
 const parsedHour = Number(params.get('time') ?? 9);
 const startHour = Number.isFinite(parsedHour) ? parsedHour : 9;
@@ -298,6 +366,13 @@ const game = new Game(container, farm, {
   onObjectTap: handleObjectTap,
   onHover: handleHover,
   onFrame: (now) => {
+    if (follow) {
+      const state = farm.helpers[follow];
+      if (state) {
+        const at = walkerPose(follow, state, farm.landSize, now).at;
+        game.setView(at.u - 12, at.v - 12, followZoom);
+      }
+    }
     // The HUD only needs to refresh a few times a second.
     if (now - lastUiUpdate > 200) {
       lastUiUpdate = now;
@@ -369,13 +444,15 @@ shopButton.addEventListener('click', () => {
 });
 
 // Debug / screenshot helpers: ?shop=seeds|feed|sell|animals|land  ?barn  ?pen=galinha  ?menu
-const SHOP_TABS: readonly ShopTab[] = ['seeds', 'feed', 'sell', 'animals', 'land'];
+const SHOP_TABS: readonly ShopTab[] = ['seeds', 'feed', 'sell', 'animals', 'helpers', 'land'];
 const openShop = params.get('shop');
 if (openShop !== null) shop.open(SHOP_TABS.find((t) => t === openShop) ?? 'seeds');
 if (params.has('barn')) barn.open(params.get('barn') === 'feed' ? 'feed' : 'stock');
 const openPen = params.get('pen') as SpeciesId | null;
 if (openPen && SPECIES_ORDER.includes(openPen)) pen.open(openPen);
 if (params.has('menu')) menu.open();
+
+if (params.has('spray')) game.forceSpray(true);
 
 const view = params.get('view')?.split(',').map(Number);
 if (view && view.length === 3 && view.every(Number.isFinite)) {

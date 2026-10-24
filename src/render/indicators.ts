@@ -227,6 +227,28 @@ function bowlIcon(ctx: CanvasRenderingContext2D): void {
   ctx.stroke();
 }
 
+function unpaidIcon(ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = '#ffc928';
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(0, 2, 26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 2, 15, 0, Math.PI * 2);
+  ctx.strokeStyle = '#c98300';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.strokeStyle = '#e23c28';
+  ctx.lineWidth = 9;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-30, -26);
+  ctx.lineTo(30, 30);
+  ctx.stroke();
+}
+
 const productDraw: Record<string, (ctx: CanvasRenderingContext2D) => void> = {
   ovo: eggIcon,
   leite: milkIcon,
@@ -338,5 +360,13 @@ export function createProductIndicator(product: string): Group {
   glow.renderOrder = 10;
   group.add(glow, bubbleSprite(`product:${product}`, '#c98300', productDraw[product] ?? eggIcon, 0.44));
   group.userData['kind'] = 'product';
+  return group;
+}
+
+/** A coin crossed out over a helper whose wage could not be paid. userData.kind = 'unpaid'. */
+export function createUnpaidIndicator(): Group {
+  const group = new Group();
+  group.add(bubbleSprite('unpaid', '#a42a21', unpaidIcon, 0.46));
+  group.userData['kind'] = 'unpaid';
   return group;
 }

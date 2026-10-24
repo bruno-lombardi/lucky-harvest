@@ -598,11 +598,18 @@ button.poor .cost {
   display: flex;
   gap: 6px;
   padding: 12px 12px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.shop-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .shop-tab {
-  flex: 1;
-  padding: 8px 4px;
+  flex: 1 0 auto;
+  white-space: nowrap;
+  padding: 8px 10px;
   font: 600 15px var(--font);
   color: var(--ink);
   cursor: pointer;
@@ -1031,7 +1038,7 @@ small.warn {
 @media (max-width: 520px) {
   .shop-tab {
     font-size: 13px;
-    padding: 8px 2px;
+    padding: 8px 10px;
   }
 }
 

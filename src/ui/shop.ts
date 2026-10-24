@@ -1,18 +1,21 @@
 import { PRODUCTS, PRODUCT_ORDER, SPECIES, SPECIES_ORDER, SpeciesId, penCapacity } from '../core/animals';
 import { CROPS, CROP_ORDER, CropId } from '../core/crops';
 import { Farm } from '../core/farm';
+import { HELPERS, HELPER_ORDER, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage, nextHelperUpgrade } from '../core/helpers';
+import { formatDuration } from './messages';
 import { BARN_ICON, LAND_ICON, LOCK_ICON, SHOP_ICON } from './icons';
-import { FEED_ICONS, PRODUCT_ICONS, SPECIES_ICONS } from './item-icons';
+import { FEED_ICONS, HELPER_ICONS, PRODUCT_ICONS, SPECIES_ICONS } from './item-icons';
 import { Dispatch, coin, empty, heading, img, row } from './kit';
 import { Modal } from './modal';
 
-export type ShopTab = 'seeds' | 'feed' | 'sell' | 'animals' | 'land';
+export type ShopTab = 'seeds' | 'feed' | 'sell' | 'animals' | 'helpers' | 'land';
 
 const TABS = [
   { id: 'seeds', label: 'Sementes' },
   { id: 'feed', label: 'Ração' },
   { id: 'sell', label: 'Vender' },
   { id: 'animals', label: 'Animais' },
+  { id: 'helpers', label: 'Ajudantes' },
   { id: 'land', label: 'Terreno' },
 ] as const;
 
@@ -45,6 +48,8 @@ export class Shop extends Modal<ShopTab> {
         return this.sellHtml();
       case 'animals':
         return this.animalsHtml();
+      case 'helpers':
+        return this.helpersHtml();
       case 'land':
         return this.landHtml();
     }
@@ -78,6 +83,15 @@ export class Shop extends Modal<ShopTab> {
         break;
       case 'animal':
         this.dispatch({ type: 'buyAnimal', species: species! });
+        break;
+      case 'hire':
+        this.dispatch({ type: 'hireHelper', helper: data['helper'] as HelperId });
+        break;
+      case 'upgrade':
+        this.dispatch({ type: 'upgradeHelper', helper: data['helper'] as HelperId });
+        break;
+      case 'pay':
+        this.dispatch({ type: 'payHelper', helper: data['helper'] as HelperId });
         break;
     }
     this.repaint();
@@ -180,6 +194,43 @@ export class Shop extends Modal<ShopTab> {
       }>${full ? 'Cheio' : 'Comprar'}</button>`;
       return row(SPECIES_ICONS[id], info, button);
     }).join('');
+  }
+
+  private helpersHtml(): string {
+    const { farm } = this;
+    const now = Date.now();
+    const intro = `<p class="tip">Ajudantes trabalham sozinhos, mas cobram salário a cada ${WAGE_PERIOD_MS / 60_000} minutos. Sem moedas, eles param.</p>`;
+    const rows = HELPER_ORDER.map((id) => {
+      const def = HELPERS[id];
+      const state = farm.helpers[id];
+      if (!state) {
+        const locked = farm.level < def.unlockLevel;
+        const info = locked
+          ? `<b>${def.name}</b><small><i class="ico">${LOCK_ICON}</i>Libera no nível ${def.unlockLevel}</small>`
+          : `<b>${def.name}</b><small>${def.job[0]!.toUpperCase()}${def.job.slice(1)} · ${coin(def.hireCost)} · salário ${coin(helperWage(id, 1))}</small>`;
+        const button = locked
+          ? ''
+          : `<button type="button" class="buy wide" data-act="hire" data-helper="${id}" ${farm.coins < def.hireCost ? 'disabled' : ''}>Contratar</button>`;
+        return row(HELPER_ICONS[id], info, button, locked);
+      }
+      const wage = helperWage(id, state.level);
+      const next = nextHelperUpgrade(id, state.level);
+      const stars = '★'.repeat(state.level) + '☆'.repeat(MAX_HELPER_LEVEL - state.level);
+      const status = state.paid
+        ? `<small class="ok">Trabalhando · salário ${coin(wage)} em ${formatDuration(state.paidUntil - now)}</small>`
+        : `<small class="warn">Parou: sem salário (${coin(wage)})</small>`;
+      const buttons = state.paid
+        ? next
+          ? `<button type="button" class="buy wide" data-act="upgrade" data-helper="${id}" ${farm.coins < next.cost ? 'disabled' : ''}>Melhorar ${coin(next.cost)}</button>`
+          : `<button type="button" class="buy wide" disabled>Nível máx.</button>`
+        : `<button type="button" class="sell wide" data-act="pay" data-helper="${id}" ${farm.coins < wage ? 'disabled' : ''}>Pagar</button>`;
+      return row(
+        HELPER_ICONS[id],
+        `<b>${def.name} <span class="count">${stars}</span></b>${status}<small>${def.perks[state.level - 1]}</small>`,
+        buttons,
+      );
+    }).join('');
+    return `${intro}${rows}`;
   }
 
   private landHtml(): string {

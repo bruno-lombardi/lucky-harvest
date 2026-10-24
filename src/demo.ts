@@ -1,5 +1,6 @@
 import { AnimalState, SPECIES, SpeciesId } from './core/animals';
 import { CROPS, CROP_ORDER, CropId } from './core/crops';
+import { HOME, HelperState } from './core/helpers';
 import { CropState, Farm, FarmSnapshot, LAND, MAX_LAND, TileState } from './core/farm';
 import { tileKey } from './core/grid';
 import { levelThreshold } from './core/levels';
@@ -77,8 +78,20 @@ export function createDemoFarm(now: number): Farm {
     porco: { level: 1, animals: [animal(8, 'hungry', 'porco'), animal(9, 'working', 'porco')] },
   };
 
+  const helper = (level: number, home: { u: number; v: number }): HelperState => ({
+    level,
+    paidUntil: now + 9 * 60_000,
+    paid: true,
+    nextAt: now + 1500,
+    leftAt: now,
+    from: { ...home },
+    target: { ...home },
+    working: false,
+    lastAt: 0,
+  });
+
   const snapshot: FarmSnapshot = {
-    version: 3,
+    version: 4,
     seed: 20240601,
     revision: 0,
     nextAnimalId: 10,
@@ -90,6 +103,11 @@ export function createDemoFarm(now: number): Farm {
     products: { ovo: 5, leite: 3, trufa: 1 },
     feed: { galinha: 6, vaca: 3, porco: 2 },
     pens,
+    helpers: {
+      regador: helper(2, { u: 12, v: 12 }),
+      ajudante: helper(2, HOME.ajudante),
+      gato: helper(1, HOME.gato),
+    },
     tiles,
   };
   return Farm.fromSnapshot(snapshot);

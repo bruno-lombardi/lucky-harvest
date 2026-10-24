@@ -23,7 +23,9 @@ export type Sfx =
   | 'build'
   | 'galinha'
   | 'vaca'
-  | 'porco';
+  | 'porco'
+  | 'sprinkle'
+  | 'meow';
 
 const STORAGE_KEY = 'lucky-harvest:muted';
 
@@ -196,6 +198,14 @@ export class GameAudio {
         break;
       case 'vaca':
         this.tone(t, 0.7, 150, { type: 'sawtooth', slideTo: 105, gain: 0.16, attack: 0.08, filter: 600 });
+        break;
+      case 'sprinkle':
+        this.noise(t, 1.4, { type: 'bandpass', from: 3500, to: 5200, gain: 0.16, attack: 0.25, q: 0.6 });
+        for (let n = 0; n < 4; n++) this.tone(t + 0.1 + n * 0.22, 0.08, 1500 + n * 120, { type: 'sine', slideTo: 2400, gain: 0.05 });
+        break;
+      case 'meow':
+        this.tone(t, 0.32, 620, { type: 'triangle', slideTo: 900, gain: 0.14, attack: 0.05 });
+        this.tone(t + 0.3, 0.3, 900, { type: 'triangle', slideTo: 520, gain: 0.12 });
         break;
       case 'porco':
         this.tone(t, 0.12, 260, { type: 'sawtooth', slideTo: 170, gain: 0.14, filter: 700 });

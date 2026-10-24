@@ -12,6 +12,24 @@ import {
   penCapacity,
 } from './animals';
 import { CROP_ORDER, CropId, getCrop } from './crops';
+import {
+  HELPERS,
+  HELPER_ORDER,
+  HOME,
+  HelperId,
+  HelperState,
+  OFFLINE_LIMIT_MS,
+  POLL_MS,
+  SPRINKLER_INTERVAL_MS,
+  WAGE_PERIOD_MS,
+  helperWage,
+  nextHelperUpgrade,
+  route,
+  routeLength,
+  sprinklerSpots,
+  walkerPose,
+  walkerStats,
+} from './helpers';
 import { inBounds, tileKey } from './grid';
 import { levelFromXp } from './levels';
 import { hashUnit } from './noise';
@@ -115,7 +133,11 @@ export type FailReason =
   | 'product-waiting'
   | 'not-ready'
   | 'max-level'
-  | 'no-ingredients';
+  | 'no-ingredients'
+  | 'helper-locked'
+  | 'helper-exists'
+  | 'no-helper'
+  | 'already-paid';
 
 export interface Gain {
   coins: number;
@@ -132,6 +154,20 @@ export type Stock = Record<CropId, number>;
 export type ProductStock = Record<ProductId, number>;
 export type FeedStock = Record<SpeciesId, number>;
 export type Pens = Partial<Record<SpeciesId, PenState>>;
+export type Helpers = Partial<Record<HelperId, HelperState>>;
+
+/** Something a helper did, for the renderer to show (not saved, not part of the rules). */
+export interface HelperEvent {
+  helper: HelperId;
+  kind: 'harvest' | 'water' | 'care' | 'wage' | 'unpaid';
+  at: number;
+  i?: number;
+  j?: number;
+  crop?: CropId;
+  /** Tiles watered by a sprinkler pulse. */
+  count?: number;
+  amount?: number;
+}
 
 const emptyStock = (): Stock => Object.fromEntries(CROP_ORDER.map((id) => [id, 0])) as Stock;
 const emptyProducts = (): ProductStock => Object.fromEntries(PRODUCT_ORDER.map((id) => [id, 0])) as ProductStock;
@@ -145,10 +181,19 @@ const clonePens = (pens: Pens): Pens => {
   return out;
 };
 
+const cloneHelpers = (helpers: Helpers): Helpers => {
+  const out: Helpers = {};
+  for (const id of HELPER_ORDER) {
+    const h = helpers[id];
+    if (h) out[id] = { ...h, from: { ...h.from }, target: { ...h.target } };
+  }
+  return out;
+};
+
 export type ActionResult = { ok: true; gain: Gain } | { ok: false; reason: FailReason };
 
 export interface FarmSnapshot {
-  version: 3;
+  version: 4;
   /** Per-player constant that seeds every random outcome (pests). */
   seed: number;
   /** Counts successful mutations; part of the random stream and handy for sync ordering. */
@@ -163,8 +208,12 @@ export interface FarmSnapshot {
   products: ProductStock;
   feed: FeedStock;
   pens: Pens;
+  helpers: Helpers;
   tiles: Record<string, TileState>;
 }
+
+/** Saves from before helpers existed. */
+export type LegacySnapshot = Omit<FarmSnapshot, 'version' | 'helpers'> & { version: 3 };
 
 export interface FarmOptions {
   seed?: number;
@@ -187,6 +236,9 @@ export class Farm {
   products: ProductStock = emptyProducts();
   feed: FeedStock = emptyFeed();
   pens: Pens = {};
+  helpers: Helpers = {};
+  /** Recent helper actions for the renderer. Never saved and never read by the rules. */
+  helperEvents: HelperEvent[] = [];
   seed: number;
   revision = 0;
   nextAnimalId = 1;
@@ -519,6 +571,188 @@ export class Farm {
     return this.done(-next.cost, 0);
   }
 
+
+  // ---- Helpers ------------------------------------------------------------
+
+  /** Hires a helper. The first wage period is covered by the hiring fee. */
+  hireHelper(id: HelperId, now: number): ActionResult {
+    const def = HELPERS[id];
+    if (this.helpers[id]) return fail('helper-exists');
+    if (this.level < def.unlockLevel) return fail('helper-locked');
+    if (this.coins < def.hireCost) return fail('no-coins');
+    const home = id === 'regador' ? { u: 12, v: 12 } : HOME[id];
+    this.helpers[id] = {
+      level: 1,
+      paidUntil: now + WAGE_PERIOD_MS,
+      paid: true,
+      nextAt: now + (id === 'regador' ? 2000 : POLL_MS),
+      leftAt: now,
+      from: { ...home },
+      target: { ...home },
+      working: false,
+      lastAt: 0,
+    };
+    return this.done(-def.hireCost, 15);
+  }
+
+  upgradeHelper(id: HelperId): ActionResult {
+    const helper = this.helpers[id];
+    if (!helper) return fail('no-helper');
+    const next = nextHelperUpgrade(id, helper.level);
+    if (!next) return fail('max-level');
+    if (this.coins < next.cost) return fail('no-coins');
+    helper.level = next.level;
+    return this.done(-next.cost, 0);
+  }
+
+  /** Pays the wage of a helper who stopped because the money ran out. */
+  payHelper(id: HelperId, now: number): ActionResult {
+    const helper = this.helpers[id];
+    if (!helper) return fail('no-helper');
+    if (helper.paid) return fail('already-paid');
+    const wage = helperWage(id, helper.level);
+    if (this.coins < wage) return fail('no-coins');
+    helper.paid = true;
+    helper.paidUntil = now + WAGE_PERIOD_MS;
+    helper.nextAt = now + POLL_MS;
+    helper.leftAt = now;
+    helper.working = false;
+    return this.done(-wage, 0);
+  }
+
+  /**
+   * Plays the helpers' routines forward to `now`, one event at a time in time order.
+   * Called before every command and every frame; since each event depends only on the state and its
+   * own timestamp, running it at any moment gives the same result, which a server can reproduce.
+   */
+  runHelpers(now: number): void {
+    const active = HELPER_ORDER.filter((id) => this.helpers[id]);
+    if (active.length === 0) return;
+
+    // Away longer than the limit: the helpers rested, so their clocks skip ahead (and aren't paid for the rest).
+    const horizon = now - OFFLINE_LIMIT_MS;
+    for (const id of active) {
+      const h = this.helpers[id]!;
+      if (!h.paid) continue;
+      const earliest = Math.min(h.nextAt, h.paidUntil);
+      if (earliest < horizon) {
+        const shift = horizon - earliest;
+        h.nextAt += shift;
+        h.leftAt += shift;
+        h.paidUntil += shift;
+      }
+    }
+
+    for (let guard = 0; guard < 4000; guard++) {
+      let pick: HelperId | null = null;
+      let pickAt = Infinity;
+      for (const id of active) {
+        const h = this.helpers[id]!;
+        if (!h.paid) continue;
+        const t = Math.min(h.nextAt, h.paidUntil);
+        if (t < pickAt) {
+          pickAt = t;
+          pick = id;
+        }
+      }
+      if (pick === null || pickAt > now) break;
+      const h = this.helpers[pick]!;
+      if (h.paidUntil <= h.nextAt) this.payday(pick, h, pickAt);
+      else if (pick === 'regador') this.pulse(h, pickAt);
+      else this.walk(pick, h, pickAt);
+    }
+    if (this.helperEvents.length > 80) this.helperEvents.splice(0, this.helperEvents.length - 80);
+  }
+
+  private payday(id: HelperId, h: HelperState, at: number): void {
+    const wage = helperWage(id, h.level);
+    this.revision++;
+    if (this.coins >= wage) {
+      this.coins -= wage;
+      h.paidUntil += WAGE_PERIOD_MS;
+      this.helperEvents.push({ helper: id, kind: 'wage', at, amount: wage });
+      return;
+    }
+    // No money: the helper stops where it stands.
+    if (id !== 'regador') {
+      const here = walkerPose(id, h, this.landSize, at).at;
+      h.from = { ...here };
+      h.target = { ...here };
+      h.leftAt = at;
+      h.working = false;
+    }
+    h.paid = false;
+    this.helperEvents.push({ helper: id, kind: 'unpaid', at });
+  }
+
+  /** The sprinklers spray every unwatered crop around their heads. */
+  private pulse(h: HelperState, at: number): void {
+    const { min, max } = landBounds(this.landSize);
+    let count = 0;
+    for (const head of sprinklerSpots(this.landSize, h.level)) {
+      for (let dj = -1; dj <= 1; dj++) {
+        for (let di = -1; di <= 1; di++) {
+          const i = head.i + di;
+          const j = head.j + dj;
+          if (i < min || i > max || j < min || j > max) continue;
+          if (this.water(i, j, at).ok) {
+            count++;
+            this.helperEvents.push({ helper: 'regador', kind: 'water', at, i, j });
+          }
+        }
+      }
+    }
+    this.revision++;
+    h.lastAt = at;
+    h.nextAt = at + (SPRINKLER_INTERVAL_MS[h.level - 1] ?? SPRINKLER_INTERVAL_MS[0]!);
+    void count;
+  }
+
+  /** One step of a walking helper: do the chore it arrived for, then choose where to go next. */
+  private walk(id: 'ajudante' | 'gato', h: HelperState, at: number): void {
+    if (h.working) {
+      const i = Math.floor(h.target.u);
+      const j = Math.floor(h.target.v);
+      if (id === 'ajudante') {
+        const result = this.harvest(i, j, at);
+        if (result.ok) this.helperEvents.push({ helper: id, kind: 'harvest', at, i, j, crop: result.gain.item?.cropId });
+      } else if (this.care(i, j, at).ok) {
+        this.helperEvents.push({ helper: id, kind: 'care', at, i, j });
+      }
+    }
+
+    // Choose the nearest tile with work; ties go to the lowest row, then column, so the choice is stable.
+    let best: { i: number; j: number } | null = null;
+    let bestDistance = Infinity;
+    const here = h.target;
+    for (const { i, j, tile } of this.entries()) {
+      if (!tile.crop || !this.isUnlocked(i, j)) continue;
+      const status = this.status(i, j, at);
+      const wanted = id === 'ajudante' ? status?.ripe === true : !!status?.pest;
+      if (!wanted) continue;
+      const d = Math.hypot(i + 0.5 - here.u, j + 0.5 - here.v);
+      if (d < bestDistance - 1e-9 || (Math.abs(d - bestDistance) <= 1e-9 && best && (j < best.j || (j === best.j && i < best.i)))) {
+        best = { i, j };
+        bestDistance = d;
+      }
+    }
+
+    const stats = walkerStats(id, h.level);
+    h.from = { ...here };
+    h.leftAt = at;
+    if (best) {
+      h.target = { u: best.i + 0.5, v: best.j + 0.5 };
+      h.working = true;
+      const walkMs = (routeLength(route(h.from, h.target, this.landSize)) / stats.speed) * 1000;
+      h.nextAt = at + walkMs + stats.workMs;
+    } else {
+      h.target = { ...HOME[id] };
+      h.working = false;
+      const walkMs = (routeLength(route(h.from, h.target, this.landSize)) / stats.speed) * 1000;
+      h.nextAt = at + Math.max(POLL_MS, walkMs);
+    }
+  }
+
   // ---- Persistence --------------------------------------------------------
 
   toSnapshot(): FarmSnapshot {
@@ -527,7 +761,7 @@ export class Farm {
       tiles[key] = { kind: tile.kind, crop: tile.crop ? { ...tile.crop } : null };
     }
     return {
-      version: 3,
+      version: 4,
       seed: this.seed,
       revision: this.revision,
       nextAnimalId: this.nextAnimalId,
@@ -539,17 +773,19 @@ export class Farm {
       products: { ...this.products },
       feed: { ...this.feed },
       pens: clonePens(this.pens),
+      helpers: cloneHelpers(this.helpers),
       tiles,
     };
   }
 
-  static fromSnapshot(snapshot: FarmSnapshot, options: Omit<FarmOptions, 'seed'> = {}): Farm {
+  static fromSnapshot(snapshot: FarmSnapshot | LegacySnapshot, options: Omit<FarmOptions, 'seed'> = {}): Farm {
     const farm = new Farm({ ...options, seed: snapshot.seed });
     farm.revision = snapshot.revision;
     farm.nextAnimalId = snapshot.nextAnimalId;
     farm.products = { ...emptyProducts(), ...snapshot.products };
     farm.feed = { ...emptyFeed(), ...snapshot.feed };
     farm.pens = clonePens(snapshot.pens);
+    farm.helpers = cloneHelpers(snapshot.version === 4 ? snapshot.helpers : {});
     farm.coins = snapshot.coins;
     farm.xp = snapshot.xp;
     farm.landSize = snapshot.landSize;

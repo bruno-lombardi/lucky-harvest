@@ -1,6 +1,7 @@
 import { applyTool, Tool } from './actions';
 import { ProductId, SpeciesId } from './animals';
 import { CropId } from './crops';
+import { HelperId } from './helpers';
 import { ActionResult, Farm } from './farm';
 
 /**
@@ -24,7 +25,10 @@ export type Command =
   | { type: 'feed'; species: SpeciesId; animalId: number }
   | { type: 'feedAll'; species: SpeciesId }
   | { type: 'collect'; species: SpeciesId; animalId: number }
-  | { type: 'collectAll'; species: SpeciesId };
+  | { type: 'collectAll'; species: SpeciesId }
+  | { type: 'hireHelper'; helper: HelperId }
+  | { type: 'upgradeHelper'; helper: HelperId }
+  | { type: 'payHelper'; helper: HelperId };
 
 /** A command that succeeded, with the time it was applied: the unit of replay and sync. */
 export interface LoggedCommand {
@@ -33,6 +37,8 @@ export interface LoggedCommand {
 }
 
 export function applyCommand(farm: Farm, command: Command, now: number): ActionResult {
+  // Helpers work in the background, so catch their routines up to this moment first.
+  farm.runHelpers(now);
   switch (command.type) {
     case 'tool':
       return applyTool(farm, command.tool, command.i, command.j, now, command.crop);
@@ -64,6 +70,12 @@ export function applyCommand(farm: Farm, command: Command, now: number): ActionR
       return farm.collect(command.species, command.animalId, now);
     case 'collectAll':
       return farm.collectAll(command.species, now);
+    case 'hireHelper':
+      return farm.hireHelper(command.helper, now);
+    case 'upgradeHelper':
+      return farm.upgradeHelper(command.helper);
+    case 'payHelper':
+      return farm.payHelper(command.helper, now);
   }
 }
 

@@ -22,6 +22,7 @@ import { IsoCameraController } from './render/iso-camera';
 import { TilePicker } from './render/picking';
 import { ObjectPicker } from './render/object-picker';
 import { Pens } from './render/pens';
+import { HelperView } from './render/helper-view';
 import { Terrain } from './render/terrain';
 import { createToonGradient } from './render/toon';
 
@@ -45,6 +46,7 @@ export class Game {
   private readonly picker: TilePicker;
   private readonly objectPicker: ObjectPicker;
   private readonly pens: Pens;
+  private readonly helperView: HelperView;
   private readonly highlight = new TileHighlight(GRID_SIZE);
   private readonly terrain: Terrain;
   private readonly clouds: Clouds;
@@ -93,10 +95,12 @@ export class Game {
     this.farmView = new FarmView(farm, GRID_SIZE, gradient);
     this.props = new Props(gradient, farm.landSize);
     this.pens = new Pens(farm, gradient);
+    this.helperView = new HelperView(farm, gradient);
     this.clouds = new Clouds();
     this.scene.add(
       this.props.group,
       this.pens.group,
+      this.helperView.group,
       this.farmView.group,
       this.clouds.group,
       this.highlight.group,
@@ -113,6 +117,7 @@ export class Game {
     this.objectPicker = new ObjectPicker(this.cameraController.camera, this.renderer.domElement, () => [
       this.props.barn,
       ...this.pens.pickRoots(),
+      ...this.helperView.pickRoots(),
     ]);
 
     this.cameraController.onHover = (x, y) => {
@@ -174,6 +179,11 @@ export class Game {
   burst(kind: BurstKind, tile: TileCoord): void {
     const { x, z } = tileToWorld(tile.i, tile.j, GRID_SIZE);
     this.effects.burst(kind, x, z);
+  }
+
+  /** Debug: keep the sprinklers spraying (for screenshots). */
+  forceSpray(on: boolean): void {
+    this.helperView.alwaysSpray = on;
   }
 
   /** Plays a particle burst at a world position. */
@@ -247,6 +257,7 @@ export class Game {
     this.terrain.setWaterTint(a.waterDeep, a.waterShallow, this.foam);
     this.clouds.setTone(a.cloud);
     this.props.setNight(a.night);
+    this.helperView.setNight(a.night);
 
     const style = document.documentElement.style;
     style.setProperty('--sky-top', `#${a.skyTop.getHexString()}`);
@@ -297,9 +308,11 @@ export class Game {
       this.props.setLandSize(this.shownLand);
       this.terrain.refreshLand();
     }
+    this.farm.runHelpers(now);
     this.farmView.update(dt, now);
     this.props.update(dt);
     this.pens.update(dt, now);
+    this.helperView.update(dt, now);
     this.clouds.update(dt);
     this.updateParticles(dt);
     this.highlight.update(dt);

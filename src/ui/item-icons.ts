@@ -1,4 +1,5 @@
 import { ProductId, SpeciesId } from '../core/animals';
+import { HelperId } from '../core/helpers';
 
 /** Icons for animal products, feed sacks and species, in the same chunky outlined style as icons.ts. */
 const INK = '#4a2b0f';
@@ -87,3 +88,35 @@ export const GEAR_ICON = `${open}>
   <path d="M21 5 H27 L28.5 10 L32.5 11.7 L37 9 L41 13 L38.3 17.5 L40 21.5 L45 23 V29 L40 30.5 L38.3 34.5 L41 39 L37 43 L32.5 40.3 L28.5 42 L27 47 H21 L19.5 42 L15.5 40.3 L11 43 L7 39 L9.7 34.5 L8 30.5 L3 29 V23 L8 21.5 L9.7 17.5 L7 13 L11 9 L15.5 11.7 L19.5 10Z" transform="translate(0 -3) scale(1 .98)" fill="#d9dee5" ${line}/>
   <circle cx="24" cy="23" r="6.5" fill="#7a8696" ${line}/>
 </svg>`;
+
+export const HELPER_ICONS: Record<HelperId, string> = {
+  regador: `${open}>
+  <path d="M8 40 H40" stroke="${INK}" stroke-width="7" stroke-linecap="round"/>
+  <path d="M8 40 H40" stroke="#8a5a2a" stroke-width="3.4" stroke-linecap="round"/>
+  <rect x="19" y="26" width="10" height="14" rx="2" fill="#9aa7b5" ${line}/>
+  <rect x="15" y="20" width="18" height="9" rx="3" fill="#d9a441" ${line}/>
+  <path d="M10 18 L38 18" stroke="${INK}" stroke-width="6" stroke-linecap="round"/>
+  <path d="M10 18 L38 18" stroke="#d9a441" stroke-width="2.8" stroke-linecap="round"/>
+  <path d="M7 9 Q4 14 5 17 M41 9 Q44 14 43 17 M16 6 Q15 10 15 13 M32 6 Q33 10 33 13 M24 4 V12" fill="none" stroke="#4aa8f0" stroke-width="3" stroke-linecap="round"/>
+</svg>`,
+  ajudante: `${open}>
+  <path d="M7 24 C7 15 15 10 24 10 C33 10 41 15 41 24 C41 35 33 42 24 42 C15 42 7 35 7 24Z" fill="#f0bd93" ${line}/>
+  <path d="M2 21 Q24 14 46 21 Q24 27 2 21Z" fill="#d9b24a" ${line}/>
+  <path d="M11 19 C11 8 18 4 24 4 C30 4 37 8 37 19 Q24 24 11 19Z" fill="#e8c75d" ${line}/>
+  <path d="M11.5 16.5 Q24 21 36.5 16.5" fill="none" stroke="#c23b2c" stroke-width="3.6"/>
+  <circle cx="18" cy="27" r="2.4" fill="${INK}"/><circle cx="30" cy="27" r="2.4" fill="${INK}"/>
+  <path d="M13 34 Q18 29 24 33 Q30 29 35 34 Q30 40 24 36 Q18 40 13 34Z" fill="#ebe7df" ${line}/>
+  <ellipse cx="24" cy="31" rx="3.2" ry="2.6" fill="#e39a74" stroke="${INK}" stroke-width="1.8"/>
+</svg>`,
+  gato: `${open}>
+  <path d="M9 22 L8 6 L20 13 Q24 12 28 13 L40 6 L39 22 C41 36 33 43 24 43 C15 43 7 36 9 22Z" fill="#e8903a" ${line}/>
+  <path d="M11 9 L17 13 L11 17Z M37 9 L31 13 L37 17Z" fill="#f4a3ab" stroke="${INK}" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M20 14 V19 M24 13 V19 M28 14 V19" stroke="#b8631f" stroke-width="2.6" stroke-linecap="round"/>
+  <ellipse cx="17" cy="26" rx="3.2" ry="4" fill="#78d96b" stroke="${INK}" stroke-width="1.8"/>
+  <ellipse cx="31" cy="26" rx="3.2" ry="4" fill="#78d96b" stroke="${INK}" stroke-width="1.8"/>
+  <path d="M17 23.5 V28.5 M31 23.5 V28.5" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>
+  <ellipse cx="24" cy="36" rx="8" ry="5.6" fill="#fff4e6" stroke="${INK}" stroke-width="2"/>
+  <path d="M22 31.5 H26 L24 34Z" fill="#f08a9a" stroke="${INK}" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M3 28 L12 30 M3 35 L12 33 M45 28 L36 30 M45 35 L36 33" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+</svg>`,
+};

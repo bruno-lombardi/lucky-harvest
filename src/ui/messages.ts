@@ -57,6 +57,14 @@ export function reasonMessage(reason: FailReason): string {
       return 'Já está no nível máximo';
     case 'no-ingredients':
       return 'Faltam colheitas no celeiro';
+    case 'helper-locked':
+      return 'Suba de nível para contratar';
+    case 'helper-exists':
+      return 'Você já contratou esse ajudante';
+    case 'no-helper':
+      return 'Contrate o ajudante primeiro';
+    case 'already-paid':
+      return 'O salário já está em dia';
   }
 }
 

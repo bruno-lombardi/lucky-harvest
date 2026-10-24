@@ -1,6 +1,7 @@
 import { SPECIES_ORDER } from './animals';
 import { LoggedCommand } from './commands';
 import { CROPS } from './crops';
+import { HELPER_ORDER } from './helpers';
 import { Farm, FarmSnapshot } from './farm';
 
 /**
@@ -52,6 +53,7 @@ export function encodeSave(data: SaveData): string {
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const isSpot = (v: unknown): boolean => isObject(v) && isNumber(v['u']) && isNumber(v['v']);
 const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
 /**
@@ -59,7 +61,7 @@ const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.is
  * (new crops, new species) and drops anything unknown. Returns null if it is not a farm at all.
  */
 export function normalizeSnapshot(raw: unknown): FarmSnapshot | null {
-  if (!isObject(raw) || raw['version'] !== 3) return null;
+  if (!isObject(raw) || (raw['version'] !== 3 && raw['version'] !== 4)) return null;
   const { coins, xp, landSize, seed, revision, nextAnimalId, tiles } = raw;
   if (![coins, xp, landSize, seed, revision, nextAnimalId].every(isNumber) || !isObject(tiles)) return null;
   if ((coins as number) < 0 || (xp as number) < 0) return null;
@@ -86,8 +88,20 @@ export function normalizeSnapshot(raw: unknown): FarmSnapshot | null {
     pens[species] = pen;
   }
 
+  const helpers: FarmSnapshot['helpers'] = {};
+  if (raw['version'] === 4 && isObject(clean.helpers)) {
+    for (const id of HELPER_ORDER) {
+      const h = clean.helpers[id] as unknown;
+      if (h === undefined) continue;
+      if (!isObject(h) || !isSpot(h['from']) || !isSpot(h['target'])) return null;
+      if (![h['level'], h['paidUntil'], h['nextAt'], h['leftAt'], h['lastAt']].every(isNumber)) return null;
+      if (typeof h['paid'] !== 'boolean' || typeof h['working'] !== 'boolean') return null;
+      helpers[id] = h as unknown as FarmSnapshot['helpers'][typeof id];
+    }
+  }
+
   try {
-    return Farm.fromSnapshot({ ...clean, tiles: safeTiles, pens }).toSnapshot();
+    return Farm.fromSnapshot({ ...clean, version: 4, tiles: safeTiles, pens, helpers }).toSnapshot();
   } catch {
     return null;
   }

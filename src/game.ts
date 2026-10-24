@@ -3,6 +3,7 @@ import {
   DirectionalLight,
   HemisphereLight,
   PCFSoftShadowMap,
+  Raycaster,
   Scene,
   Vector3,
   WebGLRenderer,
@@ -109,6 +110,7 @@ export class Game {
     this.props = new Props(gradient, farm.landSize);
     this.pens = new Pens(farm, gradient);
     this.helperView = new HelperView(farm, gradient);
+    this.helperView.isHidden = (point) => this.isOccluded(point);
     this.decorView = new DecorView(farm, gradient);
     this.deliveryView = new DeliveryView(gradient);
     this.deliveryView.onCue = (cue) => this.events.onTruck?.(cue);
@@ -190,6 +192,24 @@ export class Game {
       x: rect.left + ((this.projected.x + 1) / 2) * rect.width,
       y: rect.top + ((1 - this.projected.y) / 2) * rect.height,
     };
+  }
+
+  private readonly sight = new Raycaster();
+  private readonly sightDir = new Vector3();
+
+  /** True when a building, tree or fence post stands between the camera and a world point. */
+  private isOccluded(point: Vector3): boolean {
+    const camera = this.cameraController.camera;
+    camera.getWorldDirection(this.sightDir);
+    const far = 80;
+    this.sight.camera = camera;
+    this.sight.set(point.clone().addScaledVector(this.sightDir, -far), this.sightDir);
+    this.sight.far = far - 0.45;
+    const hits = this.sight.intersectObjects(
+      [this.props.group, this.pens.group, this.orchardView.group, this.decorView.group],
+      true,
+    );
+    return hits.some((h) => h.point.y > 0.65 && h.object.visible);
   }
 
   /** Seed-tray icons rendered from the real 3D crop models. */

@@ -1,7 +1,7 @@
 import { PRODUCTS, ProductId, SPECIES, SpeciesId, penCapacity } from '../core/animals';
 import { CROPS, CropId, RARITIES } from '../core/crops';
 import { Farm, LAND_STEPS } from '../core/farm';
-import { HELPERS, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage, payWord } from '../core/helpers';
+import { HELPERS, HelperId, maxHelperLevel, WAGE_PERIOD_MS, helperWage, payWord } from '../core/helpers';
 import { DECOR, DecorId } from '../core/decor';
 import { POMAR, TREES, TreeId, coinsPerMinute } from '../core/trees';
 import { TRUCK_UPGRADES, TruckUpgradeId } from '../core/delivery';
@@ -161,8 +161,9 @@ function helperCard(id: HelperId, farm: Farm): Card {
   const h = HELPERS[id];
   const state = farm.helpers[id];
   const stats: Array<[string, string]> = [['Contratar', coin(h.hireCost)]];
-  for (let level = 1; level <= MAX_HELPER_LEVEL; level++) {
-    const up = level === 1 ? '' : ` · melhora ${coin(h.upgradeCost[level - 2]!)}`;
+  for (let level = 1; level <= maxHelperLevel(id); level++) {
+    const gate = h.levelGate?.[level];
+    const up = level === 1 ? '' : ` · melhora ${coin(h.upgradeCost[level - 2]!)}${gate ? ` (nível ${gate})` : ''}`;
     stats.push([`Nível ${level}${state?.level === level ? ' (atual)' : ''}`, `${h.perks[level - 1]} · ${payWord(id)} ${coin(helperWage(id, level, farm.barn))}${up}`]);
   }
   return {

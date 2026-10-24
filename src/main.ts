@@ -10,6 +10,8 @@ import { SaveManager } from './persistence';
 import { HELPERS, HELPER_ORDER, HOME, HelperId, payWord, walkerPose } from './core/helpers';
 import { PEN_LAYOUT } from './render/pens';
 import { BarnDialog } from './ui/barn';
+import { levelThreshold } from './core/levels';
+import { TonicoDialog } from './ui/tonico';
 import { MenuDialog } from './ui/menu';
 import { PenDialog } from './ui/pen';
 import { GEAR_ICON, PRODUCT_ICONS } from './ui/item-icons';
@@ -97,6 +99,7 @@ let toolbar: Toolbar;
 let shop: Shop;
 let book: BookDialog;
 let barn: BarnDialog;
+let tonico: TonicoDialog;
 let pen: PenDialog;
 let lastLevelShown = 1;
 let cropIcons: Record<CropId, string>;
@@ -144,6 +147,12 @@ function showHelperEvents(now: number): void {
       const at = game.screenPositionOf(tile);
       if (e.crop) floaters.spawn('+1', at.x, at.y, 'coins', `<img alt="" src="${cropIcons[e.crop]}" />`);
       else if (farm.tree(e.i, e.j)) floaters.spawn('+', at.x, at.y, 'coins', `<img alt="" src="${treeIcons[farm.tree(e.i, e.j)!.species]}" />`);
+    } else if (e.kind === 'plant') {
+      game.burst('plant', tile);
+      audio.play('plant', QUIET_VOLUME);
+    } else if (e.kind === 'say' && e.text) {
+      const at = game.screenPositionOf(tile);
+      floaters.spawn(e.text, at.x, at.y - 34, 'say');
     } else if (e.kind === 'care') {
       game.burst('care', tile);
       audio.play('meow', QUIET_VOLUME);
@@ -240,6 +249,7 @@ function refreshUi(now: number): void {
   shop.refresh();
   book.refresh();
   barn.refresh();
+  tonico.refresh();
   pen.refresh();
   const pests = countPests(now);
   if (pests > lastPests) toast.show('Praga na plantação! Use a luva (Cuidar)', 2600);
@@ -452,6 +462,8 @@ function handleObjectTap(id: string): void {
   audio.play('click');
   if (id === 'barn') {
     barn.open();
+  } else if (id === 'helper:ajudante' && farm.helpers.ajudante) {
+    tonico.open();
   } else if (id.startsWith('helper:')) {
     shop.open('helpers');
   } else if (id.startsWith('pen:')) {
@@ -510,6 +522,8 @@ shop = new Shop(required('shop'), farm, cropIcons, treeIcons, (command) => {
 barn = new BarnDialog(required('barn'), farm, cropIcons, treeIcons, dispatch, {
   openShop: (tab) => shop.open(tab),
 });
+tonico = new TonicoDialog(required('tonico'), farm, cropIcons, dispatch);
+shop.onConfigure = () => tonico.open();
 pen = new PenDialog(required('pen'), farm, dispatch, {
   openShop: (tab) => shop.open(tab),
   openBarn: (tab) => barn.open(tab),
@@ -574,6 +588,13 @@ const openPen = params.get('pen') as SpeciesId | null;
 if (openPen && SPECIES_ORDER.includes(openPen)) pen.open(openPen);
 if (params.has('menu')) menu.open();
 
+if (params.has('tonico')) {
+  // debug: give Tonico his fourth tier and open his settings
+  farm.xp = Math.max(farm.xp, levelThreshold(16));
+  if (!farm.helpers.ajudante) farm.hireHelper('ajudante', Date.now());
+  farm.helpers.ajudante!.level = 4;
+  tonico.open();
+}
 if (params.has('spray')) game.forceSpray(true);
 if (params.has('tier')) farm.barn = Math.min(4, Math.max(1, Number(params.get('tier')) || 1)); // debug: look at a barn tier
 

@@ -38,6 +38,8 @@ export interface HelperDef {
   readonly wage: readonly number[];
   /** What each level does, for the shop. */
   readonly perks: readonly string[];
+  /** Player level needed to buy a given helper level (keyed by the helper level), for the very top tiers. */
+  readonly levelGate?: Readonly<Record<number, number>>;
 }
 
 export const HELPERS: Readonly<Record<HelperId, HelperDef>> = {
@@ -51,7 +53,7 @@ export const HELPERS: Readonly<Record<HelperId, HelperDef>> = {
     hireCost: 400,
     upgradeCost: [700, 1500],
     wage: [20, 35, 55],
-    perks: ['2 aspersores, regam a cada 15 s', '4 aspersores, a cada 10 s', '6 aspersores, a cada 6 s'],
+    perks: ['Cobre 1/3 da horta, rega a cada 15 s', 'Cobre 2/3 da horta, a cada 10 s', 'Cobre a horta inteira, a cada 6 s'],
   },
   ajudante: {
     id: 'ajudante',
@@ -61,9 +63,15 @@ export const HELPERS: Readonly<Record<HelperId, HelperDef>> = {
     animal: false,
     unlockLevel: 5,
     hireCost: 900,
-    upgradeCost: [1400, 3000],
-    wage: [60, 100, 160],
-    perks: ['Caminha devagar, colhe uma por vez', 'Mais rápido e colhe com mais jeito', 'Corre pela horta e colhe num instante'],
+    upgradeCost: [1400, 3000, 9000],
+    levelGate: { 4: 14 },
+    wage: [60, 100, 160, 300],
+    perks: [
+      'Caminha devagar, colhe uma por vez',
+      'Mais rápido e colhe com mais jeito',
+      'Corre pela horta e colhe num instante',
+      'Também ara, planta e rega sozinho, do jeito que você configurar',
+    ],
   },
   gato: {
     id: 'gato',
@@ -103,20 +111,27 @@ export const HELPERS: Readonly<Record<HelperId, HelperDef>> = {
   },
 };
 
-export const MAX_HELPER_LEVEL = 3;
+/** The highest level any helper reaches. Most stop at 3; Tonico has a fourth tier. */
+export const MAX_HELPER_LEVEL = 4;
+/** The top level of one helper. */
+export const maxHelperLevel = (id: HelperId): number => HELPERS[id].wage.length;
+/** Tonico's level that adds planting. */
+export const PLANTER_LEVEL = 4;
+/** Sprinklers always come in three levels, each switching on a third of the heads. */
+const SPRINKLER_LEVELS = 3;
 
 export const getHelper = (id: HelperId): HelperDef => HELPERS[id];
 
 /** What the helper costs per period; a better barn lowers it. */
 export const helperWage = (id: HelperId, level: number, barn = 1): number =>
-  Math.round(HELPERS[id].wage[Math.min(Math.max(level, 1), MAX_HELPER_LEVEL) - 1]! * barnTier(barn).costMul);
+  Math.round(HELPERS[id].wage[Math.min(Math.max(level, 1), maxHelperLevel(id)) - 1]! * barnTier(barn).costMul);
 
 /** "salário" for people, "custo" for animals. */
 export const payWord = (id: HelperId): 'salário' | 'custo' => (HELPERS[id].animal ? 'custo' : 'salário');
 
-export function nextHelperUpgrade(id: HelperId, level: number): { level: number; cost: number } | null {
+export function nextHelperUpgrade(id: HelperId, level: number): { level: number; cost: number; needLevel: number } | null {
   const cost = HELPERS[id].upgradeCost[level - 1];
-  return cost === undefined ? null : { level: level + 1, cost };
+  return cost === undefined ? null : { level: level + 1, cost, needLevel: HELPERS[id].levelGate?.[level + 1] ?? 1 };
 }
 
 /** A position on the island in tile units: world x = u - 12, world z = v - 12 (tile (i, j) is centred at i + .5, j + .5). */
@@ -176,6 +191,7 @@ export const WALKERS: Readonly<Record<WalkerId, readonly WalkerStats[]>> = {
     { speed: 1.5, workMs: 1500 },
     { speed: 2.2, workMs: 1100 },
     { speed: 3.2, workMs: 750 },
+    { speed: 3.4, workMs: 650 },
   ],
   gato: [
     { speed: 2.4, workMs: 1100 },
@@ -195,14 +211,13 @@ export const WALKERS: Readonly<Record<WalkerId, readonly WalkerStats[]>> = {
 };
 
 export function walkerStats(id: WalkerId, level: number, barn = 1): WalkerStats {
-  const base = WALKERS[id][Math.min(Math.max(level, 1), MAX_HELPER_LEVEL) - 1]!;
+  const base = WALKERS[id][Math.min(Math.max(level, 1), WALKERS[id].length) - 1]!;
   const mul = barnTier(barn).speedMul;
   return { speed: base.speed * mul, workMs: base.workMs / mul };
 }
 
 /** Sprinkler pulse interval and head count by level. */
 export const SPRINKLER_INTERVAL_MS: readonly number[] = [15_000, 10_000, 6000];
-export const sprinklerHeadCount = (level: number): number => level * 2;
 
 /** Where the island fence has its gate, in tile units (walkers cross the fence only there). */
 export function gateSpot(landSize: number): Spot {
@@ -324,11 +339,21 @@ export function walkerPose(id: WalkerId, state: HelperState, landSize: number, n
   return { at: end, heading, mode: 'resting', workProgress: 0 };
 }
 
-/** The sprinkler heads for a plot: a lattice with a head every third tile, filled in a fixed order. */
+/**
+ * The sprinkler heads for a plot. The full lattice (a head every third tile, each spraying its 3×3 square) covers
+ * every tile, however big the land. Each level switches on a third of it, spread evenly, so level 3 always waters everything.
+ */
 export function sprinklerSpots(landSize: number, level: number): Array<{ i: number; j: number }> {
   const min = 12 - landSize / 2;
   const max = 11 + landSize / 2;
-  const all: Array<{ i: number; j: number }> = [];
-  for (let j = min + 1; j <= max; j += 3) for (let i = min + 1; i <= max; i += 3) all.push({ i, j });
-  return all.slice(0, sprinklerHeadCount(level));
+  const perAxis = Math.ceil(landSize / 3);
+  const heads: Array<{ i: number; j: number }> = [];
+  for (let b = 0; b < perAxis; b++) {
+    for (let a = 0; a < perAxis; a++) {
+      if ((a + 2 * b) % SPRINKLER_LEVELS < Math.min(level, SPRINKLER_LEVELS)) {
+        heads.push({ i: Math.min(min + 1 + 3 * a, max), j: Math.min(min + 1 + 3 * b, max) });
+      }
+    }
+  }
+  return heads;
 }

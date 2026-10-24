@@ -9,6 +9,7 @@ import {
   MeshBasicMaterial,
   Object3D,
   SphereGeometry,
+  Vector3,
 } from 'three';
 import { CROPS } from '../core/crops';
 import { Farm } from '../core/farm';
@@ -18,7 +19,7 @@ import { Palette, box } from './props';
 import { createUnpaidIndicator } from './indicators';
 
 const DROPS_PER_HEAD = 18;
-const MAX_HEADS = 12;
+const MAX_HEADS = 16;
 /** How long a sprinkler keeps spraying after a pulse (ms). */
 const SPRAY_MS = 3200;
 const SPRAY_RADIUS = 1.45;
@@ -33,7 +34,8 @@ const XRAY = new MeshBasicMaterial({
 });
 
 /** Adds a see-through silhouette to every solid mesh of a character, so helpers never disappear behind roofs and walls. */
-function addSilhouette(root: Object3D): void {
+function addSilhouette(root: Object3D): Mesh[] {
+  const ghosts: Mesh[] = [];
   const meshes: Mesh[] = [];
   root.traverse((o) => {
     const mesh = o as Mesh;
@@ -44,8 +46,11 @@ function addSilhouette(root: Object3D): void {
     const ghost = new Mesh(mesh.geometry, XRAY);
     ghost.renderOrder = 20;
     ghost.userData['silhouette'] = true;
+    ghost.visible = false;
     mesh.add(ghost);
+    ghosts.push(ghost);
   }
+  return ghosts;
 }
 
 /** Rex's little doghouse, set by the pens where he rests. */
@@ -68,6 +73,9 @@ interface WalkerEntry {
   indicator: Group;
   heading: number;
   initialised: boolean;
+  /** The see-through copies, shown only while something stands between the camera and the walker. */
+  ghosts: Mesh[];
+  nextCheck: number;
 }
 
 interface HeadEntry {
@@ -91,6 +99,9 @@ export class HelperView {
   private readonly dummy = new Object3D();
   /** Debug: keep the sprinklers spraying. */
   alwaysSpray = false;
+  /** Set by the game: true when something hides this world point from the camera. */
+  isHidden: (point: Vector3) => boolean = () => false;
+  private readonly probe = new Vector3();
   private headKey = '';
   private time = 0;
   private night = 0;
@@ -159,18 +170,23 @@ export class HelperView {
       if (!entry) {
         const character =
           id === 'ajudante' ? this.kit.farmhand() : id === 'tratador' ? this.kit.farmhand(true) : id === 'gato' ? this.kit.cat() : this.kit.dog();
-        addSilhouette(character.root);
+        const ghosts = addSilhouette(character.root);
         character.root.userData['pickId'] = `helper:${id}`;
         const indicator = createUnpaidIndicator();
         indicator.visible = false;
         character.root.add(indicator);
         this.group.add(character.root);
-        entry = { id, character, indicator, heading: 0, initialised: false };
+        entry = { id, character, indicator, heading: 0, initialised: false, ghosts, nextCheck: 0 };
         this.walkers.set(id, entry);
       }
 
       const pose = walkerPose(id, state, this.farm.landSize, now);
       const root = entry.character.root;
+      if (this.time >= entry.nextCheck) {
+        entry.nextCheck = this.time + 0.2;
+        const hidden = this.isHidden(this.probe.set(pose.at.u - 12, 0.55, pose.at.v - 12));
+        for (const ghost of entry.ghosts) ghost.visible = hidden;
+      }
       root.position.set(pose.at.u - 12, 0.04, pose.at.v - 12);
       if (!entry.initialised) {
         entry.heading = pose.heading;

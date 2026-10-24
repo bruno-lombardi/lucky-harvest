@@ -33,8 +33,8 @@ You start with 100 coins, a few seeds and a 6×6 plot.
 10. **Animais:** each species lives in its own pen (Galinheiro Nv 2, Curral Nv 4, Chiqueiro Nv 6) on the east side of the island. Tap a pen to feed its animals with the matching feed, wait out the timer, and collect eggs, milk or truffles. Pens upgrade to tiers 2 and 3 (Nv 9 and 15): more room and a faster cycle.
 11. **Olhar:** the neutral tool (default). It never changes anything: tap or hover a tile or building to read what it is. Every other tool shows its own icon as the cursor.
 12. **Ajudantes (Loja):** five helpers that work by themselves and charge every 10 minutes (taken automatically; if you can't pay, they stop and show a crossed-out coin until you pay them). People charge a *salário*, the animals a *custo*:
-    - **Regador do moinho** (Nv 3): sprinkler heads across the plot water thirsty crops. Levels add heads and speed.
-    - **Tonico, o ajudante** (Nv 5): a farmhand who walks to the nearest ripe crop, pulls it and tosses it in his basket.
+    - **Regador do moinho** (Nv 3): sprinkler heads across the plot water thirsty crops. Each level switches on a third of a lattice that covers every tile, so level 3 waters the whole plot at any land size, and pulses get faster.
+    - **Tonico, o ajudante** (Nv 5): a farmhand who walks to the nearest ripe crop, pulls it and tosses it in his basket. **Level 4** (Nv 14 to buy, 9.000 moedas) makes him plow, sow and water too, configured in **Configurar** (shop) or by tapping him: master switch, mode (best profit, list order, or random mix), allowed seeds, buying seeds with a coin reserve, plowing, watering, sparing rare seeds, and his humor (quieto, falante, cantor) for speech bubbles.
     - **Mingau, o gato** (Nv 7): stalks and pounces on weeds and bugs.
     - **Rex, o cão** (Nv 12): trots from pen to pen and collects eggs, milk and truffles. He rests beside his doghouse south of the pens.
     - **Lúcia, a tratadora** (Nv 10): carries feed from your stock to every hungry animal, walking around the fenced plot to reach the pens.
@@ -53,7 +53,7 @@ You start with 100 coins, a few seeds and a 6×6 plot.
 Level up to unlock more valuable crops: 🥕 🌾 → 🌽 (Nv 2) → 🍅 (Nv 3) → 🍓 (Nv 5) → 🎃 (Nv 8) → 🌻 (Nv 10) → 🍉 (Nv 14) → pitaya (Nv 15) → 🍇 (Nv 18) → flor-da-lua (Nv 25).
 Profit per tile-minute climbs with level; prices live in `src/core/crops.ts` and the pace is checked by `tests/pace.test.ts` (a simulated casual player must reach level 8, 12 and 20 in about 45 minutes, 2 hours and 8 hours).
 
-Debug URLs: `?demo` loads a showcase farm with every crop at every stage; `?view=x,z,zoom` sets the camera; `?shop=seeds|feed|sell|animals|land` opens the shop, `?barn` / `?barn=feed` the barn, `?pen=galinha|vaca|porco` a pen, `?menu` the menu, `?book=guia|metas|conquistas` the book; `?follow=ajudante|gato|cao&zoom=6` keeps the camera on a helper, `?spray` keeps the sprinklers running, `?reset` wipes the save (`?demo` never touches it); `?truck=-4` sets the clock four seconds before the next seed truck arrives (add `&stopclock` to hold it there); `?time=21` sets the hour and `?freeze` stops the clock; `?fx` replays every particle burst.
+Debug URLs: `?demo` loads a showcase farm with every crop at every stage; `?view=x,z,zoom` sets the camera; `?shop=seeds|feed|sell|animals|land` opens the shop, `?barn` / `?barn=feed` the barn, `?pen=galinha|vaca|porco` a pen, `?menu` the menu, `?book=guia|metas|conquistas` the book; `?follow=ajudante|gato|cao&zoom=6` keeps the camera on a helper, `?spray` keeps the sprinklers running, `?tonico` gives Tonico level 4 and opens his settings, `?reset` wipes the save (`?demo` never touches it); `?truck=-4` sets the clock four seconds before the next seed truck arrives (add `&stopclock` to hold it there); `?time=21` sets the hour and `?freeze` stops the clock; `?fx` replays every particle burst.
 
 | | Desktop | Mobile |
 |---|---|---|

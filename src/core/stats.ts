@@ -27,6 +27,8 @@ export interface Stats {
   helperUpgrades: number;
   /** Crops the farmhand harvested. */
   farmhandHarvests: number;
+  /** Seeds the level-4 Tonico sowed. */
+  farmhandPlants: number;
   /** Pests the cat took care of. */
   catCares: number;
   deliveries: number;
@@ -59,6 +61,7 @@ export function emptyStats(): Stats {
     wagesPaid: 0,
     helperUpgrades: 0,
     farmhandHarvests: 0,
+    farmhandPlants: 0,
     catCares: 0,
     deliveries: 0,
     seedsReceived: 0,

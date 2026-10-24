@@ -53,6 +53,10 @@ describe('hiring', () => {
     expect(farm.upgradeHelper('ajudante').ok).toBe(true);
     expect(farm.upgradeHelper('ajudante').ok).toBe(true);
     expect(farm.helpers.ajudante!.level).toBe(3);
+    // Tonico's fourth tier needs player level 14.
+    expect(farm.upgradeHelper('ajudante')).toEqual({ ok: false, reason: 'helper-locked' });
+    farm.xp = levelThreshold(14);
+    expect(farm.upgradeHelper('ajudante').ok).toBe(true);
     expect(farm.upgradeHelper('ajudante')).toEqual({ ok: false, reason: 'max-level' });
   });
 });
@@ -73,6 +77,17 @@ describe('sprinklers', () => {
     farm.runHelpers(20 * SEC);
     expect(farm.tile(head!.i, head!.j).crop!.watered).toBe(true);
     expect(farm.tile(far!.i, far!.j).crop!.watered).toBe(false);
+  });
+
+  it('cover every tile of any plot at the top level, and grow with each level', () => {
+    for (const size of [6, 8, 10, 12]) {
+      const min = 12 - size / 2;
+      const covered = new Set<string>();
+      for (const h of sprinklerSpots(size, 3)) for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) covered.add(`${h.i + di},${h.j + dj}`);
+      for (let j = min; j < min + size; j++) for (let i = min; i < min + size; i++) expect(covered.has(`${i},${j}`)).toBe(true);
+      expect(sprinklerSpots(size, 1).length).toBeLessThan(sprinklerSpots(size, 2).length);
+      expect(sprinklerSpots(size, 2).length).toBeLessThan(sprinklerSpots(size, 3).length);
+    }
   });
 });
 

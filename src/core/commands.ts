@@ -6,6 +6,7 @@ import { achievementKey, findAchievement, findGoal, goalDone, goalKey, stepDone 
 import { DecorId } from './decor';
 import { TruckUpgradeId } from './delivery';
 import { HelperId } from './helpers';
+import { AutoPlant } from './autoplant';
 import { ActionResult, Farm } from './farm';
 
 /**
@@ -40,7 +41,8 @@ export type Command =
   | { type: 'collectAll'; species: SpeciesId }
   | { type: 'hireHelper'; helper: HelperId }
   | { type: 'upgradeHelper'; helper: HelperId }
-  | { type: 'payHelper'; helper: HelperId };
+  | { type: 'payHelper'; helper: HelperId }
+  | { type: 'setAutoPlant'; settings: AutoPlant };
 
 /** A command that succeeded, with the time it was applied: the unit of replay and sync. */
 export interface LoggedCommand {
@@ -112,6 +114,8 @@ export function applyCommand(farm: Farm, command: Command, now: number): ActionR
       return farm.upgradeHelper(command.helper);
     case 'payHelper':
       return farm.payHelper(command.helper, now);
+    case 'setAutoPlant':
+      return farm.setAutoPlant(command.settings);
   }
 }
 

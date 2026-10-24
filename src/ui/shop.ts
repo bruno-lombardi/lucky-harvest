@@ -5,7 +5,7 @@ import { TRUCK_UPGRADES, TRUCK_UPGRADE_ORDER, TruckUpgradeId } from '../core/del
 import { BARN_TIERS, barnPerk, barnTier, nextBarnTier } from '../core/barn';
 import { Farm } from '../core/farm';
 import { POMAR, TREES, TREE_ORDER, TreeId } from '../core/trees';
-import { HELPERS, HELPER_ORDER, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage, nextHelperUpgrade, payWord } from '../core/helpers';
+import { HELPERS, HELPER_ORDER, HelperId, maxHelperLevel, WAGE_PERIOD_MS, helperWage, nextHelperUpgrade, payWord } from '../core/helpers';
 import { formatDuration } from './messages';
 import { humanDuration } from './info';
 import { BARN_ICON, LAND_ICON, LOCK_ICON, SHOP_ICON, TRUCK_ICON } from './icons';
@@ -36,6 +36,9 @@ export class Shop extends Modal<ShopTab> {
   ) {
     super(root, 'Loja', TABS, 'seeds');
   }
+
+  /** Opens Tonico's settings (set by the game). */
+  onConfigure: () => void = () => {};
 
   open(tab: ShopTab = this.tab): void {
     this.openAt(tab);
@@ -125,6 +128,9 @@ export class Shop extends Modal<ShopTab> {
       case 'pay':
         this.dispatch({ type: 'payHelper', helper: data['helper'] as HelperId });
         break;
+      case 'configure':
+        this.onConfigure();
+        return;
     }
     this.repaint();
   }
@@ -301,15 +307,19 @@ export class Shop extends Modal<ShopTab> {
       }
       const wage = helperWage(id, state.level, farm.barn);
       const next = nextHelperUpgrade(id, state.level);
-      const stars = '★'.repeat(state.level) + '☆'.repeat(MAX_HELPER_LEVEL - state.level);
+      const stars = '★'.repeat(state.level) + '☆'.repeat(maxHelperLevel(id) - state.level);
       const status = state.paid
         ? `<small class="ok">Trabalhando · ${payWord(id)} ${coin(wage)} em ${formatDuration(state.paidUntil - now)}</small>`
         : `<small class="warn">Parou: sem ${payWord(id)} (${coin(wage)})</small>`;
-      const buttons = state.paid
+      const configure =
+        id === 'ajudante' ? `<button type="button" class="buy wide alt" data-act="configure" data-helper="${id}">Configurar</button>` : '';
+      const buttons = configure + (state.paid
         ? next
-          ? `<button type="button" class="buy wide" data-act="upgrade" data-helper="${id}" ${farm.coins < next.cost ? 'disabled' : ''}>Melhorar ${coin(next.cost)}</button>`
+          ? farm.level < next.needLevel
+            ? `<button type="button" class="buy wide" disabled>Nível ${next.needLevel}</button>`
+            : `<button type="button" class="buy wide" data-act="upgrade" data-helper="${id}" ${farm.coins < next.cost ? 'disabled' : ''}>Melhorar ${coin(next.cost)}</button>`
           : `<button type="button" class="buy wide" disabled>Nível máx.</button>`
-        : `<button type="button" class="sell wide" data-act="pay" data-helper="${id}" ${farm.coins < wage ? 'disabled' : ''}>Pagar</button>`;
+        : `<button type="button" class="sell wide" data-act="pay" data-helper="${id}" ${farm.coins < wage ? 'disabled' : ''}>Pagar</button>`);
       return row(
         HELPER_ICONS[id],
         `<b>${def.name} <span class="count">${stars}</span></b>${status}<small>${def.perks[state.level - 1]}</small>`,

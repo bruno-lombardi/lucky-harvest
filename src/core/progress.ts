@@ -2,7 +2,7 @@ import { SPECIES_ORDER, penCapacity } from './animals';
 import { CROP_ORDER, CropId } from './crops';
 import { DECOR_ORDER } from './decor';
 import { Farm, MAX_LAND } from './farm';
-import { HELPER_ORDER, MAX_HELPER_LEVEL } from './helpers';
+import { HELPERS, HELPER_ORDER } from './helpers';
 import { totalCollected, totalFruit, totalHarvested } from './stats';
 import { TREE_ORDER, TreeId } from './trees';
 
@@ -147,7 +147,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   tiered('racao', 'Comércio', 'Mestre da ração', (n) => `Moer ${n.toLocaleString('pt-BR')} lotes de ração`, (f) => f.stats.milled, [10, 100, 1000]),
   tiered('salarios', 'Ajudantes', 'Patrão justo', (n) => `Pagar ${n.toLocaleString('pt-BR')} salários`, (f) => f.stats.wagesPaid, [5, 50, 500]),
   tiered('equipe', 'Ajudantes', 'Equipe completa', (n) => `Contratar ${n} ajudantes`, (f) => HELPER_ORDER.filter((id) => f.helpers[id]).length, [1, 3, HELPER_ORDER.length], [100, 1500, 8000]),
-  tiered('capricho', 'Ajudantes', 'Capricho de patrão', (n) => `Melhorar ajudantes ${n} vezes`, helperLevelsBought, [1, 4, HELPER_ORDER.length * (MAX_HELPER_LEVEL - 1)], [150, 1500, 8000]),
+  tiered('capricho', 'Ajudantes', 'Capricho de patrão', (n) => `Melhorar ajudantes ${n} vezes`, helperLevelsBought, [1, 4, HELPER_ORDER.reduce((n, id) => n + HELPERS[id].upgradeCost.length, 0)], [150, 1500, 8000]),
   tiered('entregas', 'Entregas', 'Caminhão amigo', (n) => `Receber ${n.toLocaleString('pt-BR')} entregas`, (f) => f.stats.deliveries, [5, 50, 500]),
   tiered('feira', 'Entregas', 'Dia de feira', (n) => `Receber ${n.toLocaleString('pt-BR')} sementes do caminhão`, (f) => f.stats.seedsReceived, [30, 300, 3000]),
   tiered('nivel', 'Fazendeiro', 'Subindo na vida', (n) => `Chegar ao nível ${n}`, (f) => f.level, [5, 15, 30], [150, 2000, 10_000]),

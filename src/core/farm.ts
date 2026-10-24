@@ -14,6 +14,7 @@ import {
 } from './animals';
 import { CROP_ORDER, CropId, RARITIES, getCrop } from './crops';
 import { MAX_BARN_LEVEL, barnTier, nextBarnTier } from './barn';
+import { AutoPlant, cloneAutoPlant, defaultAutoPlant, normalizeAutoPlant, plantOrder, sayLine } from './autoplant';
 import { Stats, cloneStats, emptyStats, normalizeStats } from './stats';
 import { DECOR, DECOR_ORDER, DECOR_UNLOCK_LEVEL, DecorId, Decorations } from './decor';
 import {
@@ -36,6 +37,7 @@ import {
   HelperState,
   OFFLINE_LIMIT_MS,
   PEN_SPOTS,
+  PLANTER_LEVEL,
   POLL_MS,
   SPRINKLER_INTERVAL_MS,
   Spot,
@@ -200,7 +202,7 @@ export interface DeliveryEvent {
 
 export interface HelperEvent {
   helper: HelperId;
-  kind: 'harvest' | 'water' | 'care' | 'collect' | 'feed' | 'wage' | 'unpaid';
+  kind: 'harvest' | 'water' | 'care' | 'collect' | 'feed' | 'wage' | 'unpaid' | 'plant' | 'say';
   at: number;
   i?: number;
   j?: number;
@@ -209,6 +211,8 @@ export interface HelperEvent {
   count?: number;
   species?: SpeciesId;
   amount?: number;
+  /** What a talkative helper says. */
+  text?: string;
 }
 
 const emptyStock = (): Stock => Object.fromEntries(CROP_ORDER.map((id) => [id, 0])) as Stock;
@@ -267,6 +271,8 @@ export interface FarmSnapshot {
   fruit: FruitStock;
   /** Orchard trees by tile key. */
   trees: Record<string, TreeState>;
+  /** Tonico's planting settings. Saves from before this existed leave it out and get the defaults. */
+  autoPlant?: AutoPlant;
   tiles: Record<string, TileState>;
 }
 
@@ -314,6 +320,8 @@ export class Farm {
   stats: Stats = emptyStats();
   claimed: string[] = [];
   barn = 1;
+  /** How the level-4 Tonico plants (see autoplant.ts). */
+  autoPlant: AutoPlant = defaultAutoPlant();
   pomar = false;
   saplings: FruitStock = emptyFruit();
   fruit: FruitStock = emptyFruit();
@@ -832,10 +840,55 @@ export class Farm {
     if (!helper) return fail('no-helper');
     const next = nextHelperUpgrade(id, helper.level);
     if (!next) return fail('max-level');
+    if (this.level < next.needLevel) return fail('helper-locked');
     if (this.coins < next.cost) return fail('no-coins');
     helper.level = next.level;
     this.stats.helperUpgrades++;
     return this.done(-next.cost, 0);
+  }
+
+  /** Saves Tonico's planting settings (anything invalid falls back to the default). */
+  setAutoPlant(settings: AutoPlant): ActionResult {
+    this.autoPlant = normalizeAutoPlant(settings);
+    return this.done(0, 0);
+  }
+
+  /** True when the level-4 Tonico is allowed to plant right now. */
+  private planting(id: WalkerId, h: HelperState): boolean {
+    return id === 'ajudante' && h.level >= PLANTER_LEVEL && this.autoPlant.on;
+  }
+
+  /** The seed Tonico would sow at the tile: one from the barn, or one he can afford to buy. Null when there is none. */
+  private pickSeed(i: number, j: number): { crop: CropId; buy: boolean } | null {
+    const cfg = this.autoPlant;
+    const order = plantOrder(cfg, this.level, hashUnit(this.seed, this.revision, 0x7a1, i, j));
+    for (const crop of order) {
+      if (this.seeds[crop] >= 1) return { crop, buy: false };
+      if (cfg.buy && this.coins - getCrop(crop).seedCost >= cfg.reserve) return { crop, buy: true };
+    }
+    return null;
+  }
+
+  /** Tonico at a free (or withered) tile: clear, plow, sow and water as configured, and maybe say something. */
+  private autoSow(i: number, j: number, at: number): void {
+    const cfg = this.autoPlant;
+    if (this.status(i, j, at)?.withered) this.clear(i, j);
+    const tile = this.tile(i, j);
+    if (tile.crop) return;
+    if (tile.kind === 'grass' && !cfg.plow) return;
+    const pick = this.pickSeed(i, j);
+    if (!pick) return;
+    if (tile.kind === 'grass' && !this.plow(i, j).ok) return;
+    if (pick.buy && !this.buySeeds(pick.crop, 1).ok) return;
+    if (!this.plant(i, j, pick.crop, at).ok) return;
+    this.stats.farmhandPlants++;
+    this.helperEvents.push({ helper: 'ajudante', kind: 'plant', at, i, j, crop: pick.crop });
+    if (cfg.water && this.water(i, j, at).ok) this.helperEvents.push({ helper: 'ajudante', kind: 'water', at, i, j });
+    const talk = hashUnit(this.seed, this.revision, 0x5a1, i, j);
+    if (talk < (cfg.humor === 'cantor' ? 0.5 : 0.3)) {
+      const text = sayLine(cfg.humor, hashUnit(this.seed, this.revision, 0x5a2, i, j));
+      if (text) this.helperEvents.push({ helper: 'ajudante', kind: 'say', at, i, j, text });
+    }
   }
 
   /** Pays the wage of a helper who stopped because the money ran out. */
@@ -1045,6 +1098,7 @@ export class Farm {
         const result = this.harvest(i, j, at);
         if (result.ok) this.stats.farmhandHarvests += result.gain.item?.qty ?? 1;
         if (result.ok) this.helperEvents.push({ helper: id, kind: 'harvest', at, i, j, crop: result.gain.item?.cropId });
+        if (this.planting(id, h)) this.autoSow(i, j, at);
       } else if (this.care(i, j, at).ok) {
         this.stats.catCares++;
         this.helperEvents.push({ helper: id, kind: 'care', at, i, j });
@@ -1100,6 +1154,23 @@ export class Farm {
           bestDistance = d;
         }
       }
+      if (this.planting(id, h)) {
+        // Free soil, bare grass (when he may plow) and withered crops are all places to sow, if there is a seed to sow.
+        const { min, max } = landBounds(this.landSize);
+        const canSow = this.pickSeed(0, 0) !== null;
+        for (let j = min; j <= max && canSow; j++) {
+          for (let i = min; i <= max; i++) {
+            const tile = this.tile(i, j);
+            const free = tile.crop ? this.status(i, j, at)?.withered === true : tile.kind === 'soil' || this.autoPlant.plow;
+            if (!free) continue;
+            const d = Math.hypot(i + 0.5 - here.u, j + 0.5 - here.v);
+            if (d < bestDistance - 1e-9) {
+              best = { i, j };
+              bestDistance = d;
+            }
+          }
+        }
+      }
       if (best) bestSpot = { u: best.i + 0.5, v: best.j + 0.5 };
     }
 
@@ -1150,6 +1221,7 @@ export class Farm {
       pomar: this.pomar,
       saplings: { ...this.saplings },
       fruit: { ...this.fruit },
+      autoPlant: cloneAutoPlant(this.autoPlant),
       trees: Object.fromEntries([...this.trees].map(([k, t]) => [k, { ...t }])),
       tiles,
     };
@@ -1182,7 +1254,10 @@ export class Farm {
         if (t.species in TREES && isOrchardTile(ti, tj)) farm.trees.set(key, { ...t });
       }
     }
-    if (snapshot.version === 8) farm.barn = Math.min(Math.max(Math.floor(snapshot.barn) || 1, 1), MAX_BARN_LEVEL);
+    if (snapshot.version === 8) {
+      farm.barn = Math.min(Math.max(Math.floor(snapshot.barn) || 1, 1), MAX_BARN_LEVEL);
+      farm.autoPlant = normalizeAutoPlant(snapshot.autoPlant);
+    }
     farm.coins = snapshot.coins;
     farm.xp = snapshot.xp;
     farm.landSize = snapshot.landSize;

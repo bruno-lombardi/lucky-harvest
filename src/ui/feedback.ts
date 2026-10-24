@@ -1,4 +1,4 @@
-export type FloaterKind = 'coins' | 'spend' | 'xp' | 'level';
+export type FloaterKind = 'coins' | 'spend' | 'xp' | 'level' | 'say';
 
 /** Short message banner near the top of the screen. */
 export class Toast {

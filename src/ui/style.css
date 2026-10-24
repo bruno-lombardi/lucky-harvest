@@ -1034,3 +1034,30 @@ small.warn {
     padding: 8px 2px;
   }
 }
+
+/* ---------- Look-mode tooltip ---------- */
+#tip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 15;
+  max-width: 260px;
+  padding: 6px 11px;
+  pointer-events: none;
+  font: 600 14px var(--font);
+  color: #fff4dc;
+  border-radius: 10px;
+  border: 2px solid #5b3517;
+  background: linear-gradient(to bottom, #a8693a, #7a4a26);
+  box-shadow: 0 3px 0 rgba(60, 30, 10, 0.55);
+}
+
+#tip[hidden] {
+  display: none;
+}
+
+@media (hover: none) {
+  #tip {
+    display: none;
+  }
+}

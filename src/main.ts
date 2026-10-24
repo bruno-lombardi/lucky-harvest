@@ -1,7 +1,7 @@
 import '@fontsource-variable/fredoka';
 import './ui/style.css';
 import { CropId } from './core/crops';
-import { SPECIES_ORDER, SpeciesId, animalStatus } from './core/animals';
+import { SPECIES, SPECIES_ORDER, SpeciesId, animalStatus } from './core/animals';
 import { Command, applyCommand } from './core/commands';
 import { Farm, Gain } from './core/farm';
 import { SaveManager } from './persistence';
@@ -22,6 +22,7 @@ import { describeTile, reasonMessage } from './ui/messages';
 import { COIN_ICON, MOON_ICON, SOUND_OFF_ICON, SOUND_ON_ICON, SUN_ICON, hydrateIcons } from './ui/icons';
 import { Shop, ShopTab } from './ui/shop';
 import { Toolbar } from './ui/toolbar';
+import { cursorFor } from './ui/cursors';
 
 function required(id: string): HTMLElement {
   const found = document.getElementById(id);
@@ -217,6 +218,11 @@ function handleTap(tile: TileCoord | null): void {
     refreshUi(Date.now());
     return;
   }
+  if (toolbar.tool === 'olhar') {
+    // Look mode never changes anything: it only selects the tile for the info bar.
+    refreshUi(Date.now());
+    return;
+  }
   const command: Command = { type: 'tool', tool: toolbar.tool, i: tile.i, j: tile.j, crop: toolbar.crop };
   const ok = dispatch(command, game.screenPositionOf(tile));
   if (ok) {
@@ -228,6 +234,49 @@ function handleTap(tile: TileCoord | null): void {
     if (farm.level > lastLevelShown) game.burst('levelup', tile);
   }
   lastLevelShown = farm.level;
+}
+
+const tip = required('tip');
+const OBJECT_NAMES: Record<string, string> = { barn: 'Celeiro: toque para abrir' };
+
+/** In look mode, a small label follows the pointer and says what is underneath. */
+function handleHover(hit: { tile: TileCoord | null; object: string | null; x: number; y: number } | null): void {
+  if (!hit || toolbar.tool !== 'olhar') {
+    tip.hidden = true;
+    return;
+  }
+  let text = '';
+  if (hit.object) {
+    const species = hit.object.startsWith('pen:') ? (hit.object.slice(4) as SpeciesId) : null;
+    text = species ? penTip(species) : (OBJECT_NAMES[hit.object] ?? '');
+  } else if (hit.tile) {
+    text = describeTile(farm, hit.tile.i, hit.tile.j, Date.now());
+  }
+  tip.hidden = !text;
+  if (!text) return;
+  tip.textContent = text;
+  const rect = tip.getBoundingClientRect();
+  const x = Math.min(hit.x + 18, window.innerWidth - rect.width - 8);
+  const y = hit.y + 24 + rect.height > window.innerHeight ? hit.y - rect.height - 12 : hit.y + 24;
+  tip.style.transform = `translate(${Math.max(8, x)}px, ${Math.max(8, y)}px)`;
+}
+
+function penTip(species: SpeciesId): string {
+  const def = SPECIES[species];
+  const state = farm.pens[species];
+  if (!state) return `${def.penName}: ainda não construído`;
+  const now = Date.now();
+  let ready = 0;
+  let hungry = 0;
+  for (const a of state.animals) {
+    const phase = animalStatus(species, a, now).phase;
+    if (phase === 'ready') ready++;
+    else if (phase === 'hungry') hungry++;
+  }
+  const parts = [`${state.animals.length} ${def.name.toLowerCase()}${state.animals.length === 1 ? '' : 's'}`];
+  if (ready) parts.push(`${ready} pronto${ready === 1 ? '' : 's'}`);
+  if (hungry) parts.push(`${hungry} com fome`);
+  return `${def.penName}: ${parts.join(' · ')}`;
 }
 
 function handleObjectTap(id: string): void {
@@ -247,6 +296,7 @@ const container = required('game');
 const game = new Game(container, farm, {
   onTileTap: handleTap,
   onObjectTap: handleObjectTap,
+  onHover: handleHover,
   onFrame: (now) => {
     // The HUD only needs to refresh a few times a second.
     if (now - lastUiUpdate > 200) {
@@ -257,8 +307,13 @@ const game = new Game(container, farm, {
 }, startHour, params.has('freeze'));
 
 cropIcons = game.renderCropIcons();
+game.setToolCursor(cursorFor('olhar'));
 lastLevelShown = farm.level;
 toolbar = new Toolbar(required('toolbar'), required('seed-tray'), (m) => toast.show(m), cropIcons);
+toolbar.onToolChange = (mode) => {
+  game.setToolCursor(cursorFor(mode));
+  tip.hidden = true;
+};
 shop = new Shop(required('shop'), farm, cropIcons, (command) => {
   const ok = dispatch(command);
   return ok;

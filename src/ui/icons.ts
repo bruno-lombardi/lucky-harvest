@@ -71,6 +71,16 @@ const glove = `${open}>
   <path d="M38 5 L39.2 8.2 L42.5 9.4 L39.2 10.6 L38 14 L36.8 10.6 L33.5 9.4 L36.8 8.2Z" fill="#ffe14d" stroke="#c98300" stroke-width="1.4" stroke-linejoin="round"/>
 </svg>`;
 
+const look = `${open}>
+  <path d="M13 6 V26 L18.5 21.5 L22.5 31 L27 29 L23 19.8 L30.5 19.5 Z" fill="#fff4dc" ${line}/>
+  <circle cx="33" cy="33" r="7.5" fill="#cfe9ff" fill-opacity=".85" ${line}/>
+  <path d="M38.5 38.5 L44 44" stroke="${INK}" stroke-width="5.5" stroke-linecap="round"/>
+  <path d="M38.5 38.5 L44 44" stroke="#c98a3e" stroke-width="2.4" stroke-linecap="round"/>
+</svg>`;
+
+/** The neutral "look" mode: inspects tiles and buildings without changing anything. */
+export const LOOK_ICON = look;
+
 export const TOOL_ICONS: Record<Tool, string> = {
   colher: basket,
   arar: hoe,

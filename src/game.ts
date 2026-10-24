@@ -30,6 +30,8 @@ export interface GameEvents {
   onTileTap?: (tile: TileCoord | null) => void;
   /** A tap landed on a building: 'barn' or 'pen:<species>'. */
   onObjectTap?: (id: string) => void;
+  /** The pointer is over a tile and/or a building (null when it leaves the canvas). */
+  onHover?: (hit: { tile: TileCoord | null; object: string | null; x: number; y: number } | null) => void;
   /** Called every frame with the current wall-clock time in ms. */
   onFrame?: (now: number) => void;
 }
@@ -65,6 +67,7 @@ export class Game {
   private readonly projected = new Vector3();
 
   private hovered: TileCoord | null = null;
+  private toolCursor = '';
   private running = false;
 
   constructor(
@@ -114,12 +117,15 @@ export class Game {
 
     this.cameraController.onHover = (x, y) => {
       const object = this.objectPicker.pick(x, y);
-      this.renderer.domElement.style.cursor = object ? 'pointer' : '';
-      this.setHovered(object ? null : this.picker.pick(x, y));
+      const tile = object ? null : this.picker.pick(x, y);
+      this.renderer.domElement.style.cursor = object ? 'pointer' : this.toolCursor;
+      this.setHovered(tile);
+      this.events.onHover?.({ tile, object, x, y });
     };
     this.cameraController.onHoverEnd = () => {
-      this.renderer.domElement.style.cursor = '';
+      this.renderer.domElement.style.cursor = this.toolCursor;
       this.setHovered(null);
+      this.events.onHover?.(null);
     };
     this.cameraController.onTap = (x, y) => {
       const object = this.objectPicker.pick(x, y);
@@ -188,6 +194,12 @@ export class Game {
   /** Confetti and dust centred on the plot, for land expansion. */
   burstAtCenter(kind: BurstKind): void {
     this.effects.burst(kind, 0, 0);
+  }
+
+  /** The cursor shown over the world (the active tool's icon). */
+  setToolCursor(css: string): void {
+    this.toolCursor = css;
+    this.renderer.domElement.style.cursor = css;
   }
 
   setView(x: number, z: number, zoom: number): void {

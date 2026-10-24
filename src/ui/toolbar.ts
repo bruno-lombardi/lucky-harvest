@@ -1,9 +1,13 @@
-import { TOOLS, Tool } from '../core/actions';
+import { TOOLS } from '../core/actions';
 import { CROPS, CROP_ORDER, CropId } from '../core/crops';
 import { Farm } from '../core/farm';
-import { LOCK_ICON, TOOL_ICONS } from './icons';
+import { ToolMode } from './cursors';
+import { LOCK_ICON, LOOK_ICON, TOOL_ICONS } from './icons';
 
-const TOOL_LABEL: Record<Tool, string> = {
+const MODES: readonly ToolMode[] = ['olhar', ...TOOLS];
+
+const TOOL_LABEL: Record<ToolMode, string> = {
+  olhar: 'Olhar',
   colher: 'Colher',
   arar: 'Arar',
   semear: 'Semear',
@@ -14,10 +18,12 @@ const TOOL_LABEL: Record<Tool, string> = {
 
 /** Bottom toolbar plus the seed picker that appears while "Semear" is active. */
 export class Toolbar {
-  tool: Tool = 'colher';
+  tool: ToolMode = 'olhar';
+  /** Called whenever the active tool changes (to update the cursor). */
+  onToolChange: (tool: ToolMode) => void = () => {};
   crop: CropId = 'cenoura';
 
-  private readonly toolButtons = new Map<Tool, HTMLButtonElement>();
+  private readonly toolButtons = new Map<ToolMode, HTMLButtonElement>();
   private readonly cropButtons = new Map<CropId, HTMLButtonElement>();
   private lastSignature = '';
 
@@ -27,8 +33,8 @@ export class Toolbar {
     private readonly notify: (message: string) => void,
     cropIcons: Record<CropId, string>,
   ) {
-    for (const tool of TOOLS) {
-      const button = this.makeButton('tool', `<span class="pic">${TOOL_ICONS[tool]}</span><span class="name">${TOOL_LABEL[tool]}</span>`);
+    for (const tool of MODES) {
+      const button = this.makeButton('tool', `<span class="pic">${tool === 'olhar' ? LOOK_ICON : TOOL_ICONS[tool]}</span><span class="name">${TOOL_LABEL[tool]}</span>`);
       button.setAttribute('aria-label', TOOL_LABEL[tool]);
       button.addEventListener('click', () => this.selectTool(tool));
       this.toolButtons.set(tool, button);
@@ -73,7 +79,7 @@ export class Toolbar {
     }
   }
 
-  private selectTool(tool: Tool): void {
+  private selectTool(tool: ToolMode): void {
     // Tapping Semear again while it is active toggles the tray.
     if (tool === 'semear' && this.tool === 'semear') {
       this.tray.hidden = !this.tray.hidden;
@@ -81,6 +87,7 @@ export class Toolbar {
     }
     this.tool = tool;
     this.syncActive();
+    this.onToolChange(tool);
   }
 
   private selectCrop(id: CropId): void {

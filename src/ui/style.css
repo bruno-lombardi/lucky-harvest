@@ -1,0 +1,134 @@
+:root {
+  --font: 'Trebuchet MS', 'Lucida Grande', Verdana, sans-serif;
+  --sky-top: #5db7f2;
+  --sky-mid: #a6dcfb;
+  --sky-bottom: #e4f6ff;
+  --gold-1: #ffe98a;
+  --gold-2: #f7b928;
+  --gold-3: #c98410;
+  --wood-1: #b97a3e;
+  --wood-2: #8a5527;
+  --ink: #4a2b0f;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font);
+  color: var(--ink);
+  background: linear-gradient(to bottom, var(--sky-top) 0%, var(--sky-mid) 55%, var(--sky-bottom) 100%);
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+}
+
+#game canvas {
+  display: block;
+  cursor: grab;
+}
+
+#game canvas:active {
+  cursor: grabbing;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hud-top {
+  display: flex;
+  gap: 10px;
+}
+
+/* Glossy, bevelled 2008-era badges. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 92px;
+  padding: 6px 16px 6px 12px;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(74, 43, 15, 0.55);
+  border-radius: 999px;
+  border: 2px solid var(--gold-3);
+  background: linear-gradient(to bottom, var(--gold-1) 0%, var(--gold-2) 48%, #e59a14 52%, var(--gold-2) 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.75),
+    inset 0 -3px 0 rgba(160, 90, 0, 0.35),
+    0 3px 0 rgba(120, 70, 10, 0.55),
+    0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.badge .label {
+  font-size: 12px;
+  text-transform: uppercase;
+  opacity: 0.95;
+}
+
+.badge .icon {
+  font-size: 22px;
+  filter: drop-shadow(0 2px 0 rgba(120, 70, 10, 0.5));
+}
+
+.hud-tile {
+  align-self: center;
+  margin-bottom: 6px;
+  padding: 6px 18px;
+  font-weight: 700;
+  font-size: 15px;
+  color: #fff3d6;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  border: 2px solid #5b3517;
+  background: linear-gradient(to bottom, var(--wood-1), var(--wood-2));
+  box-shadow:
+    inset 0 2px 0 rgba(255, 220, 160, 0.45),
+    0 3px 0 rgba(60, 30, 10, 0.55),
+    0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.hud-hint {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  max-width: 46vw;
+  padding: 5px 12px;
+  font-size: 12px;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 2px rgba(20, 70, 110, 0.7);
+  background: rgba(30, 90, 140, 0.25);
+  border-radius: 999px;
+}
+
+@media (max-width: 520px) {
+  .badge {
+    font-size: 17px;
+    min-width: 78px;
+  }
+  .hud-hint {
+    display: none;
+  }
+}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#7ec850" />
+    <title>Lucky Harvest</title>
+    <link rel="stylesheet" href="/src/ui/style.css" />
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="hud">
+      <div class="hud-top">
+        <div class="badge level"><span class="label">Nível</span><span id="hud-level">1</span></div>
+        <div class="badge coins"><span class="icon">🪙</span><span id="hud-coins">0</span></div>
+      </div>
+      <div class="hud-tile" id="hud-tile">—</div>
+      <div class="hud-hint">Arraste para mover · Role/pinça para zoom</div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

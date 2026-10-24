@@ -27,9 +27,9 @@ const WINDOW_S = BRAKE_S + (APPROACH - (TOP_SPEED * BRAKE_S) / 2) / TOP_SPEED;
 export type TruckCue = 'honk' | 'unload';
 
 /** Seconds from the nearest delivery slot (negative = still on its way). */
-export function truckClock(now: number): { slot: number; t: number } {
-  const slot = Math.round(now / DELIVERY_INTERVAL_MS);
-  return { slot, t: (now - slot * DELIVERY_INTERVAL_MS) / 1000 };
+export function truckClock(now: number, interval = DELIVERY_INTERVAL_MS): { slot: number; t: number } {
+  const slot = Math.round(now / interval);
+  return { slot, t: (now - slot * interval) / 1000 };
 }
 
 /**
@@ -54,13 +54,13 @@ export class DeliveryView {
   }
 
   /** Seconds until the next truck pulls up (for hints). */
-  static secondsToNext(now: number): number {
-    const next = slotTime(slotOf(now) + 1);
+  static secondsToNext(now: number, interval = DELIVERY_INTERVAL_MS): number {
+    const next = slotTime(slotOf(now, interval) + 1, interval);
     return Math.max(0, (next - now) / 1000);
   }
 
-  update(now: number): void {
-    const { slot, t } = truckClock(now);
+  update(now: number, interval = DELIVERY_INTERVAL_MS): void {
+    const { slot, t } = truckClock(now, interval);
     const { truck } = this;
     const visible = t > -WINDOW_S && t < STOP_S + WINDOW_S;
     truck.group.visible = visible;

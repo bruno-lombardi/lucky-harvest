@@ -1502,3 +1502,28 @@ button.tool {
   text-align: left;
   font-weight: 600;
 }
+
+
+/* ---- Rarity ---------------------------------------------------------- */
+.rar {
+  display: inline-block;
+  margin-left: 0.45em;
+  padding: 0.05em 0.5em;
+  border-radius: 999px;
+  font-size: 0.62em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: 0.18em;
+  color: #fff;
+  background: var(--rar, #4fae3a);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+.rar-incomum { --rar: #4fae3a; }
+.rar-rara { --rar: #3f7fe0; }
+.rar-epica { --rar: #d99213; }
+.shop-row.rar-rara .pic,
+.seed.rar-rara .pic { box-shadow: 0 0 0 2px #3f7fe0, 0 0 10px rgba(63, 127, 224, 0.55); border-radius: 12px; }
+.shop-row.rar-epica .pic,
+.seed.rar-epica .pic { box-shadow: 0 0 0 2px #e0a21a, 0 0 12px rgba(255, 200, 60, 0.75); border-radius: 12px; }
+.shop-row.rar-incomum .pic,
+.seed.rar-incomum .pic { box-shadow: 0 0 0 2px rgba(79, 174, 58, 0.7); border-radius: 12px; }

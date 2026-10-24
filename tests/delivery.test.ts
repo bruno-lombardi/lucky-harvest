@@ -33,11 +33,23 @@ describe('seed delivery', () => {
 
   it('brings pricier crops once they are unlocked', () => {
     const seen = new Set<string>();
-    for (let slot = 0; slot < 300; slot++) {
-      const load = rollDelivery(3, slot, 8);
+    for (let slot = 0; slot < 6000; slot++) {
+      const load = rollDelivery(3, slot, 30);
       for (const id of CROP_ORDER) if (load[id] > 0) seen.add(id);
     }
     expect(seen.size).toBe(CROP_ORDER.length);
+  });
+
+  it('brings rare seeds far less often than common ones', () => {
+    let common = 0;
+    let rare = 0;
+    for (let slot = 0; slot < 3000; slot++) {
+      const load = rollDelivery(11, slot, 30);
+      common += load.milho;
+      rare += load.pitaya;
+    }
+    expect(rare).toBeGreaterThan(0);
+    expect(rare).toBeLessThan(common / 3); // one rare crop against one common crop
   });
 
   it('delivers once per five minutes, exactly on the slot', () => {
@@ -80,21 +92,21 @@ describe('seed delivery', () => {
     const farm = new Farm({ seed: 5, now: START });
     farm.runHelpers(START + 2 * DELIVERY_INTERVAL_MS);
     const snapshot = farm.toSnapshot();
-    expect(snapshot.version).toBe(5);
+    expect(snapshot.version).toBe(6);
     expect(Farm.fromSnapshot(snapshot).toSnapshot()).toEqual(snapshot);
 
-    const { version: _v, deliveredSlot: _d, ...rest } = snapshot;
+    const { version: _v, deliveredSlot: _d, truck: _t, ...rest } = snapshot;
     const v4 = { ...rest, version: 4 as const };
     const old = Farm.fromSnapshot(v4);
     expect(old.deliveredSlot).toBe(0);
     const { helpers: _h, ...v3rest } = v4;
-    expect(Farm.fromSnapshot({ ...v3rest, version: 3 }).toSnapshot().version).toBe(5);
+    expect(Farm.fromSnapshot({ ...v3rest, version: 3 }).toSnapshot().version).toBe(6);
   });
 
   it('migrates a v4 save file with a fresh sync history', () => {
     const farm = new Farm({ seed: 6, now: START });
     const snapshot = farm.toSnapshot();
-    const { version: _v, deliveredSlot: _d, ...rest } = snapshot;
+    const { version: _v, deliveredSlot: _d, truck: _t, ...rest } = snapshot;
     const v4 = { ...rest, version: 4 };
     const text = JSON.stringify({
       format: 'lucky-harvest',
@@ -111,7 +123,7 @@ describe('seed delivery', () => {
     const decoded = decodeSave(fixed);
     expect(decoded.ok).toBe(true);
     if (decoded.ok) {
-      expect(decoded.save.state.version).toBe(5);
+      expect(decoded.save.state.version).toBe(6);
       expect(decoded.save.sync.outbox).toEqual([]);
       expect(decoded.save.sync.baseline).toEqual(decoded.save.state);
     }
@@ -141,5 +153,54 @@ describe('seed delivery', () => {
     server.runHelpers(START + 14 * 60_000 + 1);
     live.runHelpers(START + 14 * 60_000 + 1);
     expect(server.toSnapshot()).toEqual(live.toSnapshot());
+  });
+});
+
+describe('truck upgrades', () => {
+  const T0 = 1_700_000_000_000;
+  const rich = (): Farm => {
+    const farm = new Farm({ seed: 5, now: T0 });
+    farm.coins = 100_000;
+    farm.xp = levelThreshold(25);
+    return farm;
+  };
+
+  it('are gated by level and coins and bought once', () => {
+    const farm = new Farm({ seed: 5, now: T0 });
+    expect(farm.upgradeTruck('big', T0)).toEqual({ ok: false, reason: 'truck-locked' });
+    farm.xp = levelThreshold(10);
+    expect(farm.upgradeTruck('big', T0)).toEqual({ ok: false, reason: 'no-coins' });
+    farm.coins = 5000;
+    expect(farm.upgradeTruck('big', T0).ok).toBe(true);
+    expect(farm.upgradeTruck('big', T0)).toEqual({ ok: false, reason: 'max-level' });
+  });
+
+  it('a bigger load brings more seeds', () => {
+    const farm = rich();
+    farm.upgradeTruck('big', T0);
+    const before = Object.values(farm.seeds).reduce((a, b) => a + b, 0);
+    farm.runHelpers(T0 + DELIVERY_INTERVAL_MS);
+    const after = Object.values(farm.seeds).reduce((a, b) => a + b, 0);
+    expect(after - before).toBe(10);
+  });
+
+  it('a faster truck comes every four minutes', () => {
+    const farm = rich();
+    farm.upgradeTruck('fast', T0);
+    const slots = farm.deliveredSlot;
+    farm.runHelpers(T0 + 12 * 60 * 1000 + 1);
+    expect(farm.deliveredSlot - slots).toBeGreaterThanOrEqual(3);
+    expect(farm.toSnapshot().truck).toEqual({ big: false, fast: true });
+  });
+
+  it('replays to the same state through commands', () => {
+    const a = rich();
+    const log: LoggedCommand[] = [{ command: { type: 'upgradeTruck', upgrade: 'fast' }, now: T0 + 1000 }];
+    const base = a.toSnapshot();
+    const live = Farm.fromSnapshot(base);
+    for (const e of log) applyCommand(live, e.command, e.now);
+    const again = Farm.fromSnapshot(base);
+    replay(again, log);
+    expect(again.toSnapshot()).toEqual(live.toSnapshot());
   });
 });

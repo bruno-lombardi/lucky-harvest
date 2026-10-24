@@ -1,6 +1,7 @@
 import { applyTool, Tool } from './actions';
 import { ProductId, SpeciesId } from './animals';
 import { CropId } from './crops';
+import { TruckUpgradeId } from './delivery';
 import { HelperId } from './helpers';
 import { ActionResult, Farm } from './farm';
 
@@ -19,6 +20,7 @@ export type Command =
   | { type: 'expandLand' }
   | { type: 'buildPen'; species: SpeciesId }
   | { type: 'upgradePen'; species: SpeciesId }
+  | { type: 'upgradeTruck'; upgrade: TruckUpgradeId }
   | { type: 'buyAnimal'; species: SpeciesId }
   | { type: 'buyFeed'; species: SpeciesId; qty: number }
   | { type: 'craftFeed'; species: SpeciesId; batches: number }
@@ -56,6 +58,8 @@ export function applyCommand(farm: Farm, command: Command, now: number): ActionR
       return farm.buildPen(command.species);
     case 'upgradePen':
       return farm.upgradePen(command.species);
+    case 'upgradeTruck':
+      return farm.upgradeTruck(command.upgrade, now);
     case 'buyAnimal':
       return farm.buyAnimal(command.species);
     case 'buyFeed':

@@ -63,6 +63,7 @@ export class Toolbar {
     if (signature === this.lastSignature) return;
     this.lastSignature = signature;
 
+    const firstLocked = CROP_ORDER.find((id) => farm.level < CROPS[id].unlockLevel);
     for (const id of CROP_ORDER) {
       const crop = CROPS[id];
       const button = this.cropButtons.get(id);
@@ -72,6 +73,9 @@ export class Toolbar {
       const poor = !locked && owned < 1;
       button.classList.toggle('locked', locked);
       button.classList.toggle('poor', poor);
+      button.classList.toggle(`rar-${crop.rarity}`, true);
+      // Only the next seed to unlock shows as locked: the rest stay hidden until it is close.
+      button.hidden = locked && id !== firstLocked;
       const cost = button.querySelector('.cost');
       if (cost) {
         cost.innerHTML = locked

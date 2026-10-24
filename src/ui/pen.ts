@@ -90,7 +90,7 @@ export class PenDialog extends Modal {
     let ready = 0;
     const animals = pen.animals
       .map((animal, n) => {
-        const status = animalStatus(species, animal, now);
+        const status = animalStatus(species, animal, now, pen.level);
         let info: string;
         let button = '';
         if (status.phase === 'hungry') {
@@ -138,15 +138,13 @@ export class PenDialog extends Modal {
     const upgradeRow = next
       ? row(
           PEN_ICON,
-          `<b>Melhorar para nível ${next.level}</b><small>${coin(next.cost)} · mais espaço</small>`,
-          `<button type="button" class="buy wide" data-act="upgrade" ${farm.coins < next.cost ? 'disabled' : ''}>Melhorar</button>`,
+          `<b>Melhorar para nível ${next.level}</b><small>${
+            farm.level < next.unlockLevel ? `<i class="ico">${LOCK_ICON}</i>Libera no nível ${next.unlockLevel}` : `${coin(next.cost)} · mais espaço e produção mais rápida`
+          }</small>`,
+          `<button type="button" class="buy wide" data-act="upgrade" ${farm.coins < next.cost || farm.level < next.unlockLevel ? 'disabled' : ''}>Melhorar</button>`,
+          farm.level < next.unlockLevel,
         )
-      : row(
-          PEN_ICON,
-          `<b>Melhorias</b><small><i class="ico">${LOCK_ICON}</i>Em breve: mais espaço e produção</small>`,
-          `<button type="button" class="buy wide" disabled>Em breve</button>`,
-          true,
-        );
+      : row(PEN_ICON, `<b>Melhorias</b><small>Tudo melhorado: este abrigo está no máximo</small>`, '', false);
 
     const bulk =
       `<div class="bulk">` +

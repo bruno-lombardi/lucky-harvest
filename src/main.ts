@@ -1,6 +1,6 @@
 import '@fontsource-variable/fredoka';
 import './ui/style.css';
-import { slotOf, slotTime } from './core/delivery';
+import { deliveryInterval, slotOf, slotTime } from './core/delivery';
 import { CROPS, CROP_ORDER, CropId } from './core/crops';
 import { SPECIES, SPECIES_ORDER, SpeciesId, animalStatus } from './core/animals';
 import { Command, applyCommand } from './core/commands';
@@ -234,6 +234,7 @@ function commandEffects(command: Command): void {
       audio.play('collect');
       break;
     case 'upgradePen':
+    case 'upgradeTruck':
       audio.play('build');
       break;
     case 'hireHelper': {
@@ -285,6 +286,11 @@ function showGain(gain: Gain, at: { x: number; y: number }): void {
     offset += 24;
   };
   if (gain.item) emit(`+${gain.item.qty}`, 'coins', `<img alt="" src="${cropIcons[gain.item.cropId]}" />`);
+  if (gain.item?.golden) {
+    emit('Colheita dourada!', 'level');
+    toast.show(`Colheita dourada: ${CROPS[gain.item.cropId].name} em dobro!`, 2600);
+    audio.play('levelup', 0.6);
+  }
   if (gain.product) emit(`+${gain.product.qty}`, 'coins', PRODUCT_ICONS[gain.product.productId]);
   if (gain.coins > 0) emit(`+${gain.coins}`, 'coins', COIN_ICON);
   if (gain.coins < 0) emit(`${gain.coins}`, 'spend', COIN_ICON);
@@ -527,7 +533,7 @@ refreshUi(Date.now());
 // add `&stopclock` to hold it there.
 if (truckParam !== null && Number.isFinite(Number(truckParam))) {
   const nowMs = Date.now();
-  const at = slotTime(slotOf(nowMs) + 1) + Number(truckParam) * 1000;
+  const at = slotTime(slotOf(nowMs, deliveryInterval(farm.truck)) + 1, deliveryInterval(farm.truck)) + Number(truckParam) * 1000;
   if (params.has('stopclock')) game.freezeClockAt(at);
   else game.setClockOffset(at - nowMs);
 }

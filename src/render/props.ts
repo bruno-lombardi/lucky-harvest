@@ -754,6 +754,10 @@ export class Props {
   private readonly land = new Group();
   private readonly scarecrow: Group;
   private landSize = 0;
+  private readonly hay: Group;
+  private readonly lamp: Group;
+  private readonly pond: Group;
+  private readonly sign: Group;
   private readonly glass: MeshBasicMaterial;
   private readonly lampGlow: Sprite;
   /** The clickable barn (tagged with `userData.pickId = 'barn'`). */
@@ -762,15 +766,16 @@ export class Props {
   constructor(private readonly gradientMap: DataTexture, landSize: number) {
     const palette = new Palette(gradientMap);
     this.glass = palette.glass;
-    this.group.add(this.land, buildHay(palette), buildFarmEdge(palette));
+    this.hay = buildHay(palette);
+    this.group.add(this.land, this.hay, buildFarmEdge(palette));
 
     const lamp = buildLamp(palette);
-    lamp.group.position.set(-6.5, 0, GATE_Z - 1.5);
+    this.lamp = lamp.group;
     this.lampGlow = lamp.glow;
     this.group.add(lamp.group);
 
     const pond = buildPond(palette);
-    pond.position.set(POND.x, 0, POND.z);
+    this.pond = pond;
     this.group.add(pond);
 
     const barn = buildBarn(palette);
@@ -790,7 +795,7 @@ export class Props {
     this.group.add(this.scarecrow);
 
     const sign = buildSign(palette);
-    sign.position.set(-6.3, 0, -2.3);
+    this.sign = sign;
     sign.rotation.y = Math.PI / 4;
     this.group.add(sign);
 
@@ -812,7 +817,15 @@ export class Props {
     }
     const palette = new Palette(this.gradientMap);
     this.land.add(buildFence(palette, half), buildPath(palette, half));
-    this.scarecrow.position.set(half + 1.05, 0, 1.6);
+    // The 12×12 plot reaches the props around it, so they step outwards (the pens on the east stay put).
+    const extra = Math.max(0, half - (10 / 2 + FENCE_MARGIN));
+    this.lamp.position.set(-6.5 - extra, 0, GATE_Z - 1.5);
+    this.pond.position.set(POND.x, 0, POND.z + extra);
+    this.sign.position.set(-6.3 - extra, 0, -2.3);
+    this.hay.position.set(-extra, 0, extra * 0.6);
+    // Beside the plot on the east normally; on the biggest plot that is where the pens are, so it moves north.
+    if (extra > 0) this.scarecrow.position.set(2.2, 0, -(half + 1.0));
+    else this.scarecrow.position.set(half + 1.05, 0, 1.6);
   }
 
   /** 0 = day, 1 = night: lights up the windows and the lamp. */

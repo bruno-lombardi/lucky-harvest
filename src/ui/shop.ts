@@ -1,11 +1,12 @@
 import { PRODUCTS, PRODUCT_ORDER, SPECIES, SPECIES_ORDER, SpeciesId, penCapacity } from '../core/animals';
 import { CROPS, CROP_ORDER, CropId } from '../core/crops';
+import { TRUCK_UPGRADES, TRUCK_UPGRADE_ORDER, TruckUpgradeId } from '../core/delivery';
 import { Farm } from '../core/farm';
 import { HELPERS, HELPER_ORDER, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage, nextHelperUpgrade } from '../core/helpers';
 import { formatDuration } from './messages';
-import { BARN_ICON, LAND_ICON, LOCK_ICON, SHOP_ICON } from './icons';
+import { BARN_ICON, LAND_ICON, LOCK_ICON, SHOP_ICON, TRUCK_ICON } from './icons';
 import { FEED_ICONS, HELPER_ICONS, PRODUCT_ICONS, SPECIES_ICONS } from './item-icons';
-import { Dispatch, coin, empty, heading, img, row } from './kit';
+import { Dispatch, coin, empty, heading, img, rarityBadge, row } from './kit';
 import { Modal } from './modal';
 
 export type ShopTab = 'seeds' | 'feed' | 'sell' | 'animals' | 'helpers' | 'land';
@@ -16,7 +17,7 @@ const TABS = [
   { id: 'sell', label: 'Vender' },
   { id: 'animals', label: 'Animais' },
   { id: 'helpers', label: 'Ajudantes' },
-  { id: 'land', label: 'Terreno' },
+  { id: 'land', label: 'Fazenda' },
 ] as const;
 
 /** The village market: seeds, feed, selling, animals and pens, and land. */
@@ -83,6 +84,9 @@ export class Shop extends Modal<ShopTab> {
       case 'expand':
         this.dispatch({ type: 'expandLand' });
         break;
+      case 'truck':
+        this.dispatch({ type: 'upgradeTruck', upgrade: data['upgrade'] as TruckUpgradeId });
+        break;
       case 'build':
         this.dispatch({ type: 'buildPen', species: species! });
         break;
@@ -107,14 +111,15 @@ export class Shop extends Modal<ShopTab> {
     return CROP_ORDER.map((id) => {
       const crop = CROPS[id];
       const locked = farm.level < crop.unlockLevel;
+      const badge = rarityBadge(crop.rarity);
       const info = locked
-        ? `<b>${crop.name}</b><small><i class="ico">${LOCK_ICON}</i>Libera no nível ${crop.unlockLevel}</small>`
-        : `<b>${crop.name}</b><small>${coin(crop.seedCost)} cada · você tem ${farm.seeds[id]}</small>`;
+        ? `<b>${crop.name}${badge}</b><small><i class="ico">${LOCK_ICON}</i>Libera no nível ${crop.unlockLevel}</small>`
+        : `<b>${crop.name}${badge}</b><small>${coin(crop.seedCost)} cada · você tem ${farm.seeds[id]}</small>`;
       const button = (qty: number): string =>
         `<button type="button" class="buy" data-act="buy" data-crop="${id}" data-qty="${qty}" ${
           locked || farm.coins < crop.seedCost * qty ? 'disabled' : ''
         }>×${qty}</button>`;
-      return row(img(this.cropIcons[id]), info, locked ? '' : `${button(1)}${button(5)}${button(10)}`, locked, `crop:${id}`);
+      return row(img(this.cropIcons[id]), info, locked ? '' : `${button(1)}${button(5)}${button(10)}`, locked, `crop:${id}`, `rar-${crop.rarity}`);
     }).join('');
   }
 
@@ -248,11 +253,36 @@ export class Shop extends Modal<ShopTab> {
     const { farm } = this;
     const next = farm.nextExpansion();
     const now = `${farm.landSize}×${farm.landSize}`;
+    return `${this.landCard(next, now)}${this.truckHtml()}`;
+  }
+
+  private truckHtml(): string {
+    const { farm } = this;
+    const rows = TRUCK_UPGRADE_ORDER.map((id) => {
+      const def = TRUCK_UPGRADES[id];
+      const owned = farm.truck[id];
+      const locked = farm.level < def.level;
+      const detail = owned ? 'Comprado' : locked ? `<i class="ico">${LOCK_ICON}</i>Libera no nível ${def.level}` : coin(def.cost);
+      const button = owned
+        ? `<button type="button" class="buy wide" disabled>Comprado</button>`
+        : `<button type="button" class="buy wide" data-act="truck" data-upgrade="${id}" ${locked || farm.coins < def.cost ? 'disabled' : ''}>Comprar</button>`;
+      return row(
+        `<i class="ico">${TRUCK_ICON}</i>`,
+        `<b>${def.name}</b><small>${def.text} ${detail}</small>`,
+        button,
+        locked && !owned,
+        `truck:${id}`,
+      );
+    }).join('');
+    return `${heading('Caminhão de sementes')}${rows}`;
+  }
+
+  private landCard(next: ReturnType<Farm['nextExpansion']>, now: string): string {
     if (!next) {
-      return empty(LAND_ICON, `Seu terreno está no tamanho máximo (${now}).`, 'Mais terras virão em breve.');
+      return empty(LAND_ICON, `Seu terreno está no tamanho máximo (${now}).`, 'Você já tem toda a terra da fazenda.');
     }
-    const levelOk = farm.level >= next.level;
-    const coinsOk = farm.coins >= next.cost;
+    const levelOk = this.farm.level >= next.level;
+    const coinsOk = this.farm.coins >= next.cost;
     return `
       <div class="land-card" data-info="land:next">
         <i class="ico big">${LAND_ICON}</i>

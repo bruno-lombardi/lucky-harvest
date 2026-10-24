@@ -9,7 +9,9 @@ import {
   Float32BufferAttribute,
   Group,
   Mesh,
+  MeshBasicMaterial,
   MeshToonMaterial,
+  RingGeometry,
   SphereGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -114,6 +116,26 @@ function makeRibbedSphere(ribs: number, depth: number): BufferGeometry {
   return geometry;
 }
 
+/** Sphere with dark vertical stripes (watermelon). Vertex colours carry the pattern. */
+function makeStripedSphere(stripes: number): BufferGeometry {
+  const geometry = new SphereGeometry(1, 30, 20);
+  const position = geometry.attributes['position'] as BufferAttribute;
+  const colors: number[] = [];
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    const y = position.getY(i);
+    const z = position.getZ(i);
+    // Stripes run pole to pole and wobble a little, like the real thing.
+    const angle = Math.atan2(z, x) + 0.18 * Math.sin(y * 5);
+    const dark = Math.cos(angle * stripes) > 0.35;
+    const shade = dark ? 0.52 : 1;
+    colors.push(shade, shade, shade);
+  }
+  geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 // ---------------------------------------------------------------------------
 // Shared kit
 // ---------------------------------------------------------------------------
@@ -130,6 +152,8 @@ export class CropKit {
   readonly fern = makeFernGeometry();
   readonly ribbedPumpkin = makeRibbedSphere(10, 0.09);
   readonly ribbedTomato = makeRibbedSphere(6, 0.035);
+  readonly striped = makeStripedSphere(6);
+  readonly prism = new CylinderGeometry(1, 1, 1, 3);
 
   private readonly toon = new Map<number, MeshToonMaterial>();
   private readonly leaf = new Map<number, MeshToonMaterial>();
@@ -494,6 +518,237 @@ function buildGourd(c: Context): Group {
   return g;
 }
 
+function buildSunflower(c: Context): Group {
+  const g = new Group();
+  const height = (c.stage === 2 ? 0.46 : 0.78) * (c.withered ? 0.9 : 1);
+  g.add(stem(c.kit, c.withered ? DRY_STEM : 0x5fa032, height, 0.026));
+  for (let n = 0; n < 6; n++) {
+    const t = n / 5;
+    g.add(frond(c.kit, c.kit.leafBroad, c.leaf, 0.26 - 0.07 * t, 0.9, (0.5 + 0.2 * (n % 2)) * c.droop, n * 2.4, 0.06 + t * height * 0.7));
+  }
+  const head = new Group();
+  head.position.set(0, height + 0.02, 0.03);
+  head.rotation.x = c.withered ? 1.2 : c.ripe ? -0.55 : -0.2;
+  if (c.ripe) {
+    for (let n = 0; n < 16; n++) {
+      const a = (n / 16) * Math.PI * 2;
+      const petal = new Mesh(c.kit.cone, c.kit.material(n % 2 === 0 ? c.def.colors.fruit : 0xffd84a));
+      petal.scale.set(0.05, 0.13, 0.012);
+      petal.position.set(Math.cos(a) * 0.19, Math.sin(a) * 0.19, 0);
+      petal.rotation.z = a - Math.PI / 2;
+      petal.castShadow = true;
+      head.add(petal);
+    }
+    head.add(blob(c.kit, 0x5a3a1c, 0.15, 0.15, 0.06, 0, 0, 0.02, true));
+    head.add(blob(c.kit, 0x7a5228, 0.09, 0.09, 0.03, 0, 0, 0.065));
+  } else if (c.stage === 2 && !c.withered) {
+    head.add(blob(c.kit, 0x5fa032, 0.09, 0.09, 0.07, 0, 0, 0, true));
+    for (let n = 0; n < 8; n++) {
+      const a = (n / 8) * Math.PI * 2;
+      const sepal = new Mesh(c.kit.cone, c.kit.material(0x4a9a2e));
+      sepal.scale.set(0.03, 0.07, 0.01);
+      sepal.position.set(Math.cos(a) * 0.075, Math.sin(a) * 0.075, 0.02);
+      sepal.rotation.z = a - Math.PI / 2;
+      head.add(sepal);
+    }
+  } else {
+    head.add(blob(c.kit, DRY_STEM, 0.12, 0.12, 0.04, 0, 0, 0));
+  }
+  g.add(head);
+  return g;
+}
+
+function buildMelon(c: Context): Group {
+  const g = new Group();
+  for (let n = 0; n < 7; n++) {
+    g.add(frond(c.kit, c.kit.leafBroad, c.leaf, 0.3, 1.1, (0.38 + 0.1 * (n % 2)) * c.droop, n * 0.95, 0.06));
+  }
+  for (const yaw of [0.5, 2.7, 4.4]) {
+    g.add(frond(c.kit, c.kit.leafVine, c.withered ? DRY_STEM : 0x4f9a35, 0.5, 1, 0.02, yaw, 0.04));
+  }
+  if (c.stage === 2 && !c.withered) {
+    g.add(ribbedFruit(c.kit, c.kit.striped, 0x58b04a, 0.07, 0.06, 0.085, -0.16, 0.06, 0.1));
+    const flower = new Mesh(c.kit.cone, c.kit.material(0xffe14a));
+    flower.scale.set(0.05, 0.09, 0.05);
+    flower.position.set(0.17, 0.12, 0.1);
+    flower.rotation.x = Math.PI;
+    g.add(flower);
+  }
+  if (c.ripe) {
+    g.add(ribbedFruit(c.kit, c.kit.striped, c.def.colors.fruit, 0.2, 0.17, 0.27, 0, 0.17, 0));
+    g.add(ribbedFruit(c.kit, c.kit.striped, c.def.colors.fruit, 0.1, 0.085, 0.13, 0.27, 0.085, 0.15));
+    const curl = stem(c.kit, 0x6b7a2c, 0.08, 0.02, 0, 0.0, 0.31);
+    curl.rotation.z = 0.35;
+    g.add(curl);
+  }
+  return g;
+}
+
+function buildCactus(c: Context): Group {
+  const g = new Group();
+  const green = c.withered ? DRY_STEM : c.leaf;
+  const arms: ReadonlyArray<readonly [number, number, number, number]> = [
+    // x, z, lean, height
+    [0, 0, 0, 0.62],
+    [-0.15, 0.03, 0.55, 0.42],
+    [0.14, -0.04, -0.5, 0.38],
+  ];
+  for (const [x, z, lean, h0] of arms) {
+    const h = h0 * (c.stage === 2 ? 0.75 : 1) * (c.withered ? 0.85 : 1);
+    const col = new Group();
+    col.position.set(x, 0.02, z);
+    col.rotation.z = lean * (c.withered ? 1.4 : 1);
+    const body = new Mesh(c.kit.prism, c.kit.material(green));
+    body.scale.set(0.07, h, 0.07);
+    body.position.y = h / 2;
+    body.castShadow = true;
+    addOutline(body, OUTLINE);
+    col.add(body);
+    // Spines along the three ridges.
+    for (let k = 0; k < 6; k++) {
+      const a = (k % 3) * ((Math.PI * 2) / 3) + Math.PI / 6;
+      const spine = new Mesh(c.kit.cone, c.kit.material(0xf6f1d8));
+      spine.scale.set(0.008, 0.04, 0.008);
+      spine.position.set(Math.cos(a) * 0.075, h * (0.2 + 0.14 * k), Math.sin(a) * 0.075);
+      spine.rotation.z = -Math.cos(a) * 1.2;
+      spine.rotation.x = Math.sin(a) * 1.2;
+      col.add(spine);
+    }
+    g.add(col);
+  }
+  if (c.stage === 2 && !c.withered) {
+    // A pale night-blooming flower on the tallest arm.
+    for (let n = 0; n < 8; n++) {
+      const a = (n / 8) * Math.PI * 2;
+      const petal = new Mesh(c.kit.cone, c.kit.material(0xfff3f8));
+      petal.scale.set(0.025, 0.09, 0.01);
+      petal.position.set(Math.cos(a) * 0.05, 0.6, Math.sin(a) * 0.05);
+      petal.rotation.set(Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9);
+      g.add(petal);
+    }
+    g.add(blob(c.kit, 0xffd84a, 0.025, 0.025, 0.025, 0, 0.62, 0));
+  }
+  if (c.ripe) {
+    const spots: ReadonlyArray<readonly [number, number, number]> = [
+      [0.03, 0.66, 0.05],
+      [-0.27, 0.38, 0.09],
+      [0.25, 0.34, -0.08],
+    ];
+    for (const [x, y, z] of spots) {
+      const fruit = new Group();
+      fruit.position.set(x, y, z);
+      fruit.add(blob(c.kit, c.def.colors.fruit, 0.075, 0.1, 0.075, 0, 0.02, 0, true));
+      for (let k = 0; k < 7; k++) {
+        const a = k * 0.9;
+        const scale = new Mesh(c.kit.cone, c.kit.material(0x5cc46a));
+        scale.scale.set(0.022, 0.07, 0.01);
+        scale.position.set(Math.cos(a) * 0.07, 0.02 + (k % 3) * 0.04, Math.sin(a) * 0.07);
+        scale.rotation.set(Math.sin(a) * 1.1, 0, -Math.cos(a) * 1.1);
+        fruit.add(scale);
+      }
+      g.add(fruit);
+    }
+  }
+  return g;
+}
+
+function grapeCluster(c: Context, x: number, y: number, z: number, scale: number, color: number): Group {
+  const cluster = new Group();
+  cluster.position.set(x, y, z);
+  const rows = [1, 2, 3, 2, 1];
+  rows.forEach((count, row) => {
+    for (let k = 0; k < count; k++) {
+      const offset = (k - (count - 1) / 2) * 0.05;
+      cluster.add(blob(c.kit, color, 0.027 * scale, 0.027 * scale, 0.027 * scale, offset * scale, -row * 0.042 * scale, ((k + row) % 2) * 0.02 * scale, true));
+    }
+  });
+  return cluster;
+}
+
+function buildVine(c: Context): Group {
+  const g = new Group();
+  // A wooden post and crossbar the vine climbs.
+  const wood = 0xb98a4b;
+  g.add(stem(c.kit, wood, 0.8, 0.022, -0.2, 0));
+  g.add(stem(c.kit, wood, 0.8, 0.022, 0.2, 0));
+  const bar = new Mesh(c.kit.stalk, c.kit.material(wood));
+  bar.scale.set(0.016, 0.44, 0.016);
+  bar.rotation.z = Math.PI / 2;
+  bar.position.set(0, 0.74, 0);
+  g.add(bar);
+  const height = c.stage === 2 ? 0.55 : 0.78;
+  g.add(stem(c.kit, c.withered ? DRY_STEM : 0x6b8a3a, height, 0.016, 0.02, 0));
+  for (let n = 0; n < 9; n++) {
+    const t = n / 8;
+    const side = n % 2 === 0 ? 1 : -1;
+    g.add(frond(c.kit, c.kit.leafBroad, c.leaf, 0.26 - 0.04 * t, 1, (0.55 + 0.25 * (n % 3) * 0.5) * c.droop, side * 1.2 + n * 0.5, 0.12 + t * height * 0.9));
+  }
+  if (c.stage === 2 && !c.withered) {
+    g.add(grapeCluster(c, 0.05, 0.62, 0.06, 0.55, 0x9ac24a));
+  }
+  if (c.ripe) {
+    g.add(grapeCluster(c, -0.12, 0.7, 0.07, 1.1, c.def.colors.fruit));
+    g.add(grapeCluster(c, 0.12, 0.66, -0.06, 0.95, 0x8a4fc0));
+    g.add(grapeCluster(c, 0.02, 0.6, 0.1, 0.8, 0x6a3a9f));
+  }
+  return g;
+}
+
+function buildMoon(c: Context): Group {
+  const g = new Group();
+  const height = (c.stage === 2 ? 0.4 : 0.6) * (c.withered ? 0.9 : 1);
+  g.add(stem(c.kit, c.withered ? DRY_STEM : 0x3f8f7a, height, 0.022));
+  for (let n = 0; n < 7; n++) {
+    const t = n / 6;
+    g.add(frond(c.kit, c.kit.leafBroad, c.leaf, 0.3 - 0.08 * t, 0.9, (0.5 + 0.2 * (n % 2)) * c.droop, n * 2.2, 0.05 + t * height * 0.8));
+  }
+  const bloom = new Group();
+  bloom.position.set(0, height + 0.02, 0);
+  if (c.ripe) {
+    // Two rings of pale petals around a glowing heart, with motes floating above.
+    for (const [count, size, tilt, color] of [
+      [10, 0.22, 1.0, 0xcfe0ff],
+      [8, 0.17, 0.6, 0xf2f7ff],
+    ] as const) {
+      for (let n = 0; n < count; n++) {
+        const a = (n / count) * Math.PI * 2 + (count === 8 ? 0.3 : 0);
+        const petal = new Mesh(c.kit.cone, c.kit.material(color));
+        petal.scale.set(0.055, size, 0.012);
+        petal.position.set(Math.cos(a) * 0.05, 0.04, Math.sin(a) * 0.05);
+        petal.rotation.set(Math.sin(a) * tilt, 0, -Math.cos(a) * tilt);
+        petal.castShadow = true;
+        bloom.add(petal);
+      }
+    }
+    const heart = new Mesh(c.kit.sphere, new MeshBasicMaterial({ color: 0xfff2b0 }));
+    heart.scale.set(0.045, 0.045, 0.045);
+    heart.position.y = 0.06;
+    bloom.add(heart);
+    for (let n = 0; n < 5; n++) {
+      const a = n * 1.3;
+      const mote = new Mesh(c.kit.sphere, new MeshBasicMaterial({ color: 0xfff7cf }));
+      mote.scale.set(0.014, 0.014, 0.014);
+      mote.position.set(Math.cos(a) * 0.2, 0.2 + (n % 3) * 0.07, Math.sin(a) * 0.2);
+      bloom.add(mote);
+    }
+  } else if (c.stage === 2 && !c.withered) {
+    bloom.add(blob(c.kit, 0xcfe0ff, 0.05, 0.1, 0.05, 0, 0.06, 0, true));
+    bloom.add(blob(c.kit, 0x3f8f7a, 0.04, 0.05, 0.04, 0, 0.0, 0));
+  }
+  g.add(bloom);
+  return g;
+}
+
+/** A thin glowing ring under ripe rare and epic crops, so they stand out from the field. */
+function rarityRing(def: CropDef): Mesh | null {
+  const color = def.rarity === 'epica' ? 0xffd75a : def.rarity === 'rara' ? 0x6aa8ff : 0;
+  if (color === 0) return null;
+  const ring = new Mesh(new RingGeometry(0.34, 0.4, 28), new MeshBasicMaterial({ color, transparent: true, opacity: 0.75, side: DoubleSide }));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.025;
+  return ring;
+}
+
 /** Builds the crop model for one growth stage. Origin is the tile center on the soil. */
 export function buildCropModel(kit: CropKit, def: CropDef, look: CropAppearance): Group {
   const { stage, withered, thirsty } = look;
@@ -512,7 +767,16 @@ export function buildCropModel(kit: CropKit, def: CropDef, look: CropAppearance)
   };
 
   if (stage <= 1) return buildSeedling(context);
-  switch (def.shape) {
+  const model = buildShape(context);
+  if (context.ripe) {
+    const ring = rarityRing(def);
+    if (ring) model.add(ring);
+  }
+  return model;
+}
+
+function buildShape(context: Context): Group {
+  switch (context.def.shape) {
     case 'root':
       return buildRoot(context);
     case 'grain':
@@ -525,5 +789,15 @@ export function buildCropModel(kit: CropKit, def: CropDef, look: CropAppearance)
       return buildBerry(context);
     case 'gourd':
       return buildGourd(context);
+    case 'sunflower':
+      return buildSunflower(context);
+    case 'melon':
+      return buildMelon(context);
+    case 'cactus':
+      return buildCactus(context);
+    case 'vine':
+      return buildVine(context);
+    case 'moon':
+      return buildMoon(context);
   }
 }

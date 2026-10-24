@@ -10,9 +10,21 @@ import {
   animalStatus,
   nextPenUpgrade,
   penCapacity,
+  penCycleMs,
 } from './animals';
-import { CROP_ORDER, CropId, getCrop } from './crops';
-import { MAX_CATCHUP_SLOTS, SeedLoad, rollDelivery, slotOf, slotTime } from './delivery';
+import { CROP_ORDER, CropId, RARITIES, getCrop } from './crops';
+import {
+  MAX_CATCHUP_SLOTS,
+  SeedLoad,
+  TRUCK_UPGRADES,
+  TruckUpgradeId,
+  TruckUpgrades,
+  deliveryInterval,
+  deliverySeeds,
+  rollDelivery,
+  slotOf,
+  slotTime,
+} from './delivery';
 import {
   HELPERS,
   HELPER_ORDER,
@@ -53,6 +65,7 @@ export const LAND_STEPS: ReadonlyArray<{ size: number; cost: number; level: numb
   { size: 6, cost: 0, level: 1 },
   { size: 8, cost: 400, level: 3 },
   { size: 10, cost: 1800, level: 6 },
+  { size: 12, cost: 12000, level: 12 },
 ];
 
 export const START_LAND = LAND_STEPS[0]!.size;
@@ -125,6 +138,7 @@ export type FailReason =
   | 'max-land'
   | 'nothing-to-sell'
   | 'pen-locked'
+  | 'truck-locked'
   | 'pen-exists'
   | 'no-pen'
   | 'pen-full'
@@ -146,7 +160,7 @@ export interface Gain {
   /** The new level if this action levelled the player up. */
   levelUp: number | null;
   /** Produce added to the barn (harvest). */
-  item?: { cropId: CropId; qty: number };
+  item?: { cropId: CropId; qty: number; golden?: boolean };
   /** Animal product added to the barn (collect). */
   product?: { productId: ProductId; qty: number };
 }
@@ -201,7 +215,7 @@ const cloneHelpers = (helpers: Helpers): Helpers => {
 export type ActionResult = { ok: true; gain: Gain } | { ok: false; reason: FailReason };
 
 export interface FarmSnapshot {
-  version: 5;
+  version: 6;
   /** Per-player constant that seeds every random outcome (pests). */
   seed: number;
   /** Counts successful mutations; part of the random stream and handy for sync ordering. */
@@ -219,13 +233,15 @@ export interface FarmSnapshot {
   helpers: Helpers;
   /** Last seed-truck slot that has been delivered (see delivery.ts). */
   deliveredSlot: number;
+  truck: TruckUpgrades;
   tiles: Record<string, TileState>;
 }
 
 /** Saves from before helpers (v3) and before the seed truck (v4). */
 export type LegacySnapshot =
-  | (Omit<FarmSnapshot, 'version' | 'helpers' | 'deliveredSlot'> & { version: 3 })
-  | (Omit<FarmSnapshot, 'version' | 'deliveredSlot'> & { version: 4 });
+  | (Omit<FarmSnapshot, 'version' | 'helpers' | 'deliveredSlot' | 'truck'> & { version: 3 })
+  | (Omit<FarmSnapshot, 'version' | 'deliveredSlot' | 'truck'> & { version: 4 })
+  | (Omit<FarmSnapshot, 'version' | 'truck'> & { version: 5 });
 
 export interface FarmOptions {
   seed?: number;
@@ -256,6 +272,7 @@ export class Farm {
   /** Recent seed deliveries for the renderer. Never saved and never read by the rules. */
   deliveryEvents: DeliveryEvent[] = [];
   deliveredSlot = 0;
+  truck: TruckUpgrades = { big: false, fast: false };
   seed: number;
   revision = 0;
   nextAnimalId = 1;
@@ -398,8 +415,11 @@ export class Farm {
     if (!status?.ripe) return fail('not-ripe');
     const def = getCrop(crop.cropId);
     this.tile(i, j).crop = null;
-    this.produce[crop.cropId] += 1;
-    return this.done(0, def.xp, { cropId: crop.cropId, qty: 1 });
+    // Rare and epic crops sometimes ripen golden and give two.
+    const golden = hashUnit(this.seed, this.revision, 0x601d, i, j) < RARITIES[def.rarity].goldenChance;
+    const qty = golden ? 2 : 1;
+    this.produce[crop.cropId] += qty;
+    return this.done(0, def.xp, golden ? { cropId: crop.cropId, qty, golden: true } : { cropId: crop.cropId, qty });
   }
 
   /** Shovel: removes a crop (even withered); on bare soil, turns it back to grass. */
@@ -467,12 +487,13 @@ export class Farm {
     return this.done(-def.penCost, 10);
   }
 
-  /** Upgrades a pen to hold more animals. No upgrade exists yet, so this is refused for now. */
+  /** Upgrades a pen: more room and a faster cycle. Each tier needs a player level. */
   upgradePen(species: SpeciesId): ActionResult {
     const pen = this.pens[species];
     if (!pen) return fail('no-pen');
     const next = nextPenUpgrade(species, pen.level);
     if (!next) return fail('max-level');
+    if (this.level < next.unlockLevel) return fail('pen-locked');
     if (this.coins < next.cost) return fail('no-coins');
     pen.level = next.level;
     return this.done(-next.cost, 0);
@@ -502,7 +523,7 @@ export class Farm {
     if (phase === 'ready') return fail('product-waiting');
     if (this.feed[species] < 1) return fail('no-feed');
     this.feed[species] -= 1;
-    animal.readyAt = now + SPECIES[species].cycleMs;
+    animal.readyAt = now + penCycleMs(species, this.pens[species]!.level);
     return this.done(0, 1);
   }
 
@@ -517,7 +538,7 @@ export class Farm {
     for (const animal of hungry) {
       if (this.feed[species] < 1) break;
       this.feed[species] -= 1;
-      animal.readyAt = now + SPECIES[species].cycleMs;
+      animal.readyAt = now + penCycleMs(species, pen.level);
       fed++;
     }
     return this.done(0, fed);
@@ -645,7 +666,7 @@ export class Farm {
    */
   runHelpers(now: number): void {
     // Away for ages: the truck only left the last few deliveries at the door.
-    this.deliveredSlot = Math.max(this.deliveredSlot, slotOf(now) - MAX_CATCHUP_SLOTS);
+    this.deliveredSlot = Math.max(this.deliveredSlot, slotOf(now, deliveryInterval(this.truck)) - MAX_CATCHUP_SLOTS);
 
     const active = HELPER_ORDER.filter((id) => this.helpers[id]);
 
@@ -676,7 +697,7 @@ export class Farm {
           pick = id;
         }
       }
-      const truckAt = slotTime(this.deliveredSlot + 1);
+      const truckAt = slotTime(this.deliveredSlot + 1, deliveryInterval(this.truck));
       if (truckAt <= now && truckAt <= pickAt) {
         this.deliver(truckAt);
         continue;
@@ -691,11 +712,22 @@ export class Farm {
     if (this.deliveryEvents.length > 20) this.deliveryEvents.splice(0, this.deliveryEvents.length - 20);
   }
 
+  /** Buys a seed-truck upgrade. The faster clock restarts from now: the next truck is at most one new interval away. */
+  upgradeTruck(id: TruckUpgradeId, now: number): ActionResult {
+    const def = TRUCK_UPGRADES[id];
+    if (this.truck[id]) return fail('max-level');
+    if (this.level < def.level) return fail('truck-locked');
+    if (this.coins < def.cost) return fail('no-coins');
+    this.truck[id] = true;
+    if (id === 'fast') this.deliveredSlot = slotOf(now, deliveryInterval(this.truck));
+    return this.done(-def.cost, 0);
+  }
+
   /** The seed truck pulls up: its load goes straight into the barn. */
   private deliver(at: number): void {
     this.deliveredSlot++;
     this.revision++;
-    const load = rollDelivery(this.seed, this.deliveredSlot, this.level);
+    const load = rollDelivery(this.seed, this.deliveredSlot, this.level, deliverySeeds(this.truck));
     for (const id of CROP_ORDER) this.seeds[id] += load[id];
     this.deliveryEvents.push({ at, slot: this.deliveredSlot, seeds: load });
   }
@@ -797,7 +829,7 @@ export class Farm {
       tiles[key] = { kind: tile.kind, crop: tile.crop ? { ...tile.crop } : null };
     }
     return {
-      version: 5,
+      version: 6,
       seed: this.seed,
       revision: this.revision,
       nextAnimalId: this.nextAnimalId,
@@ -811,6 +843,7 @@ export class Farm {
       pens: clonePens(this.pens),
       helpers: cloneHelpers(this.helpers),
       deliveredSlot: this.deliveredSlot,
+      truck: { ...this.truck },
       tiles,
     };
   }
@@ -824,7 +857,8 @@ export class Farm {
     farm.pens = clonePens(snapshot.pens);
     farm.helpers = cloneHelpers(snapshot.version >= 4 ? (snapshot as { helpers: Helpers }).helpers : {});
     // Older saves have no truck record: they catch up on a few deliveries, like returning from a trip.
-    farm.deliveredSlot = snapshot.version === 5 ? snapshot.deliveredSlot : 0;
+    farm.deliveredSlot = snapshot.version >= 5 ? (snapshot as { deliveredSlot: number }).deliveredSlot : 0;
+    if (snapshot.version === 6) farm.truck = { ...snapshot.truck };
     farm.coins = snapshot.coins;
     farm.xp = snapshot.xp;
     farm.landSize = snapshot.landSize;
@@ -845,7 +879,7 @@ export class Farm {
   private done(
     coins: number,
     xp: number,
-    item?: { cropId: CropId; qty: number },
+    item?: { cropId: CropId; qty: number; golden?: boolean },
     product?: { productId: ProductId; qty: number },
   ): ActionResult {
     this.revision++;

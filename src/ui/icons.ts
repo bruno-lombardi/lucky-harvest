@@ -167,3 +167,14 @@ export function hydrateIcons(root: ParentNode = document): void {
     if (svg) el.innerHTML = svg;
   });
 }
+
+export const TRUCK_ICON = `${open}>
+  <path d="M5 16 H29 V34 H5 Z" fill="#e8c27a" ${line}/>
+  <path d="M29 22 H38 L43 28 V34 H29 Z" fill="#d6372b" ${line}/>
+  <path d="M33 25 H37 L40 28.5 H33 Z" fill="#bfe6f5" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="15" cy="36" r="5" fill="#4a3a2a" ${line}/>
+  <circle cx="36" cy="36" r="5" fill="#4a3a2a" ${line}/>
+  <circle cx="15" cy="36" r="1.8" fill="#fff4dc"/>
+  <circle cx="36" cy="36" r="1.8" fill="#fff4dc"/>
+  <path d="M10 16 V11 M18 16 V9 M24 16 V12" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>
+</svg>`;

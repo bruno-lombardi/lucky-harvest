@@ -24,6 +24,7 @@ import { Pens } from './render/pens';
 import { HelperView } from './render/helper-view';
 import { Terrain } from './render/terrain';
 import { Countryside } from './render/countryside';
+import { deliveryInterval } from './core/delivery';
 import { DeliveryView, TRUCK_STOP, TruckCue } from './render/delivery-view';
 import { createToonGradient } from './render/toon';
 
@@ -336,7 +337,7 @@ export class Game {
     this.props.update(dt);
     this.pens.update(dt, now);
     this.helperView.update(dt, now);
-    this.deliveryView.update(now);
+    this.deliveryView.update(now, deliveryInterval(this.farm.truck));
     this.clouds.update(dt);
     this.updateParticles(dt);
     this.highlight.update(dt);

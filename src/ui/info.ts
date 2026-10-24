@@ -1,7 +1,8 @@
 import { PRODUCTS, ProductId, SPECIES, SpeciesId, penCapacity } from '../core/animals';
-import { CROPS, CropId } from '../core/crops';
+import { CROPS, CropId, RARITIES } from '../core/crops';
 import { Farm, LAND_STEPS } from '../core/farm';
 import { HELPERS, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage } from '../core/helpers';
+import { TRUCK_UPGRADES, TruckUpgradeId } from '../core/delivery';
 import { LOCK_ICON } from './icons';
 import { coin } from './kit';
 
@@ -45,9 +46,13 @@ function cropCard(id: CropId, farm: Farm): Card {
   const perMin = profit / (c.growthMs / 60_000);
   return {
     title: c.name,
-    tag: lockTag(c.unlockLevel, farm.level),
+    tag: lockTag(c.unlockLevel, farm.level) ?? (c.rarity === 'comum' ? undefined : `<span class="rar rar-${c.rarity}">${RARITIES[c.rarity].name}</span>`),
     lore: c.lore,
     stats: [
+      ['Raridade', RARITIES[c.rarity].name],
+      ...(RARITIES[c.rarity].goldenChance > 0
+        ? ([['Colheita dourada', `1 em ${Math.round(1 / RARITIES[c.rarity].goldenChance)}: rende o dobro`]] as Array<[string, string]>)
+        : []),
       ['Cresce em', humanDuration(c.growthMs)],
       ['Preço da semente', coin(c.seedCost)],
       ['Vende por', coin(c.sellPrice)],
@@ -146,6 +151,20 @@ function landCard(farm: Farm): Card {
   };
 }
 
+function truckCard(id: TruckUpgradeId, farm: Farm): Card {
+  const def = TRUCK_UPGRADES[id];
+  return {
+    title: def.name,
+    tag: farm.truck[id] ? 'Comprado' : lockTag(def.level, farm.level),
+    lore: def.text,
+    stats: [
+      ['Preço', coin(def.cost)],
+      ['Nível', String(def.level)],
+    ],
+    note: 'O caminhão entrega sementes sozinho; você não precisa ficar online.',
+  };
+}
+
 const TOOL_INFO: Record<string, [string, string]> = {
   olhar: ['Olhar', 'Só espiar: toque numa planta, num animal ou num prédio para saber como estão, sem mexer em nada.'],
   colher: ['Colher', 'Colhe plantas maduras (a moeda dourada brilhando). A colheita vai para o celeiro.'],
@@ -172,6 +191,8 @@ export function infoCard(key: string, farm: Farm): string | null {
       return id in HELPERS ? render(helperCard(id as HelperId, farm)) : null;
     case 'land':
       return render(landCard(farm));
+    case 'truck':
+      return id in TRUCK_UPGRADES ? render(truckCard(id as TruckUpgradeId, farm)) : null;
     case 'tool': {
       const t = TOOL_INFO[id];
       return t ? render({ title: t[0], lore: t[1], stats: [] }) : null;

@@ -36,6 +36,7 @@ export function reasonMessage(reason: FailReason): string {
     case 'nothing-to-sell':
       return 'Nada para vender';
     case 'pen-locked':
+    case 'truck-locked':
       return 'Suba de nível para liberar isto';
     case 'pen-exists':
       return 'Você já tem esse abrigo';

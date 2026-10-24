@@ -38,7 +38,7 @@ export interface SpeciesDef {
   readonly animalCost: number;
   /** Animals the pen holds, per pen level (index 0 = level 1). Add entries to make pens upgradable. */
   readonly capacity: readonly number[];
-  /** Cost to reach each pen level above 1 (index 0 = level 2). Empty for now: upgrades come later. */
+  /** Cost to reach each pen level above 1 (index 0 = level 2). */
   readonly upgradeCost: readonly number[];
   /** Time from feeding to a collectable product. */
   readonly cycleMs: number;
@@ -66,8 +66,8 @@ export const SPECIES: Readonly<Record<SpeciesId, SpeciesDef>> = {
     unlockLevel: 2,
     penCost: 250,
     animalCost: 120,
-    capacity: [4],
-    upgradeCost: [],
+    capacity: [4, 5, 6],
+    upgradeCost: [2000, 5000],
     cycleMs: 3 * MIN,
     xp: 6,
     feedPrice: 15,
@@ -84,8 +84,8 @@ export const SPECIES: Readonly<Record<SpeciesId, SpeciesDef>> = {
     unlockLevel: 4,
     penCost: 900,
     animalCost: 500,
-    capacity: [3],
-    upgradeCost: [],
+    capacity: [3, 4, 5],
+    upgradeCost: [3500, 9000],
     cycleMs: 8 * MIN,
     xp: 18,
     feedPrice: 45,
@@ -102,8 +102,8 @@ export const SPECIES: Readonly<Record<SpeciesId, SpeciesDef>> = {
     unlockLevel: 6,
     penCost: 2200,
     animalCost: 1200,
-    capacity: [3],
-    upgradeCost: [],
+    capacity: [3, 4, 5],
+    upgradeCost: [5000, 12000],
     cycleMs: 15 * MIN,
     xp: 40,
     feedPrice: 100,
@@ -120,10 +120,26 @@ export function penCapacity(species: SpeciesId, level: number): number {
   return table[Math.min(Math.max(level, 1), table.length) - 1]!;
 }
 
-/** The next pen upgrade, or null while no upgrade exists yet. */
-export function nextPenUpgrade(species: SpeciesId, level: number): { level: number; cost: number } | null {
+/** Player level needed to upgrade a pen to each tier above 1 (index 0 = tier 2). */
+export const PEN_UPGRADE_LEVELS: readonly number[] = [9, 15];
+
+/** Share of the base cycle a pen of each tier needs: bigger pens are faster. */
+export const PEN_CYCLE_FACTOR: readonly number[] = [1, 0.85, 0.7];
+
+/** The next pen upgrade, or null at the top tier. */
+export function nextPenUpgrade(
+  species: SpeciesId,
+  level: number,
+): { level: number; cost: number; unlockLevel: number } | null {
   const cost = SPECIES[species].upgradeCost[level - 1];
-  return cost === undefined ? null : { level: level + 1, cost };
+  const unlockLevel = PEN_UPGRADE_LEVELS[level - 1];
+  return cost === undefined || unlockLevel === undefined ? null : { level: level + 1, cost, unlockLevel };
+}
+
+/** Time from feeding to a product for a pen of this tier. */
+export function penCycleMs(species: SpeciesId, level: number): number {
+  const factor = PEN_CYCLE_FACTOR[Math.min(Math.max(level, 1), PEN_CYCLE_FACTOR.length) - 1]!;
+  return Math.round(SPECIES[species].cycleMs * factor);
 }
 
 export interface AnimalState {
@@ -147,9 +163,9 @@ export interface AnimalStatus {
   progress: number;
 }
 
-export function animalStatus(species: SpeciesId, animal: AnimalState, now: number): AnimalStatus {
+export function animalStatus(species: SpeciesId, animal: AnimalState, now: number, penLevel = 1): AnimalStatus {
   if (animal.readyAt === null) return { phase: 'hungry', msToReady: null, progress: 0 };
-  const cycle = SPECIES[species].cycleMs;
+  const cycle = penCycleMs(species, penLevel);
   if (now >= animal.readyAt) return { phase: 'ready', msToReady: null, progress: 1 };
   const left = animal.readyAt - now;
   return { phase: 'working', msToReady: left, progress: Math.max(0, 1 - left / cycle) };

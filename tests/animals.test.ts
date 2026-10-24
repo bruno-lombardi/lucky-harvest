@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PRODUCTS, SPECIES, animalStatus, nextPenUpgrade, penCapacity } from '../src/core/animals';
+import { PRODUCTS, SPECIES, animalStatus, nextPenUpgrade, penCapacity, penCycleMs } from '../src/core/animals';
 import { Command, LoggedCommand, applyCommand, replay } from '../src/core/commands';
 import { Farm } from '../src/core/farm';
 import { levelThreshold } from '../src/core/levels';
@@ -27,17 +27,30 @@ describe('pens', () => {
     expect(farm.buildPen('galinha')).toEqual({ ok: false, reason: 'pen-exists' });
   });
 
-  it('hold a limited number of animals and are ready for future upgrades', () => {
+  it('hold a limited number of animals and grow through upgrade tiers', () => {
     const farm = richFarm();
     expect(farm.buyAnimal('vaca')).toEqual({ ok: false, reason: 'no-pen' });
     farm.buildPen('vaca');
     const cap = penCapacity('vaca', 1);
     for (let n = 0; n < cap; n++) expect(farm.buyAnimal('vaca').ok).toBe(true);
     expect(farm.buyAnimal('vaca')).toEqual({ ok: false, reason: 'pen-full' });
-    // No upgrade tier exists yet, but the plumbing is there.
-    expect(nextPenUpgrade('vaca', 1)).toBeNull();
+
+    // Tier 2 needs the player level (richFarm is level 10), then makes room.
+    const up = nextPenUpgrade('vaca', 1)!;
+    expect(up.level).toBe(2);
+    farm.xp = levelThreshold(up.unlockLevel - 1);
+    expect(farm.upgradePen('vaca')).toEqual({ ok: false, reason: 'pen-locked' });
+    farm.xp = levelThreshold(up.unlockLevel);
+    expect(farm.upgradePen('vaca').ok).toBe(true);
+    expect(penCapacity('vaca', 2)).toBeGreaterThan(cap);
+    expect(farm.buyAnimal('vaca').ok).toBe(true);
+    expect(penCycleMs('vaca', 2)).toBeLessThan(penCycleMs('vaca', 1));
+
+    farm.xp = levelThreshold(20);
+    expect(farm.upgradePen('vaca').ok).toBe(true);
+    expect(nextPenUpgrade('vaca', 3)).toBeNull();
     expect(farm.upgradePen('vaca')).toEqual({ ok: false, reason: 'max-level' });
-    expect(farm.pens.vaca!.animals.map((a) => a.id)).toEqual([1, 2, 3]);
+    expect(farm.pens.vaca!.animals.map((a) => a.id)).toEqual([1, 2, 3, 4]);
   });
 });
 

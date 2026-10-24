@@ -8,14 +8,20 @@ export const coin = (amount: number): string =>
   `<span class="price"><i class="ico">${COIN_ICON}</i>${amount.toLocaleString('pt-BR')}</span>`;
 
 /** A list row: icon (inline svg or img markup), text, buttons. */
-export function row(pic: string, info: string, buttons = '', locked = false, infoKey = ''): string {
+export function row(pic: string, info: string, buttons = '', locked = false, infoKey = '', extraClass = ''): string {
   return `
-    <div class="shop-row${locked ? ' locked' : ''}"${infoKey ? ` data-info="${infoKey}"` : ''}>
+    <div class="shop-row${locked ? ' locked' : ''}${extraClass ? ` ${extraClass}` : ''}"${infoKey ? ` data-info="${infoKey}"` : ''}>
       <span class="pic">${pic}</span>
       <span class="info">${info}</span>
       <span class="buttons">${buttons}</span>
     </div>`;
 }
+
+import { RARITIES, Rarity } from '../core/crops';
+
+/** A small coloured tag for incomum, rara and épica seeds (comum has none). */
+export const rarityBadge = (rarity: Rarity): string =>
+  rarity === 'comum' ? '' : `<span class="rar rar-${rarity}">${RARITIES[rarity].name}</span>`;
 
 export const img = (src: string): string => `<img alt="" draggable="false" src="${src}" />`;
 

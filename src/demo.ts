@@ -92,13 +92,14 @@ export function createDemoFarm(now: number): Farm {
   });
 
   const snapshot: FarmSnapshot = {
-    version: 5,
+    version: 6,
     deliveredSlot: slotOf(now),
+    truck: { big: false, fast: false },
     seed: 20240601,
     revision: 0,
     nextAnimalId: 10,
     coins: 1250,
-    xp: levelThreshold(8) + 120,
+    xp: levelThreshold(20) + 120,
     landSize: MAX_LAND,
     seeds: Object.fromEntries(CROP_ORDER.map((id) => [id, 12])) as FarmSnapshot['seeds'],
     produce: Object.fromEntries(CROP_ORDER.map((id, n) => [id, 3 + n * 2])) as FarmSnapshot['produce'],

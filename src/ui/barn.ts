@@ -1,5 +1,6 @@
 import { PRODUCTS, PRODUCT_ORDER, SPECIES, SPECIES_ORDER, SpeciesId } from '../core/animals';
 import { CROPS, CROP_ORDER, CropId } from '../core/crops';
+import { barnTier, nextBarnTier } from '../core/barn';
 import { Farm } from '../core/farm';
 import { TREES, TREE_ORDER, TreeId } from '../core/trees';
 import { BARN_ICON } from './icons';
@@ -10,7 +11,7 @@ import { Modal } from './modal';
 type BarnTab = 'stock' | 'feed';
 
 export interface BarnEvents {
-  openShop(tab: 'sell' | 'seeds' | 'feed'): void;
+  openShop(tab: 'sell' | 'seeds' | 'feed' | 'land'): void;
 }
 
 /** The barn: everything the player owns, and the feed mill that turns crops into animal feed. */
@@ -31,7 +32,7 @@ export class BarnDialog extends Modal<BarnTab> {
   }
 
   protected title(): string {
-    return `<i class="ico">${BARN_ICON}</i>Celeiro`;
+    return `<i class="ico">${BARN_ICON}</i>${barnTier(this.farm.barn).name}`;
   }
 
   protected html(): string {
@@ -92,10 +93,13 @@ export class BarnDialog extends Modal<BarnTab> {
         `<button type="button" class="big-action" data-act="shop" data-tab="seeds">Ir à loja</button>`
       );
     }
+    const upgrade = nextBarnTier(this.farm.barn)
+      ? `<button type="button" class="big-action alt" data-act="shop" data-tab="land">Melhorar o celeiro</button>`
+      : '';
     const sellable = crops.length + products.length + fruits.length > 0;
     return `${html}<button type="button" class="big-action" data-act="shop" data-tab="${sellable ? 'sell' : 'seeds'}">${
       sellable ? 'Vender na loja' : 'Ir à loja'
-    }</button>`;
+    }</button>${upgrade}`;
   }
 
   private millHtml(): string {

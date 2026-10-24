@@ -94,10 +94,11 @@ export class CharacterKit {
   // Tonico, the farmhand
   // -------------------------------------------------------------------------
 
-  farmhand(): Character {
-    const SKIN = 0xf0bd93;
-    const SHIRT = 0xc8412f;
-    const DENIM = 0x3f6fb0;
+  /** Tonico by default; with `keeper` the animal keeper: kerchief, teal blouse, apron and a feed sack. */
+  farmhand(keeper = false): Character {
+    const SKIN = keeper ? 0xe6ac82 : 0xf0bd93;
+    const SHIRT = keeper ? 0x3f9a8a : 0xc8412f;
+    const DENIM = keeper ? 0xe9dcc0 : 0x3f6fb0;
     const BOOT = 0x6b4423;
     const STRAW = 0xe8c75d;
 
@@ -160,6 +161,12 @@ export class CharacterKit {
     basket.add(this.blob(0xe5372b, 0.05, 0.05, 0.05, 0.05, 0.15, 0.02));
     basket.add(this.blob(0xf0c542, 0.03, 0.09, 0.03, 0, 0.19, -0.04));
     basket.add(this.spike(0x5cbc3f, 0.03, 0.1, 0.03, 0.2, 0.03));
+    if (keeper) {
+      basket.clear();
+      basket.add(this.blob(0xe8c75d, 0.15, 0.2, 0.1, 0, 0.02, 0, 0.01));
+      basket.add(this.blob(0xc23b2c, 0.1, 0.03, 0.08, 0, 0.2, 0));
+      basket.add(this.blob(0xfff6e4, 0.07, 0.07, 0.02, 0, 0.04, -0.1, 0));
+    }
     upper.add(basket);
     for (const side of [-1, 1]) {
       const strap = this.slab(0x6b4423, 0.03, 0.34, 0.025, side * 0.085, 0.25, -0.1);
@@ -180,16 +187,24 @@ export class CharacterKit {
       const brow = this.slab(0xd9d4cb, 0.065, 0.014, 0.02, side * 0.075, 0.075, 0.17);
       brow.rotation.z = side * -0.15;
       head.add(brow);
-      const whisker = this.blob(0xe8e4dc, 0.065, 0.034, 0.045, side * 0.045, -0.07, 0.17, 0.006);
-      whisker.rotation.z = side * -0.3;
-      head.add(whisker);
+      if (!keeper) {
+        const whisker = this.blob(0xe8e4dc, 0.065, 0.034, 0.045, side * 0.045, -0.07, 0.17, 0.006);
+        whisker.rotation.z = side * -0.3;
+        head.add(whisker);
+      }
     }
     head.add(this.blob(0xe39a74, 0.04, 0.036, 0.04, 0, -0.01, 0.19, 0.006));
     const hat = new Group();
     hat.position.y = 0.11;
-    hat.add(this.tube(0xd9b24a, 0.34, 0.025, 0, 0, 0, 0.01));
-    hat.add(this.blob(STRAW, 0.16, 0.13, 0.16, 0, 0.05, 0, 0.012));
-    hat.add(this.tube(0xc23b2c, 0.165, 0.035, 0, 0.045, 0));
+    if (keeper) {
+      hat.add(this.blob(0xc23b2c, 0.2, 0.12, 0.2, 0, 0.03, -0.01, 0.01));
+      hat.add(this.blob(0xfff6e4, 0.04, 0.04, 0.03, 0.08, 0.1, 0.12, 0));
+      hat.add(this.blob(0x5a3a22, 0.19, 0.09, 0.1, 0, -0.02, -0.12, 0.01)); // a bun
+    } else {
+      hat.add(this.tube(0xd9b24a, 0.34, 0.025, 0, 0, 0, 0.01));
+      hat.add(this.blob(STRAW, 0.16, 0.13, 0.16, 0, 0.05, 0, 0.012));
+      hat.add(this.tube(0xc23b2c, 0.165, 0.035, 0, 0.045, 0));
+    }
     head.add(hat);
 
     let phase = 0;

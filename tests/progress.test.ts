@@ -99,7 +99,7 @@ describe('claiming', () => {
     farm.stats.plowed = 3;
     applyCommand(farm, { type: 'claimGoal', goal: 1 }, 0);
     const snap = farm.toSnapshot();
-    expect(snap.version).toBe(7);
+    expect(snap.version).toBe(8);
     expect(snap.claimed).toContain(goalKey(1));
     const text = encodeSave({ playerId: 'p', savedAt: 1, state: snap, sync: { baseline: snap, outbox: [] } });
     const out = decodeSave(text);

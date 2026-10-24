@@ -46,6 +46,8 @@ export function reasonMessage(reason: FailReason): string {
     case 'truck-locked':
     case 'decor-locked':
       return 'Suba de nível para liberar isto';
+    case 'barn-locked':
+      return 'Suba de nível para melhorar o celeiro';
     case 'pomar-locked':
       return 'Compre o Pomar na loja primeiro';
     case 'not-orchard':
@@ -81,7 +83,7 @@ export function reasonMessage(reason: FailReason): string {
     case 'no-helper':
       return 'Contrate o ajudante primeiro';
     case 'already-paid':
-      return 'O salário já está em dia';
+      return 'O pagamento já está em dia';
   }
 }
 

@@ -226,7 +226,7 @@ describe('persistence', () => {
     expect(loaded.pomar).toBe(false);
     expect(loaded.treeCount()).toBe(0);
     const snap = loaded.toSnapshot() as FarmSnapshot;
-    expect(snap.version).toBe(7);
+    expect(snap.version).toBe(8);
     const text = JSON.stringify({ format: 'lucky-harvest', version: 1, playerId: 'p', savedAt: 1, state: v6, sync: { baseline: v6, outbox: [] } });
     // Without a valid checksum the file is refused, which is the right behaviour for hand-edited saves.
     expect(decodeSave(text).ok).toBe(false);

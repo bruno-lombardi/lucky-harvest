@@ -216,10 +216,34 @@ function buildPath(palette: Palette, fenceHalf: number): Group {
 // Barn
 // ---------------------------------------------------------------------------
 
-function buildBarn(palette: Palette): Group {
+function silo(palette: Palette, x: number, z: number, height: number): Group {
+  const g = new Group();
+  const body = new Mesh(new CylinderGeometry(0.52, 0.55, height, 18), palette.toon(0xd9d4c8));
+  body.position.set(x, height / 2, z);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  addHullOutline(body, 0.02);
+  g.add(body);
+  for (const y of [0.35, 0.95, 1.55, 2.15]) {
+    if (y > height - 0.3) continue;
+    const band = new Mesh(new CylinderGeometry(0.56, 0.56, 0.05, 18), palette.toon(0x9aa3ad));
+    band.position.set(x, y, z);
+    g.add(band);
+  }
+  const dome = new Mesh(new SphereGeometry(0.54, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), palette.toon(0x7a8794));
+  dome.position.set(x, height, z);
+  dome.castShadow = true;
+  addHullOutline(dome, 0.02);
+  g.add(dome);
+  return g;
+}
+
+/** The barn at a given tier: more paint, stone, silos and trim as it is upgraded (see core/barn.ts). */
+function buildBarn(palette: Palette, level = 1): Group {
   const barn = new Group();
-  const red = 0xc4372c;
+  const red = level >= 2 ? 0xd23c2e : 0xc4372c;
   const white = 0xf6efe0;
+  const roofColor = level >= 3 ? 0x8a4a3a : level === 2 ? 0x55606e : 0x6a4b42;
 
   const shape = new Shape();
   shape.moveTo(-1.6, 0);
@@ -240,7 +264,7 @@ function buildBarn(palette: Palette): Group {
   const slope = Math.atan2(1.05, 1.6);
   const roofLength = Math.hypot(1.6, 1.05) + 0.3;
   for (const side of [-1, 1]) {
-    const slab = box(palette, 0x6a4b42, roofLength, 0.14, 3.15, side * 0.83, 2.6, 0, 0.025);
+    const slab = box(palette, roofColor, roofLength, 0.14, 3.15, side * 0.83, 2.6, 0, 0.025);
     slab.rotation.z = -side * slope;
     barn.add(slab);
   }
@@ -282,6 +306,44 @@ function buildBarn(palette: Palette): Group {
     for (const sz of [-1, 1]) {
       barn.add(box(palette, white, 0.12, 2.0, 0.12, sx * 1.6, 1.0, sz * 1.4, 0.01));
     }
+  }
+
+  if (level >= 2) {
+    // A weather vane on the ridge and flower boxes under the front windows.
+    barn.add(box(palette, 0x4a3a30, 0.05, 0.6, 0.05, 0, 3.4, 0, 0.008));
+    barn.add(box(palette, 0xe9c25a, 0.46, 0.1, 0.03, 0.05, 3.62, 0, 0.006));
+    barn.add(box(palette, 0xe9c25a, 0.1, 0.2, 0.03, -0.17, 3.7, 0, 0.006));
+    for (const zz of [-0.55, 0.55]) {
+      for (const side of [-1, 1]) {
+        barn.add(box(palette, 0x7a4a2a, 0.16, 0.12, 0.6, side * 1.72, 0.78, zz, 0.01));
+        for (const dz of [-0.2, 0, 0.2]) {
+          const flower = new Mesh(new SphereGeometry(0.07, 8, 6), palette.toon(dz === 0 ? 0xf2c94a : 0xe5527a));
+          flower.position.set(side * 1.72, 0.9, zz + dz);
+          barn.add(flower);
+        }
+      }
+    }
+  }
+  if (level >= 3) {
+    // A stone footing all round, and a silo at the back corner.
+    barn.add(box(palette, 0x9a9690, 3.4, 0.4, 0.14, 0, 0.2, 1.46, 0.012));
+    barn.add(box(palette, 0x9a9690, 3.4, 0.4, 0.14, 0, 0.2, -1.46, 0.012));
+    for (const side of [-1, 1]) barn.add(box(palette, 0x9a9690, 0.14, 0.4, 2.9, side * 1.66, 0.2, 0, 0.012));
+    barn.add(silo(palette, -2.3, -0.7, 2.7));
+  }
+  if (level >= 4) {
+    // A second, taller silo, a lean-to annex on the other side and lanterns at the doors.
+    barn.add(silo(palette, -2.3, 0.55, 3.3));
+    barn.add(box(palette, red, 1.5, 1.2, 2.2, 2.35, 0.6, -0.1, 0.02));
+    const shed = box(palette, roofColor, 1.9, 0.12, 2.5, 2.3, 1.5, -0.1, 0.02);
+    shed.rotation.z = -0.28;
+    barn.add(shed);
+    barn.add(box(palette, white, 0.5, 0.9, 0.05, 2.35, 0.5, 1.02, 0.01));
+    for (const side of [-1, 1]) {
+      barn.add(box(palette, 0x4a3a30, 0.05, 0.3, 0.05, side * 1.05, 1.15, 1.5, 0.006));
+      barn.add(box(palette, 0xffd36a, 0.14, 0.18, 0.14, side * 1.05, 0.95, 1.5, 0.008));
+    }
+    barn.add(box(palette, 0xe9c25a, 3.0, 0.07, 0.06, 0, 1.64, 1.5, 0.006));
   }
   return barn;
 }
@@ -765,9 +827,12 @@ export class Props {
   private readonly lampGlow: Sprite;
   /** The clickable barn (tagged with `userData.pickId = 'barn'`). */
   readonly barn: Group;
+  private readonly palette: Palette;
+  private barnLevel = 1;
 
   constructor(private readonly gradientMap: DataTexture, landSize: number) {
     const palette = new Palette(gradientMap);
+    this.palette = palette;
     this.glass = palette.glass;
     this.hay = buildHay(palette);
     this.group.add(this.land, this.hay, buildFarmEdge(palette));
@@ -803,6 +868,14 @@ export class Props {
     this.group.add(sign);
 
     this.setLandSize(landSize);
+  }
+
+  /** Swaps the barn for the look of its tier. */
+  setBarnLevel(level: number): void {
+    if (level === this.barnLevel) return;
+    this.barnLevel = level;
+    for (const child of [...this.barn.children]) this.barn.remove(child);
+    for (const child of [...buildBarn(this.palette, level).children]) this.barn.add(child);
   }
 
   /** Moves the fence, gate path and scarecrow to match the owned plot (tiles per side). */

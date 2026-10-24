@@ -4,11 +4,13 @@
  * a deterministic function of the farm state and the clock, so a server can reproduce it.
  */
 
-export type HelperId = 'regador' | 'ajudante' | 'gato' | 'cao';
+import { barnTier } from './barn';
+
+export type HelperId = 'regador' | 'ajudante' | 'gato' | 'cao' | 'tratador';
 /** The helpers that walk around (everyone but the sprinklers). */
 export type WalkerId = Exclude<HelperId, 'regador'>;
 
-export const HELPER_ORDER: readonly HelperId[] = ['regador', 'ajudante', 'gato', 'cao'];
+export const HELPER_ORDER: readonly HelperId[] = ['regador', 'ajudante', 'gato', 'cao', 'tratador'];
 
 export const MIN = 60_000;
 /** Wages are charged once per period, automatically, while the owner can afford them. */
@@ -26,6 +28,8 @@ export interface HelperDef {
   readonly job: string;
   /** Flavour text shown before hiring. */
   readonly lore: string;
+  /** Animals charge a "custo" to stay on the farm; people charge a "salário". */
+  readonly animal: boolean;
   readonly unlockLevel: number;
   readonly hireCost: number;
   /** Cost to reach each level above 1 (index 0 = level 2). */
@@ -42,6 +46,7 @@ export const HELPERS: Readonly<Record<HelperId, HelperDef>> = {
     name: 'Regador do moinho',
     job: 'rega as plantações sozinho',
     lore: 'O moinho bombeia água do poço até aspersores de latão espalhados pela horta. Gira, gira, rega.',
+    animal: false,
     unlockLevel: 3,
     hireCost: 400,
     upgradeCost: [700, 1500],
@@ -53,6 +58,7 @@ export const HELPERS: Readonly<Record<HelperId, HelperDef>> = {
     name: 'Tonico, o ajudante',
     job: 'colhe as plantas maduras',
     lore: 'Seu Tonico cuida de hortas desde antes de você nascer. Chapéu de palha, bigode e muita paciência.',
+    animal: false,
     unlockLevel: 5,
     hireCost: 900,
     upgradeCost: [1400, 3000],
@@ -64,6 +70,7 @@ export const HELPERS: Readonly<Record<HelperId, HelperDef>> = {
     name: 'Mingau, o gato',
     job: 'espanta pragas e ervas daninhas',
     lore: 'Mingau chegou de mansinho e ficou. Não se sabe se gosta de você, mas pragas ele detesta.',
+    animal: true,
     unlockLevel: 7,
     hireCost: 600,
     upgradeCost: [1000, 2200],
@@ -74,12 +81,25 @@ export const HELPERS: Readonly<Record<HelperId, HelperDef>> = {
     id: 'cao',
     name: 'Rex, o cão',
     job: 'recolhe os produtos dos abrigos',
-    lore: 'Rex trota de abrigo em abrigo, fareja o que está pronto e leva tudo para o celeiro. Só pede um carinho e o salário.',
+    lore: 'Rex trota de abrigo em abrigo, fareja o que está pronto e leva tudo para o celeiro. Só pede um carinho e o custo da ração.',
+    animal: true,
     unlockLevel: 12,
     hireCost: 3000,
     upgradeCost: [4500, 9000],
     wage: [150, 240, 360],
     perks: ['Trota devagar, recolhe um abrigo por vez', 'Mais veloz e recolhe mais rápido', 'Corre de abrigo em abrigo sem parar'],
+  },
+  tratador: {
+    id: 'tratador',
+    name: 'Lúcia, a tratadora',
+    job: 'dá ração aos animais dos abrigos',
+    lore: 'Dona Lúcia acorda antes do galo. Pega um saco de ração no celeiro e não deixa bicho nenhum esperando.',
+    animal: false,
+    unlockLevel: 10,
+    hireCost: 2500,
+    upgradeCost: [4000, 8000],
+    wage: [120, 200, 300],
+    perks: ['Anda devagar e alimenta um abrigo por vez', 'Mais rápida, alimenta num instante', 'Corre de abrigo em abrigo sem parar'],
   },
 };
 
@@ -87,7 +107,12 @@ export const MAX_HELPER_LEVEL = 3;
 
 export const getHelper = (id: HelperId): HelperDef => HELPERS[id];
 
-export const helperWage = (id: HelperId, level: number): number => HELPERS[id].wage[Math.min(Math.max(level, 1), MAX_HELPER_LEVEL) - 1]!;
+/** What the helper costs per period; a better barn lowers it. */
+export const helperWage = (id: HelperId, level: number, barn = 1): number =>
+  Math.round(HELPERS[id].wage[Math.min(Math.max(level, 1), MAX_HELPER_LEVEL) - 1]! * barnTier(barn).costMul);
+
+/** "salário" for people, "custo" for animals. */
+export const payWord = (id: HelperId): 'salário' | 'custo' => (HELPERS[id].animal ? 'custo' : 'salário');
 
 export function nextHelperUpgrade(id: HelperId, level: number): { level: number; cost: number } | null {
   const cost = HELPERS[id].upgradeCost[level - 1];
@@ -117,13 +142,16 @@ export interface HelperState {
   working: boolean;
   /** Sprinklers: when the last pulse happened (drives the spray animation). */
   lastAt: number;
+  /** Walkers: tiles per second of the current walk (set when it starts, so a barn upgrade never makes anyone jump). */
+  speed?: number;
 }
 
 /** Walkers rest here when there is nothing to do. */
 export const HOME: Readonly<Record<WalkerId, Spot>> = {
   ajudante: { u: 5.9, v: 12.9 },
   gato: { u: 6.4, v: 9.2 },
-  cao: { u: 19.3, v: 15.1 },
+  cao: { u: 19.3, v: 19.9 },
+  tratador: { u: 4.4, v: 12.4 },
 };
 
 /**
@@ -159,10 +187,18 @@ export const WALKERS: Readonly<Record<WalkerId, readonly WalkerStats[]>> = {
     { speed: 3.0, workMs: 1000 },
     { speed: 4.0, workMs: 700 },
   ],
+  tratador: [
+    { speed: 1.6, workMs: 1800 },
+    { speed: 2.3, workMs: 1300 },
+    { speed: 3.2, workMs: 900 },
+  ],
 };
 
-export const walkerStats = (id: WalkerId, level: number): WalkerStats =>
-  WALKERS[id][Math.min(Math.max(level, 1), MAX_HELPER_LEVEL) - 1]!;
+export function walkerStats(id: WalkerId, level: number, barn = 1): WalkerStats {
+  const base = WALKERS[id][Math.min(Math.max(level, 1), MAX_HELPER_LEVEL) - 1]!;
+  const mul = barnTier(barn).speedMul;
+  return { speed: base.speed * mul, workMs: base.workMs / mul };
+}
 
 /** Sprinkler pulse interval and head count by level. */
 export const SPRINKLER_INTERVAL_MS: readonly number[] = [15_000, 10_000, 6000];
@@ -173,13 +209,60 @@ export function gateSpot(landSize: number): Spot {
   return { u: 12 - landSize / 2 - 0.45, v: 13 };
 }
 
-/** The path a walker takes: straight, unless it has to pass through the gate in the fence. */
+/** True when the straight segment passes through the (slightly shrunk) rectangle. */
+function crossesSquare(a: Spot, b: Spot, half: number): boolean {
+  const lo = 12 - half + 0.05;
+  const hi = 12 + half - 0.05;
+  let t0 = 0;
+  let t1 = 1;
+  for (const [p, d] of [[a.u, b.u - a.u], [a.v, b.v - a.v]] as const) {
+    if (Math.abs(d) < 1e-9) {
+      if (p < lo || p > hi) return false;
+      continue;
+    }
+    let ta = (lo - p) / d;
+    let tb = (hi - p) / d;
+    if (ta > tb) [ta, tb] = [tb, ta];
+    t0 = Math.max(t0, ta);
+    t1 = Math.min(t1, tb);
+    if (t0 >= t1) return false;
+  }
+  return true;
+}
+
+/**
+ * The path a walker takes: straight, unless it has to pass through the gate in the fence,
+ * or go around the fenced plot when the straight line would cut through it.
+ */
 export function route(from: Spot, to: Spot, landSize: number): Spot[] {
   const half = landSize / 2 + 0.45;
   const inside = (s: Spot): boolean => Math.abs(s.u - 12) < half && Math.abs(s.v - 12) < half;
-  if (inside(from) === inside(to)) return [from, to];
-  const gate = gateSpot(landSize);
-  return [from, gate, to];
+  if (inside(from) !== inside(to)) return [from, gateSpot(landSize), to];
+  if (inside(from) || !crossesSquare(from, to, half)) return [from, to];
+  // Both outside, with the plot in between: walk around it by the shorter side.
+  const h = half + 0.6;
+  const corners: Spot[] = [
+    { u: 12 - h, v: 12 - h },
+    { u: 12 + h, v: 12 - h },
+    { u: 12 + h, v: 12 + h },
+    { u: 12 - h, v: 12 + h },
+  ];
+  let best: Spot[] = [from, to];
+  let bestLength = Infinity;
+  for (let n = 0; n < 4; n++) {
+    for (const step of [1, 3]) {
+      const first = corners[n]!;
+      const second = corners[(n + step) % 4]!;
+      if (crossesSquare(from, first, half) || crossesSquare(second, to, half)) continue;
+      const path = [from, first, second, to];
+      const length = routeLength(path);
+      if (length < bestLength - 1e-9) {
+        bestLength = length;
+        best = path;
+      }
+    }
+  }
+  return best;
 }
 
 export function routeLength(points: readonly Spot[]): number {
@@ -216,9 +299,10 @@ export interface WalkerPose {
 /** Where a walker is and what it is doing at `now`, derived purely from its saved state. */
 export function walkerPose(id: WalkerId, state: HelperState, landSize: number, now: number): WalkerPose {
   const stats = walkerStats(id, state.level);
+  const speed = state.speed ?? stats.speed;
   const path = route(state.from, state.target, landSize);
   const length = routeLength(path);
-  const walkMs = (length / stats.speed) * 1000;
+  const walkMs = (length / speed) * 1000;
   const arriveAt = state.leftAt + walkMs;
   const elapsed = Math.max(0, now - state.leftAt);
 
@@ -229,13 +313,13 @@ export function walkerPose(id: WalkerId, state: HelperState, landSize: number, n
   };
 
   if (now < arriveAt) {
-    const distance = (elapsed / 1000) * stats.speed;
+    const distance = (elapsed / 1000) * speed;
     return { at: pointAlong(path, distance), heading: headingOf(distance), mode: 'walking', workProgress: 0 };
   }
   const end = path[path.length - 1]!;
   const heading = length > 0.01 ? headingOf(length) : 0;
   if (state.working && now < state.nextAt) {
-    return { at: end, heading, mode: 'working', workProgress: Math.min(1, (now - arriveAt) / Math.max(1, stats.workMs)) };
+    return { at: end, heading, mode: 'working', workProgress: Math.min(1, (now - arriveAt) / Math.max(1, state.nextAt - arriveAt)) };
   }
   return { at: end, heading, mode: 'resting', workProgress: 0 };
 }

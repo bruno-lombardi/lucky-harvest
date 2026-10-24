@@ -66,7 +66,7 @@ const STAGES: readonly Stage[] = [
     title: 'Fazenda viva',
     lines: [
       'Galinhas, vacas e porcos dão ovos, leite e trufas. Dê ração, espere o ciclo e toque no bicho para coletar.',
-      'No Celeiro, culturas viram ração. Contrate o Regador, o Tonico e o Mingau, mas lembre: eles cobram salário.',
+      'No Celeiro, culturas viram ração. Contrate o Regador, o Tonico e o Mingau, mas lembre: eles cobram salário (ou custo, no caso dos bichos).',
       'Terreno de 10×10 no nível 6, e morango e abóbora no caminho.',
     ],
   },
@@ -75,7 +75,7 @@ const STAGES: readonly Stage[] = [
     title: 'Fazenda próspera',
     lines: [
       'Abrigos melhoram (mais bichos, ciclo mais rápido), o caminhão ganha upgrades e o terreno chega a 12×12.',
-      'Sementes raras valem muito mais e podem render colheita dourada. Rex, o cão, recolhe os produtos dos abrigos.',
+      'Sementes raras valem muito mais e podem render colheita dourada. Rex, o cão, recolhe os produtos dos abrigos e a Lúcia dá ração aos bichos. Melhore o celeiro para baixar os custos dos ajudantes.',
       'No nível 10, compre o Pomar ao lado do moinho: árvores precisam de uma rega enquanto jovens e depois dão frutas para sempre.',
       'Enfeites a partir do nível 14: para gastar moedas com estilo.',
     ],

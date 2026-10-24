@@ -2,16 +2,19 @@ import {
   DataTexture,
   DynamicDrawUsage,
   Group,
+  GreaterDepth,
   InstancedMesh,
   MathUtils,
+  Mesh,
   MeshBasicMaterial,
   Object3D,
   SphereGeometry,
 } from 'three';
 import { CROPS } from '../core/crops';
 import { Farm } from '../core/farm';
-import { WalkerId, sprinklerSpots, walkerPose } from '../core/helpers';
+import { HOME, WalkerId, sprinklerSpots, walkerPose } from '../core/helpers';
 import { Character, CharacterKit } from './characters';
+import { Palette, box } from './props';
 import { createUnpaidIndicator } from './indicators';
 
 const DROPS_PER_HEAD = 18;
@@ -19,6 +22,45 @@ const MAX_HEADS = 12;
 /** How long a sprinkler keeps spraying after a pulse (ms). */
 const SPRAY_MS = 3200;
 const SPRAY_RADIUS = 1.45;
+
+/** What shows through when a walker is hidden behind a building: a soft warm silhouette. */
+const XRAY = new MeshBasicMaterial({
+  color: 0xffd68a,
+  transparent: true,
+  opacity: 0.38,
+  depthFunc: GreaterDepth,
+  depthWrite: false,
+});
+
+/** Adds a see-through silhouette to every solid mesh of a character, so helpers never disappear behind roofs and walls. */
+function addSilhouette(root: Object3D): void {
+  const meshes: Mesh[] = [];
+  root.traverse((o) => {
+    const mesh = o as Mesh;
+    const material = mesh.material as { side?: number } | undefined;
+    if (mesh.isMesh && material?.side !== 1 && !mesh.userData['silhouette']) meshes.push(mesh);
+  });
+  for (const mesh of meshes) {
+    const ghost = new Mesh(mesh.geometry, XRAY);
+    ghost.renderOrder = 20;
+    ghost.userData['silhouette'] = true;
+    mesh.add(ghost);
+  }
+}
+
+/** Rex's little doghouse, set by the pens where he rests. */
+function buildKennel(palette: Palette): Group {
+  const g = new Group();
+  g.add(box(palette, 0xb8814a, 0.8, 0.5, 0.7, 0, 0.25, 0, 0.015));
+  g.add(box(palette, 0x2a1a10, 0.3, 0.32, 0.04, 0, 0.17, 0.36, 0));
+  for (const side of [-1, 1]) {
+    const slab = box(palette, 0xa4382c, 0.62, 0.06, 0.82, side * 0.22, 0.64, 0, 0.012);
+    slab.rotation.z = -side * 0.62;
+    g.add(slab);
+  }
+  g.add(box(palette, 0xf6efe0, 0.2, 0.07, 0.03, 0, 0.42, 0.37, 0));
+  return g;
+}
 
 interface WalkerEntry {
   id: WalkerId;
@@ -41,6 +83,8 @@ export class HelperView {
 
   private readonly kit: CharacterKit;
   private readonly walkers = new Map<WalkerId, WalkerEntry>();
+  private readonly palette: Palette;
+  private kennel: Group | null = null;
   private readonly heads: HeadEntry[] = [];
   private readonly sprinklers = new Group();
   private readonly drops: InstancedMesh;
@@ -56,6 +100,7 @@ export class HelperView {
     gradientMap: DataTexture,
   ) {
     this.kit = new CharacterKit(gradientMap);
+    this.palette = new Palette(gradientMap);
     this.group.add(this.sprinklers);
 
     this.drops = new InstancedMesh(
@@ -86,8 +131,22 @@ export class HelperView {
     this.syncSprinklers(dt, now);
   }
 
+  private syncKennel(): void {
+    const has = !!this.farm.helpers.cao;
+    if (has && !this.kennel) {
+      this.kennel = buildKennel(this.palette);
+      this.kennel.position.set(HOME.cao.u - 12 + 1.2, 0, HOME.cao.v - 12 + 0.2);
+      this.kennel.rotation.y = Math.PI / 4;
+      this.group.add(this.kennel);
+    } else if (!has && this.kennel) {
+      this.group.remove(this.kennel);
+      this.kennel = null;
+    }
+  }
+
   private syncWalkers(dt: number, now: number): void {
-    for (const id of ['ajudante', 'gato', 'cao'] as const) {
+    this.syncKennel();
+    for (const id of ['ajudante', 'gato', 'cao', 'tratador'] as const) {
       const state = this.farm.helpers[id];
       let entry = this.walkers.get(id);
       if (!state) {
@@ -98,7 +157,9 @@ export class HelperView {
         continue;
       }
       if (!entry) {
-        const character = id === 'ajudante' ? this.kit.farmhand() : id === 'gato' ? this.kit.cat() : this.kit.dog();
+        const character =
+          id === 'ajudante' ? this.kit.farmhand() : id === 'tratador' ? this.kit.farmhand(true) : id === 'gato' ? this.kit.cat() : this.kit.dog();
+        addSilhouette(character.root);
         character.root.userData['pickId'] = `helper:${id}`;
         const indicator = createUnpaidIndicator();
         indicator.visible = false;

@@ -7,7 +7,7 @@ import { SPECIES, SPECIES_ORDER, SpeciesId, animalStatus } from './core/animals'
 import { Command, applyCommand } from './core/commands';
 import { Farm, Gain } from './core/farm';
 import { SaveManager } from './persistence';
-import { HELPERS, HELPER_ORDER, HOME, HelperId, walkerPose } from './core/helpers';
+import { HELPERS, HELPER_ORDER, HOME, HelperId, payWord, walkerPose } from './core/helpers';
 import { PEN_LAYOUT } from './render/pens';
 import { BarnDialog } from './ui/barn';
 import { MenuDialog } from './ui/menu';
@@ -124,6 +124,12 @@ function showHelperEvents(now: number): void {
   const events = farm.helperEvents.splice(0);
   let sprinkled = false;
   for (const e of events) {
+    if (e.kind === 'feed' && e.species && now - e.at <= 2500) {
+      const spot = PEN_LAYOUT[e.species];
+      game.burstAt('care', spot.x, spot.z);
+      audio.play('feed', QUIET_VOLUME);
+      continue;
+    }
     if (e.kind === 'collect' && e.species && now - e.at <= 2500) {
       const spot = PEN_LAYOUT[e.species];
       game.burstAt('harvest', spot.x, spot.z);
@@ -151,7 +157,7 @@ function showHelperEvents(now: number): void {
     if (state && !state.paid) {
       if (!unpaidKnown.has(id)) {
         unpaidKnown.add(id);
-        toast.show(`${HELPERS[id].name} parou: sem moedas para o salário!`, 3600);
+        toast.show(`${HELPERS[id].name} parou: sem moedas para o ${payWord(id)}!`, 3600);
         audio.play('error');
       }
     } else unpaidKnown.delete(id);
@@ -296,6 +302,7 @@ function commandEffects(command: Command): void {
       break;
     case 'upgradePen':
     case 'upgradeTruck':
+    case 'upgradeBarn':
     case 'buyDecor':
       audio.play('build');
       break;
@@ -419,7 +426,7 @@ function helperTip(id: HelperId): string {
   const def = HELPERS[id];
   const state = farm.helpers[id];
   if (!state) return def.name;
-  if (!state.paid) return `${def.name}: parou, sem salário`;
+  if (!state.paid) return `${def.name}: parou, sem ${payWord(id)}`;
   return `${def.name} · nível ${state.level}: ${def.job}`;
 }
 
@@ -455,7 +462,7 @@ function handleObjectTap(id: string): void {
 
 // Debug: ?follow=ajudante|gato|cao keeps the camera on a helper (&zoom=4 to get close).
 const followParam = params.get('follow');
-const follow = followParam === 'ajudante' || followParam === 'gato' || followParam === 'cao' ? followParam : null;
+const follow = followParam === 'ajudante' || followParam === 'gato' || followParam === 'cao' || followParam === 'tratador' ? followParam : null;
 const followZoom = Number(params.get('zoom') ?? 4) || 4;
 
 const parsedHour = Number(params.get('time') ?? 9);
@@ -568,6 +575,7 @@ if (openPen && SPECIES_ORDER.includes(openPen)) pen.open(openPen);
 if (params.has('menu')) menu.open();
 
 if (params.has('spray')) game.forceSpray(true);
+if (params.has('tier')) farm.barn = Math.min(4, Math.max(1, Number(params.get('tier')) || 1)); // debug: look at a barn tier
 
 // Debug hook for the end-to-end checks (only with ?demo).
 if (isDemo) (window as unknown as Record<string, unknown>)['__lh'] = { farm, tileAt: (i: number, j: number) => game.screenPositionOf({ i, j }) };

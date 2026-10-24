@@ -2,9 +2,10 @@ import { PRODUCTS, PRODUCT_ORDER, SPECIES, SPECIES_ORDER, SpeciesId, penCapacity
 import { CROPS, CROP_ORDER, CropId } from '../core/crops';
 import { DECOR, DECOR_ORDER, DECOR_UNLOCK_LEVEL, DecorId } from '../core/decor';
 import { TRUCK_UPGRADES, TRUCK_UPGRADE_ORDER, TruckUpgradeId } from '../core/delivery';
+import { BARN_TIERS, barnPerk, barnTier, nextBarnTier } from '../core/barn';
 import { Farm } from '../core/farm';
 import { POMAR, TREES, TREE_ORDER, TreeId } from '../core/trees';
-import { HELPERS, HELPER_ORDER, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage, nextHelperUpgrade } from '../core/helpers';
+import { HELPERS, HELPER_ORDER, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage, nextHelperUpgrade, payWord } from '../core/helpers';
 import { formatDuration } from './messages';
 import { humanDuration } from './info';
 import { BARN_ICON, LAND_ICON, LOCK_ICON, SHOP_ICON, TRUCK_ICON } from './icons';
@@ -102,6 +103,9 @@ export class Shop extends Modal<ShopTab> {
         break;
       case 'decor':
         this.dispatch({ type: 'buyDecor', decor: data['decor'] as DecorId });
+        break;
+      case 'barn':
+        this.dispatch({ type: 'upgradeBarn' });
         break;
       case 'truck':
         this.dispatch({ type: 'upgradeTruck', upgrade: data['upgrade'] as TruckUpgradeId });
@@ -281,7 +285,7 @@ export class Shop extends Modal<ShopTab> {
   private helpersHtml(): string {
     const { farm } = this;
     const now = Date.now();
-    const intro = `<p class="tip">Ajudantes trabalham sozinhos, mas cobram salário a cada ${WAGE_PERIOD_MS / 60_000} minutos. Sem moedas, eles param.</p>`;
+    const intro = `<p class="tip">Ajudantes trabalham sozinhos, mas cobram a cada ${WAGE_PERIOD_MS / 60_000} minutos: salário para as pessoas, custo para os bichos. Sem moedas, eles param. Um celeiro melhor baixa esses valores.</p>`;
     const rows = HELPER_ORDER.map((id) => {
       const def = HELPERS[id];
       const state = farm.helpers[id];
@@ -289,18 +293,18 @@ export class Shop extends Modal<ShopTab> {
         const locked = farm.level < def.unlockLevel;
         const info = locked
           ? `<b>${def.name}</b><small><i class="ico">${LOCK_ICON}</i>Libera no nível ${def.unlockLevel}</small>`
-          : `<b>${def.name}</b><small>${def.job[0]!.toUpperCase()}${def.job.slice(1)} · ${coin(def.hireCost)} · salário ${coin(helperWage(id, 1))}</small>`;
+          : `<b>${def.name}</b><small>${def.job[0]!.toUpperCase()}${def.job.slice(1)} · ${coin(def.hireCost)} · ${payWord(id)} ${coin(helperWage(id, 1, farm.barn))}</small>`;
         const button = locked
           ? ''
           : `<button type="button" class="buy wide" data-act="hire" data-helper="${id}" ${farm.coins < def.hireCost ? 'disabled' : ''}>Contratar</button>`;
         return row(HELPER_ICONS[id], info, button, locked, `helper:${id}`);
       }
-      const wage = helperWage(id, state.level);
+      const wage = helperWage(id, state.level, farm.barn);
       const next = nextHelperUpgrade(id, state.level);
       const stars = '★'.repeat(state.level) + '☆'.repeat(MAX_HELPER_LEVEL - state.level);
       const status = state.paid
-        ? `<small class="ok">Trabalhando · salário ${coin(wage)} em ${formatDuration(state.paidUntil - now)}</small>`
-        : `<small class="warn">Parou: sem salário (${coin(wage)})</small>`;
+        ? `<small class="ok">Trabalhando · ${payWord(id)} ${coin(wage)} em ${formatDuration(state.paidUntil - now)}</small>`
+        : `<small class="warn">Parou: sem ${payWord(id)} (${coin(wage)})</small>`;
       const buttons = state.paid
         ? next
           ? `<button type="button" class="buy wide" data-act="upgrade" data-helper="${id}" ${farm.coins < next.cost ? 'disabled' : ''}>Melhorar ${coin(next.cost)}</button>`
@@ -321,7 +325,31 @@ export class Shop extends Modal<ShopTab> {
     const { farm } = this;
     const next = farm.nextExpansion();
     const now = `${farm.landSize}×${farm.landSize}`;
-    return `${this.landCard(next, now)}${this.truckHtml()}${this.decorHtml()}`;
+    return `${this.landCard(next, now)}${this.barnHtml()}${this.truckHtml()}${this.decorHtml()}`;
+  }
+
+  private barnHtml(): string {
+    const { farm } = this;
+    const tier = barnTier(farm.barn);
+    const next = nextBarnTier(farm.barn);
+    const current = row(
+      `<i class="ico">${BARN_ICON}</i>`,
+      `<b>${tier.name} <span class="count">${farm.barn}/${BARN_TIERS.length}</span></b><small>${barnPerk(tier)}</small>`,
+      '',
+      false,
+      `barn:${tier.level}`,
+    );
+    if (!next) return `${heading('Celeiro')}${current}<p class="tip">Seu celeiro já é o maior da região.</p>`;
+    const locked = farm.level < next.unlockLevel;
+    const detail = locked ? `<i class="ico">${LOCK_ICON}</i>Libera no nível ${next.unlockLevel}` : coin(next.cost);
+    const upgrade = row(
+      `<i class="ico">${BARN_ICON}</i>`,
+      `<b>${next.name}</b><small>${barnPerk(next)} · ${detail}</small>`,
+      `<button type="button" class="buy wide" data-act="barn" ${locked || farm.coins < next.cost ? 'disabled' : ''}>Melhorar</button>`,
+      locked,
+      `barn:${next.level}`,
+    );
+    return `${heading('Celeiro')}${current}${upgrade}`;
   }
 
   private truckHtml(): string {

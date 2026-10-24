@@ -115,7 +115,8 @@ export function createDemoFarm(now: number): Farm {
   });
 
   const snapshot: FarmSnapshot = {
-    version: 7,
+    version: 8,
+    barn: 2,
     pomar: true,
     saplings: { laranjeira: 2, goiabeira: 1, mangueira: 1, jabuticabeira: 0, coqueiro: 0 },
     fruit: { laranjeira: 8, goiabeira: 4, mangueira: 0, jabuticabeira: 6, coqueiro: 0 },
@@ -141,6 +142,7 @@ export function createDemoFarm(now: number): Farm {
       ajudante: helper(2, HOME.ajudante),
       gato: helper(1, HOME.gato),
       cao: helper(1, HOME.cao),
+      tratador: helper(2, HOME.tratador),
     },
     tiles,
   };

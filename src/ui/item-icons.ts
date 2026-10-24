@@ -130,4 +130,15 @@ export const HELPER_ICONS: Record<HelperId, string> = {
   <path d="M24 32 V35 M20.5 36.5 Q24 39 27.5 36.5" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>
   <path d="M21 38.5 Q24 44 27 38.5Z" fill="#f08a9a" stroke="${INK}" stroke-width="1.6" stroke-linejoin="round"/>
 </svg>`,
+  tratador: `${open}>
+  <path d="M8 44 Q8 34 24 34 Q40 34 40 44Z" fill="#3f9a8a" ${line}/>
+  <path d="M7 24 C7 15 15 11 24 11 C33 11 41 15 41 24 C41 34 33 40 24 40 C15 40 7 34 7 24Z" fill="#e6ac82" ${line}/>
+  <path d="M6 22 C6 8 15 4 24 4 C33 4 42 8 42 22 Q24 14 6 22Z" fill="#c23b2c" ${line}/>
+  <circle cx="38" cy="10" r="4" fill="#fff6e4" ${line}/>
+  <path d="M12 21 Q24 15 36 21" fill="none" stroke="#fff6e4" stroke-width="2.4" stroke-dasharray="1 4.5" stroke-linecap="round"/>
+  <circle cx="18" cy="27" r="2.4" fill="${INK}"/><circle cx="30" cy="27" r="2.4" fill="${INK}"/>
+  <ellipse cx="13" cy="31" rx="3" ry="2" fill="#f0968a"/><ellipse cx="35" cy="31" rx="3" ry="2" fill="#f0968a"/>
+  <path d="M19 33 Q24 38 29 33" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>
+  <path d="M19 40 L24 44 L29 40" fill="#e9dcc0" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/>
+</svg>`,
 };

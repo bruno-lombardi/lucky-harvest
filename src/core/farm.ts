@@ -13,6 +13,7 @@ import {
   penCycleMs,
 } from './animals';
 import { CROP_ORDER, CropId, RARITIES, getCrop } from './crops';
+import { MAX_BARN_LEVEL, barnTier, nextBarnTier } from './barn';
 import { Stats, cloneStats, emptyStats, normalizeStats } from './stats';
 import { DECOR, DECOR_ORDER, DECOR_UNLOCK_LEVEL, DecorId, Decorations } from './decor';
 import {
@@ -149,6 +150,7 @@ export type FailReason =
   | 'not-done'
   | 'decor-locked'
   | 'pomar-locked'
+  | 'barn-locked'
   | 'not-orchard'
   | 'no-tree'
   | 'tree-locked'
@@ -198,7 +200,7 @@ export interface DeliveryEvent {
 
 export interface HelperEvent {
   helper: HelperId;
-  kind: 'harvest' | 'water' | 'care' | 'collect' | 'wage' | 'unpaid';
+  kind: 'harvest' | 'water' | 'care' | 'collect' | 'feed' | 'wage' | 'unpaid';
   at: number;
   i?: number;
   j?: number;
@@ -234,7 +236,7 @@ const cloneHelpers = (helpers: Helpers): Helpers => {
 export type ActionResult = { ok: true; gain: Gain } | { ok: false; reason: FailReason };
 
 export interface FarmSnapshot {
-  version: 7;
+  version: 8;
   /** Per-player constant that seeds every random outcome (pests). */
   seed: number;
   /** Counts successful mutations; part of the random stream and handy for sync ordering. */
@@ -257,6 +259,8 @@ export interface FarmSnapshot {
   stats: Stats;
   /** Ids of goals and achievement steps whose reward was taken (see progress.ts). */
   claimed: string[];
+  /** Barn tier, 1..MAX_BARN_LEVEL (see barn.ts). */
+  barn: number;
   /** The Pomar (orchard) has been bought. */
   pomar: boolean;
   saplings: FruitStock;
@@ -271,9 +275,10 @@ export type LegacySnapshot =
   | (Omit<FarmSnapshot, 'version' | 'helpers' | 'deliveredSlot' | 'truck' | 'decor' | 'stats' | 'claimed' | OrchardKeys> & { version: 3 })
   | (Omit<FarmSnapshot, 'version' | 'deliveredSlot' | 'truck' | 'decor' | 'stats' | 'claimed' | OrchardKeys> & { version: 4 })
   | (Omit<FarmSnapshot, 'version' | 'truck' | 'decor' | 'stats' | 'claimed' | OrchardKeys> & { version: 5 })
-  | (Omit<FarmSnapshot, 'version' | OrchardKeys> & { version: 6 });
+  | (Omit<FarmSnapshot, 'version' | OrchardKeys> & { version: 6 })
+  | (Omit<FarmSnapshot, 'version' | 'barn'> & { version: 7 });
 
-type OrchardKeys = 'pomar' | 'saplings' | 'fruit' | 'trees';
+type OrchardKeys = 'pomar' | 'saplings' | 'fruit' | 'trees' | 'barn';
 
 export interface FarmOptions {
   seed?: number;
@@ -308,6 +313,7 @@ export class Farm {
   decor: Decorations = {};
   stats: Stats = emptyStats();
   claimed: string[] = [];
+  barn = 1;
   pomar = false;
   saplings: FruitStock = emptyFruit();
   fruit: FruitStock = emptyFruit();
@@ -837,7 +843,7 @@ export class Farm {
     const helper = this.helpers[id];
     if (!helper) return fail('no-helper');
     if (helper.paid) return fail('already-paid');
-    const wage = helperWage(id, helper.level);
+    const wage = helperWage(id, helper.level, this.barn);
     if (this.coins < wage) return fail('no-coins');
     helper.paid = true;
     helper.paidUntil = now + WAGE_PERIOD_MS;
@@ -912,6 +918,16 @@ export class Farm {
     return this.done(-def.cost, 0);
   }
 
+  /** Upgrades the barn one tier: a nicer barn and cheaper, faster helpers. */
+  upgradeBarn(): ActionResult {
+    const next = nextBarnTier(this.barn);
+    if (!next) return fail('max-level');
+    if (this.level < next.unlockLevel) return fail('barn-locked');
+    if (this.coins < next.cost) return fail('no-coins');
+    this.barn = next.level;
+    return this.done(-next.cost, 0);
+  }
+
   /** Buys a decoration (once each). */
   buyDecor(id: DecorId): ActionResult {
     const def = DECOR[id];
@@ -944,7 +960,7 @@ export class Farm {
   }
 
   private payday(id: HelperId, h: HelperState, at: number): void {
-    const wage = helperWage(id, h.level);
+    const wage = helperWage(id, h.level, this.barn);
     this.revision++;
     if (this.coins >= wage) {
       this.coins -= wage;
@@ -990,7 +1006,7 @@ export class Farm {
     }
     this.revision++;
     h.lastAt = at;
-    h.nextAt = at + (SPRINKLER_INTERVAL_MS[h.level - 1] ?? SPRINKLER_INTERVAL_MS[0]!);
+    h.nextAt = at + (SPRINKLER_INTERVAL_MS[h.level - 1] ?? SPRINKLER_INTERVAL_MS[0]!) / barnTier(this.barn).speedMul;
     void count;
   }
 
@@ -999,7 +1015,15 @@ export class Farm {
     if (h.working) {
       const i = Math.floor(h.target.u);
       const j = Math.floor(h.target.v);
-      if (id === 'cao') {
+      if (id === 'tratador') {
+        const species = SPECIES_ORDER.find((sp) => PEN_SPOTS[sp].u === h.target.u && PEN_SPOTS[sp].v === h.target.v);
+        const pen = species ? this.pens[species] : undefined;
+        if (species && pen) {
+          const hungry = pen.animals.filter((a) => animalStatus(species, a, at, pen.level).phase === 'hungry').length;
+          const fedBefore = this.stats.fed;
+          if (this.feedAll(species, at).ok) this.helperEvents.push({ helper: id, kind: 'feed', at, species, count: Math.min(hungry, this.stats.fed - fedBefore) });
+        }
+      } else if (id === 'cao') {
         const species = SPECIES_ORDER.find((sp) => PEN_SPOTS[sp] === h.target || (PEN_SPOTS[sp].u === h.target.u && PEN_SPOTS[sp].v === h.target.v));
         const pen = species ? this.pens[species] : undefined;
         if (species && pen) {
@@ -1032,7 +1056,18 @@ export class Farm {
     let bestSpot: Spot | null = null;
     let bestDistance = Infinity;
     const here = h.target;
-    if (id === 'cao') {
+    if (id === 'tratador') {
+      for (const species of SPECIES_ORDER) {
+        const pen = this.pens[species];
+        if (!pen || this.feed[species] < 1 || !pen.animals.some((a) => animalStatus(species, a, at, pen.level).phase === 'hungry')) continue;
+        const spot = PEN_SPOTS[species];
+        const d = Math.hypot(spot.u - here.u, spot.v - here.v);
+        if (d < bestDistance - 1e-9) {
+          bestDistance = d;
+          bestSpot = spot;
+        }
+      }
+    } else if (id === 'cao') {
       for (const species of SPECIES_ORDER) {
         const pen = this.pens[species];
         if (!pen || !pen.animals.some((a) => animalStatus(species, a, at, pen.level).phase === 'ready')) continue;
@@ -1068,7 +1103,8 @@ export class Farm {
       if (best) bestSpot = { u: best.i + 0.5, v: best.j + 0.5 };
     }
 
-    const stats = walkerStats(id, h.level);
+    const stats = walkerStats(id, h.level, this.barn);
+    h.speed = stats.speed;
     h.from = { ...here };
     h.leftAt = at;
     if (bestSpot) {
@@ -1092,7 +1128,7 @@ export class Farm {
       tiles[key] = { kind: tile.kind, crop: tile.crop ? { ...tile.crop } : null };
     }
     return {
-      version: 7,
+      version: 8,
       seed: this.seed,
       revision: this.revision,
       nextAnimalId: this.nextAnimalId,
@@ -1110,6 +1146,7 @@ export class Farm {
       decor: { ...this.decor },
       stats: cloneStats(this.stats),
       claimed: [...this.claimed],
+      barn: this.barn,
       pomar: this.pomar,
       saplings: { ...this.saplings },
       fruit: { ...this.fruit },
@@ -1135,15 +1172,17 @@ export class Farm {
       farm.stats = normalizeStats(v6.stats);
       farm.claimed = [...new Set(v6.claimed.filter((c) => typeof c === 'string'))];
     }
-    if (snapshot.version === 7) {
-      farm.pomar = snapshot.pomar === true;
-      farm.saplings = { ...emptyFruit(), ...snapshot.saplings };
-      farm.fruit = { ...emptyFruit(), ...snapshot.fruit };
-      for (const [key, t] of Object.entries(snapshot.trees)) {
+    if (snapshot.version >= 7) {
+      const v7 = snapshot as FarmSnapshot | Extract<LegacySnapshot, { version: 7 }>;
+      farm.pomar = v7.pomar === true;
+      farm.saplings = { ...emptyFruit(), ...v7.saplings };
+      farm.fruit = { ...emptyFruit(), ...v7.fruit };
+      for (const [key, t] of Object.entries(v7.trees)) {
         const [ti, tj] = key.split(',').map(Number) as [number, number];
         if (t.species in TREES && isOrchardTile(ti, tj)) farm.trees.set(key, { ...t });
       }
     }
+    if (snapshot.version === 8) farm.barn = Math.min(Math.max(Math.floor(snapshot.barn) || 1, 1), MAX_BARN_LEVEL);
     farm.coins = snapshot.coins;
     farm.xp = snapshot.xp;
     farm.landSize = snapshot.landSize;

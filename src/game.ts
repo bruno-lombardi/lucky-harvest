@@ -341,6 +341,7 @@ export class Game {
     this.cameraController.update(dt);
     this.dayNight.update(dt);
     this.applyAtmosphere();
+    this.props.setBarnLevel(this.farm.barn);
     if (this.shownLand !== this.farm.landSize) {
       this.shownLand = this.farm.landSize;
       this.props.setLandSize(this.shownLand);

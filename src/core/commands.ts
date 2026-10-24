@@ -28,6 +28,7 @@ export type Command =
   | { type: 'upgradePen'; species: SpeciesId }
   | { type: 'upgradeTruck'; upgrade: TruckUpgradeId }
   | { type: 'buyDecor'; decor: DecorId }
+  | { type: 'upgradeBarn' }
   | { type: 'claimGoal'; goal: number }
   | { type: 'claimAchievement'; achievement: string; step: number }
   | { type: 'buyAnimal'; species: SpeciesId }
@@ -77,6 +78,8 @@ export function applyCommand(farm: Farm, command: Command, now: number): ActionR
       return farm.upgradeTruck(command.upgrade, now);
     case 'buyDecor':
       return farm.buyDecor(command.decor);
+    case 'upgradeBarn':
+      return farm.upgradeBarn();
     case 'claimGoal': {
       const goal = findGoal(command.goal);
       if (!goal || !goalDone(goal, farm)) return { ok: false, reason: 'not-done' };

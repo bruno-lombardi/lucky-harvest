@@ -1,10 +1,11 @@
 import { PRODUCTS, ProductId, SPECIES, SpeciesId, penCapacity } from '../core/animals';
 import { CROPS, CropId, RARITIES } from '../core/crops';
 import { Farm, LAND_STEPS } from '../core/farm';
-import { HELPERS, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage } from '../core/helpers';
+import { HELPERS, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage, payWord } from '../core/helpers';
 import { DECOR, DecorId } from '../core/decor';
 import { POMAR, TREES, TreeId, coinsPerMinute } from '../core/trees';
 import { TRUCK_UPGRADES, TruckUpgradeId } from '../core/delivery';
+import { BARN_TIERS, barnPerk } from '../core/barn';
 import { LOCK_ICON } from './icons';
 import { coin } from './kit';
 
@@ -162,14 +163,14 @@ function helperCard(id: HelperId, farm: Farm): Card {
   const stats: Array<[string, string]> = [['Contratar', coin(h.hireCost)]];
   for (let level = 1; level <= MAX_HELPER_LEVEL; level++) {
     const up = level === 1 ? '' : ` · melhora ${coin(h.upgradeCost[level - 2]!)}`;
-    stats.push([`Nível ${level}${state?.level === level ? ' (atual)' : ''}`, `${h.perks[level - 1]} · salário ${coin(helperWage(id, level))}${up}`]);
+    stats.push([`Nível ${level}${state?.level === level ? ' (atual)' : ''}`, `${h.perks[level - 1]} · ${payWord(id)} ${coin(helperWage(id, level, farm.barn))}${up}`]);
   }
   return {
     title: h.name,
     tag: lockTag(h.unlockLevel, farm.level),
     lore: h.lore,
     stats,
-    note: `O salário é cobrado a cada ${humanDuration(WAGE_PERIOD_MS)}. Sem moedas, o ajudante para até você pagar.`,
+    note: `O ${payWord(id)} é cobrado a cada ${humanDuration(WAGE_PERIOD_MS)}. Sem moedas, ${h.animal ? 'o bichinho para' : 'o ajudante para'} até você pagar.`,
   };
 }
 
@@ -185,6 +186,21 @@ function landCard(farm: Farm): Card {
       ['Depois', `${step.size}×${step.size} (${step.size * step.size} lotes)`],
       ['Preço', coin(step.cost)],
     ],
+  };
+}
+
+function barnCard(level: number, farm: Farm): Card {
+  const t = BARN_TIERS[level - 1]!;
+  return {
+    title: t.name,
+    tag: farm.barn >= level ? (farm.barn === level ? 'Seu celeiro' : 'Já tem') : lockTag(t.unlockLevel, farm.level),
+    lore: t.text,
+    stats: [
+      ...(t.cost > 0 ? ([['Preço', coin(t.cost)]] as Array<[string, string]>) : []),
+      ['Custo dos ajudantes', t.costMul === 1 ? 'Normal' : `${Math.round((1 - t.costMul) * 100)}% menor`],
+      ['Velocidade', t.speedMul === 1 ? 'Normal' : `${Math.round((t.speedMul - 1) * 100)}% maior`],
+    ],
+    note: `${barnPerk(t)}. Vale para o salário, o custo dos bichos, a caminhada, o trabalho e os aspersores.`,
   };
 }
 
@@ -236,6 +252,10 @@ export function infoCard(key: string, farm: Farm): string | null {
       return id in DECOR
         ? render({ title: DECOR[id as DecorId].name, tag: farm.decor[id as DecorId] ? 'Na fazenda' : undefined, lore: DECOR[id as DecorId].text, stats: [['Preço', coin(DECOR[id as DecorId].cost)]] })
         : null;
+    case 'barn': {
+      const n = Number(id);
+      return n >= 1 && n <= BARN_TIERS.length ? render(barnCard(n, farm)) : null;
+    }
     case 'truck':
       return id in TRUCK_UPGRADES ? render(truckCard(id as TruckUpgradeId, farm)) : null;
     case 'tool': {

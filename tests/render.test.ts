@@ -178,3 +178,25 @@ describe('fruit trees', () => {
     expect(view.group.children.length).toBe(1);
   });
 });
+
+describe('barn tiers and the keeper', () => {
+  it('each barn tier adds to the model', async () => {
+    const { Props } = await import('../src/render/props');
+    const props = new Props(createToonGradient(), 6);
+    const counts: number[] = [];
+    for (const level of [1, 2, 3, 4]) {
+      props.setBarnLevel(level);
+      counts.push(props.barn.children.length);
+    }
+    for (let n = 1; n < counts.length; n++) expect(counts[n]!).toBeGreaterThan(counts[n - 1]!);
+    expect(props.barn.userData['pickId']).toBe('barn');
+  });
+
+  it('animates the keeper like the other walkers', () => {
+    const keeper = new CharacterKit(createToonGradient()).farmhand(true);
+    for (const mode of ['walking', 'working', 'resting'] as const) {
+      keeper.update({ pose: { at: { u: 0, v: 0 }, heading: 0, mode, workProgress: 0.5 }, dt: 0.016, time: 1, carry: null, night: 0 });
+    }
+    expect(keeper.root.children.length).toBeGreaterThan(0);
+  });
+});

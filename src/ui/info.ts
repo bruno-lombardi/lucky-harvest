@@ -2,6 +2,7 @@ import { PRODUCTS, ProductId, SPECIES, SpeciesId, penCapacity } from '../core/an
 import { CROPS, CropId, RARITIES } from '../core/crops';
 import { Farm, LAND_STEPS } from '../core/farm';
 import { HELPERS, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage } from '../core/helpers';
+import { DECOR, DecorId } from '../core/decor';
 import { TRUCK_UPGRADES, TruckUpgradeId } from '../core/delivery';
 import { LOCK_ICON } from './icons';
 import { coin } from './kit';
@@ -191,6 +192,10 @@ export function infoCard(key: string, farm: Farm): string | null {
       return id in HELPERS ? render(helperCard(id as HelperId, farm)) : null;
     case 'land':
       return render(landCard(farm));
+    case 'decor':
+      return id in DECOR
+        ? render({ title: DECOR[id as DecorId].name, tag: farm.decor[id as DecorId] ? 'Na fazenda' : undefined, lore: DECOR[id as DecorId].text, stats: [['Preço', coin(DECOR[id as DecorId].cost)]] })
+        : null;
     case 'truck':
       return id in TRUCK_UPGRADES ? render(truckCard(id as TruckUpgradeId, farm)) : null;
     case 'tool': {

@@ -2,6 +2,7 @@ import { AnimalState, SPECIES, SpeciesId } from './core/animals';
 import { CROPS, CROP_ORDER, CropId } from './core/crops';
 import { HOME, HelperState } from './core/helpers';
 import { CropState, Farm, FarmSnapshot, LAND, MAX_LAND, TileState } from './core/farm';
+import { emptyStats } from './core/stats';
 import { slotOf } from './core/delivery';
 import { tileKey } from './core/grid';
 import { levelThreshold } from './core/levels';
@@ -95,6 +96,9 @@ export function createDemoFarm(now: number): Farm {
     version: 6,
     deliveredSlot: slotOf(now),
     truck: { big: false, fast: false },
+    stats: emptyStats(),
+    claimed: [],
+    decor: { banco: true, flores: true, lanterna: true, balanco: true, fonte: true, coreto: true },
     seed: 20240601,
     revision: 0,
     nextAnimalId: 10,
@@ -110,6 +114,7 @@ export function createDemoFarm(now: number): Farm {
       regador: helper(2, { u: 12, v: 12 }),
       ajudante: helper(2, HOME.ajudante),
       gato: helper(1, HOME.gato),
+      cao: helper(1, HOME.cao),
     },
     tiles,
   };

@@ -25,6 +25,7 @@ import { HelperView } from './render/helper-view';
 import { Terrain } from './render/terrain';
 import { Countryside } from './render/countryside';
 import { deliveryInterval } from './core/delivery';
+import { DecorView } from './render/decor-view';
 import { DeliveryView, TRUCK_STOP, TruckCue } from './render/delivery-view';
 import { createToonGradient } from './render/toon';
 
@@ -52,6 +53,7 @@ export class Game {
   private readonly pens: Pens;
   private readonly helperView: HelperView;
   private readonly deliveryView: DeliveryView;
+  private readonly decorView: DecorView;
   private readonly countryside: Countryside;
   private readonly highlight = new TileHighlight(GRID_SIZE);
   private readonly terrain: Terrain;
@@ -103,6 +105,7 @@ export class Game {
     this.props = new Props(gradient, farm.landSize);
     this.pens = new Pens(farm, gradient);
     this.helperView = new HelperView(farm, gradient);
+    this.decorView = new DecorView(farm, gradient);
     this.deliveryView = new DeliveryView(gradient);
     this.deliveryView.onCue = (cue) => this.events.onTruck?.(cue);
     this.deliveryView.onDust = (x, z) => this.effects.burst('clear', x, z);
@@ -114,6 +117,7 @@ export class Game {
       this.pens.group,
       this.helperView.group,
       this.deliveryView.group,
+      this.decorView.group,
       this.farmView.group,
       this.clouds.group,
       this.highlight.group,
@@ -337,6 +341,7 @@ export class Game {
     this.props.update(dt);
     this.pens.update(dt, now);
     this.helperView.update(dt, now);
+    this.decorView.update(dt);
     this.deliveryView.update(now, deliveryInterval(this.farm.truck));
     this.clouds.update(dt);
     this.updateParticles(dt);

@@ -218,3 +218,44 @@ describe('determinism with helpers', () => {
     expect(old.helpers).toEqual({});
   });
 });
+
+describe('Rex, the dog', () => {
+  function withReadyPen(): Farm {
+    const farm = richFarm();
+    farm.xp = levelThreshold(12);
+    expect(farm.buildPen('galinha').ok).toBe(true);
+    expect(farm.buyAnimal('galinha').ok).toBe(true);
+    farm.feed.galinha = 5;
+    expect(farm.feedAnimal('galinha', 1, 0).ok).toBe(true);
+    return farm;
+  }
+
+  it('unlocks at level 12', () => {
+    const farm = richFarm();
+    expect(farm.hireHelper('cao', 0)).toEqual({ ok: false, reason: 'helper-locked' });
+    farm.xp = levelThreshold(12);
+    expect(farm.hireHelper('cao', 0).ok).toBe(true);
+  });
+
+  it('collects what animals produced and keeps being paid', () => {
+    const farm = withReadyPen();
+    farm.hireHelper('cao', 0);
+    const ready = 10 * 60 * SEC;
+    farm.runHelpers(ready + 60 * SEC);
+    expect(farm.products.ovo).toBe(1);
+    expect(farm.pens.galinha!.animals[0]!.readyAt).toBeNull();
+  });
+
+  it('replays the same through commands', () => {
+    const log: LoggedCommand[] = [{ command: { type: 'hireHelper', helper: 'cao' }, now: 0 }];
+    const a = withReadyPen();
+    const b = Farm.fromSnapshot(a.toSnapshot());
+    for (const e of log) {
+      applyCommand(a, e.command, e.now);
+      applyCommand(b, e.command, e.now);
+    }
+    a.runHelpers(20 * 60 * SEC);
+    b.runHelpers(20 * 60 * SEC);
+    expect(a.toSnapshot()).toEqual(b.toSnapshot());
+  });
+});

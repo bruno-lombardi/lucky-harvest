@@ -119,4 +119,15 @@ export const HELPER_ICONS: Record<HelperId, string> = {
   <path d="M22 31.5 H26 L24 34Z" fill="#f08a9a" stroke="${INK}" stroke-width="1.6" stroke-linejoin="round"/>
   <path d="M3 28 L12 30 M3 35 L12 33 M45 28 L36 30 M45 35 L36 33" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
 </svg>`,
+  cao: `${open}>
+  <path d="M10 14 Q4 16 5 30 Q6 38 12 36 Q14 28 14 20Z" fill="#8a5a2a" ${line}/>
+  <path d="M38 14 Q44 16 43 30 Q42 38 36 36 Q34 28 34 20Z" fill="#8a5a2a" ${line}/>
+  <path d="M12 22 C12 11 17 8 24 8 C31 8 36 11 36 22 C36 36 31 42 24 42 C17 42 12 36 12 22Z" fill="#d9a35f" ${line}/>
+  <path d="M24 8 C28 8 31 10 31 15 Q27 17 24 15Z" fill="#8a5a2a"/>
+  <ellipse cx="24" cy="33" rx="8.5" ry="7" fill="#fff0d6" stroke="${INK}" stroke-width="2"/>
+  <ellipse cx="24" cy="29.5" rx="3.6" ry="2.6" fill="#2b1b12" stroke="${INK}" stroke-width="1.4"/>
+  <circle cx="18" cy="21" r="2.4" fill="${INK}"/><circle cx="30" cy="21" r="2.4" fill="${INK}"/>
+  <path d="M24 32 V35 M20.5 36.5 Q24 39 27.5 36.5" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M21 38.5 Q24 44 27 38.5Z" fill="#f08a9a" stroke="${INK}" stroke-width="1.6" stroke-linejoin="round"/>
+</svg>`,
 };

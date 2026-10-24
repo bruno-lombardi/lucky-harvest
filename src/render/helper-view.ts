@@ -10,7 +10,7 @@ import {
 } from 'three';
 import { CROPS } from '../core/crops';
 import { Farm } from '../core/farm';
-import { sprinklerSpots, walkerPose } from '../core/helpers';
+import { WalkerId, sprinklerSpots, walkerPose } from '../core/helpers';
 import { Character, CharacterKit } from './characters';
 import { createUnpaidIndicator } from './indicators';
 
@@ -21,7 +21,7 @@ const SPRAY_MS = 3200;
 const SPRAY_RADIUS = 1.45;
 
 interface WalkerEntry {
-  id: 'ajudante' | 'gato';
+  id: WalkerId;
   character: Character;
   indicator: Group;
   heading: number;
@@ -35,12 +35,12 @@ interface HeadEntry {
   spin: number;
 }
 
-/** Shows the hired helpers: Tonico and Mingau walking the farm, and the sprinkler heads. Read-only on the farm. */
+/** Shows the hired helpers: Tonico, Mingau and Rex walking the farm, and the sprinkler heads. Read-only on the farm. */
 export class HelperView {
   readonly group = new Group();
 
   private readonly kit: CharacterKit;
-  private readonly walkers = new Map<'ajudante' | 'gato', WalkerEntry>();
+  private readonly walkers = new Map<WalkerId, WalkerEntry>();
   private readonly heads: HeadEntry[] = [];
   private readonly sprinklers = new Group();
   private readonly drops: InstancedMesh;
@@ -87,7 +87,7 @@ export class HelperView {
   }
 
   private syncWalkers(dt: number, now: number): void {
-    for (const id of ['ajudante', 'gato'] as const) {
+    for (const id of ['ajudante', 'gato', 'cao'] as const) {
       const state = this.farm.helpers[id];
       let entry = this.walkers.get(id);
       if (!state) {
@@ -98,7 +98,7 @@ export class HelperView {
         continue;
       }
       if (!entry) {
-        const character = id === 'ajudante' ? this.kit.farmhand() : this.kit.cat();
+        const character = id === 'ajudante' ? this.kit.farmhand() : id === 'gato' ? this.kit.cat() : this.kit.dog();
         character.root.userData['pickId'] = `helper:${id}`;
         const indicator = createUnpaidIndicator();
         indicator.visible = false;

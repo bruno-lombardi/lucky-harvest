@@ -115,6 +115,12 @@ function showHelperEvents(now: number): void {
   const events = farm.helperEvents.splice(0);
   let sprinkled = false;
   for (const e of events) {
+    if (e.kind === 'collect' && e.species && now - e.at <= 2500) {
+      const spot = PEN_LAYOUT[e.species];
+      game.burstAt('harvest', spot.x, spot.z);
+      audio.play('collect', QUIET_VOLUME);
+      continue;
+    }
     if (now - e.at > 2500 || e.i === undefined || e.j === undefined) continue;
     const tile = { i: e.i, j: e.j };
     if (e.kind === 'harvest') {
@@ -235,6 +241,7 @@ function commandEffects(command: Command): void {
       break;
     case 'upgradePen':
     case 'upgradeTruck':
+    case 'buyDecor':
       audio.play('build');
       break;
     case 'hireHelper': {
@@ -385,9 +392,9 @@ function handleObjectTap(id: string): void {
   }
 }
 
-// Debug: ?follow=ajudante|gato keeps the camera on a helper (&zoom=4 to get close).
+// Debug: ?follow=ajudante|gato|cao keeps the camera on a helper (&zoom=4 to get close).
 const followParam = params.get('follow');
-const follow = followParam === 'ajudante' || followParam === 'gato' ? followParam : null;
+const follow = followParam === 'ajudante' || followParam === 'gato' || followParam === 'cao' ? followParam : null;
 const followZoom = Number(params.get('zoom') ?? 4) || 4;
 
 const parsedHour = Number(params.get('time') ?? 9);

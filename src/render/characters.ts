@@ -406,6 +406,119 @@ export class CharacterKit {
   }
 
   // -------------------------------------------------------------------------
+  // Rex, the dog
+  // -------------------------------------------------------------------------
+
+  dog(): Character {
+    const FUR = 0xd9a35f;
+    const DARK = 0x8a5a2a;
+    const CREAM = 0xfff0d6;
+
+    const root = new Group();
+    const body = new Group();
+    body.position.y = 0.23;
+    root.add(body);
+
+    body.add(this.blob(FUR, 0.11, 0.105, 0.22, 0, 0, 0, 0.01));
+    body.add(this.blob(CREAM, 0.085, 0.055, 0.15, 0, -0.06, 0.03, 0));
+    body.add(this.blob(DARK, 0.112, 0.05, 0.1, 0, 0.055, -0.05, 0));
+
+    const head = new Group();
+    head.position.set(0, 0.1, 0.2);
+    body.add(head);
+    head.add(this.blob(FUR, 0.1, 0.092, 0.095, 0, 0, 0, 0.01));
+    head.add(this.blob(CREAM, 0.06, 0.05, 0.065, 0, -0.035, 0.075, 0));
+    head.add(this.blob(0x2b1b12, 0.028, 0.02, 0.02, 0, -0.01, 0.135, 0));
+    const ears: Group[] = [];
+    for (const side of [-1, 1]) {
+      const ear = new Group();
+      ear.position.set(side * 0.085, 0.05, -0.005);
+      ear.add(this.blob(DARK, 0.03, 0.085, 0.05, side * 0.012, -0.045, 0, 0.006));
+      head.add(ear);
+      ears.push(ear);
+      head.add(this.blob(0xffffff, 0.02, 0.02, 0.012, side * 0.045, 0.025, 0.085, 0));
+      head.add(this.blob(0x1c1410, 0.011, 0.014, 0.012, side * 0.045, 0.025, 0.093, 0));
+    }
+    const tongue = this.blob(0xf08a9a, 0.022, 0.012, 0.04, 0, -0.065, 0.11, 0);
+    head.add(tongue);
+
+    const legs: Group[] = [];
+    for (const [x, z] of [[-0.06, 0.13], [0.06, 0.13], [-0.06, -0.13], [0.06, -0.13]] as const) {
+      const leg = new Group();
+      leg.position.set(x, -0.06, z);
+      leg.add(this.tube(FUR, 0.032, 0.17, 0, -0.08, 0, 0.005));
+      leg.add(this.blob(CREAM, 0.04, 0.03, 0.055, 0, -0.165, 0.012, 0.005));
+      body.add(leg);
+      legs.push(leg);
+    }
+
+    const tail = new Group();
+    tail.position.set(0, 0.04, -0.21);
+    tail.add(this.tube(FUR, 0.03, 0.2, 0, 0.09, 0, 0.006));
+    tail.add(this.blob(CREAM, 0.034, 0.04, 0.034, 0, 0.2, 0, 0.004));
+    body.add(tail);
+
+    let phase = 0;
+    return {
+      root,
+      height: 0.55,
+      update: ({ pose, dt, time }) => {
+        let y = 0.23;
+        let pitch = 0;
+        let stride = 0;
+        let front = 0;
+        let rear = 0;
+        let headPitch = 0;
+        let wag = 0.25;
+        let wagSpeed = 5;
+        let tonguePut = 0;
+
+        if (pose.mode === 'walking') {
+          phase += dt * 12;
+          stride = Math.sin(phase) * 0.8;
+          y += Math.abs(Math.sin(phase)) * 0.018;
+          pitch = Math.sin(phase * 2) * 0.03;
+          wag = 0.45;
+          wagSpeed = 12;
+          tonguePut = 1;
+        } else if (pose.mode === 'working') {
+          // Nose down, sniffing and nudging the basket; the tail goes wild.
+          const p = pose.workProgress;
+          const down = between(p, 0, 0.25);
+          y -= 0.045 * down;
+          pitch = 0.3 * down;
+          front = -0.7 * down;
+          headPitch = 0.35 * down + Math.sin(p * 60) * 0.1 * down;
+          wag = 0.7;
+          wagSpeed = 18;
+          tonguePut = 1;
+        } else {
+          // Sits with a lazy wag and the occasional pant.
+          y -= 0.075;
+          pitch = -0.5;
+          front = 0.2;
+          rear = -1.25;
+          headPitch = 0.5 + Math.sin(time * 0.7) * 0.06;
+          wag = 0.3;
+          wagSpeed = 4;
+          tonguePut = Math.sin(time * 0.9) > 0.5 ? 1 : 0;
+        }
+
+        body.position.y = y;
+        body.rotation.set(pitch, 0, 0);
+        head.rotation.set(headPitch - pitch * 0.6, 0, 0);
+        legs[0]!.rotation.x = front + stride;
+        legs[1]!.rotation.x = front - stride;
+        legs[2]!.rotation.x = rear - stride;
+        legs[3]!.rotation.x = rear + stride;
+        tail.rotation.set(-0.6 + pitch * 0.5, Math.sin(time * wagSpeed) * wag, 0);
+        tongue.visible = tonguePut > 0;
+        for (const [n, ear] of ears.entries()) ear.rotation.z = (n === 0 ? 1 : -1) * (0.1 + Math.abs(stride) * 0.25);
+      },
+    };
+  }
+
+  // -------------------------------------------------------------------------
   // Sprinkler head
   // -------------------------------------------------------------------------
 

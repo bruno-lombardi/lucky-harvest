@@ -4,9 +4,11 @@
  * a deterministic function of the farm state and the clock, so a server can reproduce it.
  */
 
-export type HelperId = 'regador' | 'ajudante' | 'gato';
+export type HelperId = 'regador' | 'ajudante' | 'gato' | 'cao';
+/** The helpers that walk around (everyone but the sprinklers). */
+export type WalkerId = Exclude<HelperId, 'regador'>;
 
-export const HELPER_ORDER: readonly HelperId[] = ['regador', 'ajudante', 'gato'];
+export const HELPER_ORDER: readonly HelperId[] = ['regador', 'ajudante', 'gato', 'cao'];
 
 export const MIN = 60_000;
 /** Wages are charged once per period, automatically, while the owner can afford them. */
@@ -68,6 +70,17 @@ export const HELPERS: Readonly<Record<HelperId, HelperDef>> = {
     wage: [30, 50, 80],
     perks: ['Atento, mas dorminhoco', 'Mais ágil na caçada', 'Pula em cima das pragas num piscar de olhos'],
   },
+  cao: {
+    id: 'cao',
+    name: 'Rex, o cão',
+    job: 'recolhe os produtos dos abrigos',
+    lore: 'Rex trota de abrigo em abrigo, fareja o que está pronto e leva tudo para o celeiro. Só pede um carinho e o salário.',
+    unlockLevel: 12,
+    hireCost: 3000,
+    upgradeCost: [4500, 9000],
+    wage: [150, 240, 360],
+    perks: ['Trota devagar, recolhe um abrigo por vez', 'Mais veloz e recolhe mais rápido', 'Corre de abrigo em abrigo sem parar'],
+  },
 };
 
 export const MAX_HELPER_LEVEL = 3;
@@ -107,9 +120,20 @@ export interface HelperState {
 }
 
 /** Walkers rest here when there is nothing to do. */
-export const HOME: Readonly<Record<'ajudante' | 'gato', Spot>> = {
+export const HOME: Readonly<Record<WalkerId, Spot>> = {
   ajudante: { u: 5.9, v: 12.9 },
   gato: { u: 6.4, v: 9.2 },
+  cao: { u: 19.3, v: 15.1 },
+};
+
+/**
+ * Where the dog stands to collect from each pen: the lane between the fence and the pens' back wall
+ * (the pens sit at the positions in render/pens.ts).
+ */
+export const PEN_SPOTS: Readonly<Record<'galinha' | 'porco' | 'vaca', Spot>> = {
+  galinha: { u: 19.35, v: 8.7 },
+  porco: { u: 19.35, v: 12.9 },
+  vaca: { u: 19.25, v: 17.3 },
 };
 
 export interface WalkerStats {
@@ -119,7 +143,7 @@ export interface WalkerStats {
   workMs: number;
 }
 
-export const WALKERS: Readonly<Record<'ajudante' | 'gato', readonly WalkerStats[]>> = {
+export const WALKERS: Readonly<Record<WalkerId, readonly WalkerStats[]>> = {
   ajudante: [
     { speed: 1.5, workMs: 1500 },
     { speed: 2.2, workMs: 1100 },
@@ -130,9 +154,14 @@ export const WALKERS: Readonly<Record<'ajudante' | 'gato', readonly WalkerStats[
     { speed: 3.2, workMs: 800 },
     { speed: 4.4, workMs: 550 },
   ],
+  cao: [
+    { speed: 2.2, workMs: 1400 },
+    { speed: 3.0, workMs: 1000 },
+    { speed: 4.0, workMs: 700 },
+  ],
 };
 
-export const walkerStats = (id: 'ajudante' | 'gato', level: number): WalkerStats =>
+export const walkerStats = (id: WalkerId, level: number): WalkerStats =>
   WALKERS[id][Math.min(Math.max(level, 1), MAX_HELPER_LEVEL) - 1]!;
 
 /** Sprinkler pulse interval and head count by level. */
@@ -185,7 +214,7 @@ export interface WalkerPose {
 }
 
 /** Where a walker is and what it is doing at `now`, derived purely from its saved state. */
-export function walkerPose(id: 'ajudante' | 'gato', state: HelperState, landSize: number, now: number): WalkerPose {
+export function walkerPose(id: WalkerId, state: HelperState, landSize: number, now: number): WalkerPose {
   const stats = walkerStats(id, state.level);
   const path = route(state.from, state.target, landSize);
   const length = routeLength(path);

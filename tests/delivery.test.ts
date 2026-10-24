@@ -204,3 +204,18 @@ describe('truck upgrades', () => {
     expect(again.toSnapshot()).toEqual(live.toSnapshot());
   });
 });
+
+describe('decorations', () => {
+  it('need level 14 and coins, and are bought once', () => {
+    const farm = new Farm({ seed: 9 });
+    farm.coins = 10_000;
+    expect(farm.buyDecor('banco')).toEqual({ ok: false, reason: 'decor-locked' });
+    farm.xp = levelThreshold(14);
+    expect(farm.buyDecor('banco').ok).toBe(true);
+    expect(farm.coins).toBe(9900);
+    expect(farm.buyDecor('banco')).toEqual({ ok: false, reason: 'max-level' });
+    farm.coins = 10;
+    expect(farm.buyDecor('coreto')).toEqual({ ok: false, reason: 'no-coins' });
+    expect(Farm.fromSnapshot(farm.toSnapshot()).decor).toEqual({ banco: true });
+  });
+});

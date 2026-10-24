@@ -13,6 +13,8 @@ import {
   penCycleMs,
 } from './animals';
 import { CROP_ORDER, CropId, RARITIES, getCrop } from './crops';
+import { Stats, cloneStats, emptyStats, normalizeStats } from './stats';
+import { DECOR, DECOR_ORDER, DECOR_UNLOCK_LEVEL, DecorId, Decorations } from './decor';
 import {
   MAX_CATCHUP_SLOTS,
   SeedLoad,
@@ -32,8 +34,11 @@ import {
   HelperId,
   HelperState,
   OFFLINE_LIMIT_MS,
+  PEN_SPOTS,
   POLL_MS,
   SPRINKLER_INTERVAL_MS,
+  Spot,
+  WalkerId,
   WAGE_PERIOD_MS,
   helperWage,
   nextHelperUpgrade,
@@ -139,6 +144,9 @@ export type FailReason =
   | 'nothing-to-sell'
   | 'pen-locked'
   | 'truck-locked'
+  | 'already-claimed'
+  | 'not-done'
+  | 'decor-locked'
   | 'pen-exists'
   | 'no-pen'
   | 'pen-full'
@@ -181,13 +189,14 @@ export interface DeliveryEvent {
 
 export interface HelperEvent {
   helper: HelperId;
-  kind: 'harvest' | 'water' | 'care' | 'wage' | 'unpaid';
+  kind: 'harvest' | 'water' | 'care' | 'collect' | 'wage' | 'unpaid';
   at: number;
   i?: number;
   j?: number;
   crop?: CropId;
-  /** Tiles watered by a sprinkler pulse. */
+  /** Tiles watered by a sprinkler pulse, or products collected by the dog. */
   count?: number;
+  species?: SpeciesId;
   amount?: number;
 }
 
@@ -234,14 +243,18 @@ export interface FarmSnapshot {
   /** Last seed-truck slot that has been delivered (see delivery.ts). */
   deliveredSlot: number;
   truck: TruckUpgrades;
+  decor: Decorations;
+  stats: Stats;
+  /** Ids of goals and achievement steps whose reward was taken (see progress.ts). */
+  claimed: string[];
   tiles: Record<string, TileState>;
 }
 
 /** Saves from before helpers (v3) and before the seed truck (v4). */
 export type LegacySnapshot =
-  | (Omit<FarmSnapshot, 'version' | 'helpers' | 'deliveredSlot' | 'truck'> & { version: 3 })
-  | (Omit<FarmSnapshot, 'version' | 'deliveredSlot' | 'truck'> & { version: 4 })
-  | (Omit<FarmSnapshot, 'version' | 'truck'> & { version: 5 });
+  | (Omit<FarmSnapshot, 'version' | 'helpers' | 'deliveredSlot' | 'truck' | 'decor' | 'stats' | 'claimed'> & { version: 3 })
+  | (Omit<FarmSnapshot, 'version' | 'deliveredSlot' | 'truck' | 'decor' | 'stats' | 'claimed'> & { version: 4 })
+  | (Omit<FarmSnapshot, 'version' | 'truck' | 'decor' | 'stats' | 'claimed'> & { version: 5 });
 
 export interface FarmOptions {
   seed?: number;
@@ -273,6 +286,9 @@ export class Farm {
   deliveryEvents: DeliveryEvent[] = [];
   deliveredSlot = 0;
   truck: TruckUpgrades = { big: false, fast: false };
+  decor: Decorations = {};
+  stats: Stats = emptyStats();
+  claimed: string[] = [];
   seed: number;
   revision = 0;
   nextAnimalId = 1;
@@ -353,6 +369,7 @@ export class Farm {
     if (!inBounds(i, j) || !this.isUnlocked(i, j)) return fail('locked-land');
     if (this.tile(i, j).kind !== 'grass') return fail('not-grass');
     this.tiles.set(tileKey(i, j), { kind: 'soil', crop: null });
+    this.stats.plowed++;
     return this.done(0, 1);
   }
 
@@ -367,6 +384,8 @@ export class Farm {
     if (this.seeds[cropId] < 1) return fail('no-seeds');
 
     this.seeds[cropId] -= 1;
+    this.stats.planted++;
+    if (this.coins === 0) this.stats.rescues++;
     const roll = (salt: number): number => hashUnit(this.seed, this.revision, i, j, salt);
     const infested = roll(1) < this.pestChance;
     tile.crop = {
@@ -390,6 +409,7 @@ export class Farm {
     if (crop.watered) return fail('already-watered');
     this.reanchor(crop, now);
     crop.watered = true;
+    this.stats.watered++;
     return this.done(0, 1);
   }
 
@@ -403,6 +423,7 @@ export class Farm {
     this.reanchor(crop, now);
     crop.pestAt = null;
     crop.pestKind = null;
+    this.stats.cared++;
     return this.done(0, 2);
   }
 
@@ -419,6 +440,8 @@ export class Farm {
     const golden = hashUnit(this.seed, this.revision, 0x601d, i, j) < RARITIES[def.rarity].goldenChance;
     const qty = golden ? 2 : 1;
     this.produce[crop.cropId] += qty;
+    this.stats.harvested[crop.cropId] += qty;
+    if (def.rarity === 'rara' || def.rarity === 'epica') this.stats.rareHarvested += qty;
     return this.done(0, def.xp, golden ? { cropId: crop.cropId, qty, golden: true } : { cropId: crop.cropId, qty });
   }
 
@@ -441,6 +464,7 @@ export class Farm {
     if (this.level < def.unlockLevel) return fail('crop-locked');
     if (qty < 1 || this.coins < def.seedCost * qty) return fail('no-coins');
     this.seeds[cropId] += qty;
+    this.stats.seedsBought += qty;
     return this.done(-def.seedCost * qty, 0);
   }
 
@@ -449,7 +473,7 @@ export class Farm {
     const count = Math.min(Number.isFinite(qty) ? qty : this.produce[cropId], this.produce[cropId]);
     if (count < 1) return fail('nothing-to-sell');
     this.produce[cropId] -= count;
-    return this.done(count * getCrop(cropId).sellPrice, 0);
+    return this.sold(count * getCrop(cropId).sellPrice);
   }
 
   /** Sells animal products (eggs, milk, truffles). */
@@ -457,7 +481,7 @@ export class Farm {
     const count = Math.min(Number.isFinite(qty) ? qty : this.products[productId], this.products[productId]);
     if (count < 1) return fail('nothing-to-sell');
     this.products[productId] -= count;
-    return this.done(count * PRODUCTS[productId].sellPrice, 0);
+    return this.sold(count * PRODUCTS[productId].sellPrice);
   }
 
   /** Sells everything in the barn: crops and animal products. */
@@ -472,6 +496,13 @@ export class Farm {
       this.products[id] = 0;
     }
     if (coins === 0) return fail('nothing-to-sell');
+    return this.sold(coins);
+  }
+
+  private sold(coins: number): ActionResult {
+    this.stats.sales++;
+    this.stats.coinsEarned += coins;
+    this.stats.bestSale = Math.max(this.stats.bestSale, coins);
     return this.done(coins, 0);
   }
 
@@ -524,6 +555,7 @@ export class Farm {
     if (this.feed[species] < 1) return fail('no-feed');
     this.feed[species] -= 1;
     animal.readyAt = now + penCycleMs(species, this.pens[species]!.level);
+    this.stats.fed++;
     return this.done(0, 1);
   }
 
@@ -541,6 +573,7 @@ export class Farm {
       animal.readyAt = now + penCycleMs(species, pen.level);
       fed++;
     }
+    this.stats.fed += fed;
     return this.done(0, fed);
   }
 
@@ -553,6 +586,7 @@ export class Farm {
     const def = SPECIES[species];
     animal.readyAt = null;
     this.products[def.product] += 1;
+    this.stats.collected[def.product] += 1;
     return this.done(0, def.xp, undefined, { productId: def.product, qty: 1 });
   }
 
@@ -564,6 +598,7 @@ export class Farm {
     const def = SPECIES[species];
     for (const animal of ready) animal.readyAt = null;
     this.products[def.product] += ready.length;
+    this.stats.collected[def.product] += ready.length;
     return this.done(0, def.xp * ready.length, undefined, { productId: def.product, qty: ready.length });
   }
 
@@ -587,6 +622,7 @@ export class Farm {
     if (inputs.some(([crop, qty]) => this.produce[crop] < qty * batches)) return fail('no-ingredients');
     for (const [crop, qty] of inputs) this.produce[crop] -= qty * batches;
     this.feed[species] += def.recipe.yield * batches;
+    this.stats.milled += batches;
     return this.done(0, batches);
   }
 
@@ -641,6 +677,7 @@ export class Farm {
     if (!next) return fail('max-level');
     if (this.coins < next.cost) return fail('no-coins');
     helper.level = next.level;
+    this.stats.helperUpgrades++;
     return this.done(-next.cost, 0);
   }
 
@@ -656,6 +693,7 @@ export class Farm {
     helper.nextAt = now + POLL_MS;
     helper.leftAt = now;
     helper.working = false;
+    this.stats.wagesPaid++;
     return this.done(-wage, 0);
   }
 
@@ -723,12 +761,34 @@ export class Farm {
     return this.done(-def.cost, 0);
   }
 
+  /** Buys a decoration (once each). */
+  buyDecor(id: DecorId): ActionResult {
+    const def = DECOR[id];
+    if (this.level < DECOR_UNLOCK_LEVEL) return fail('decor-locked');
+    if (this.decor[id]) return fail('max-level');
+    if (this.coins < def.cost) return fail('no-coins');
+    this.decor[id] = true;
+    return this.done(-def.cost, 0);
+  }
+
+  /** Pays a goal or achievement reward once (the caller, in commands.ts, has checked it is earned). */
+  claim(key: string, coins: number): ActionResult {
+    if (this.claimed.includes(key)) return fail('already-claimed');
+    this.claimed.push(key);
+    return this.done(coins, 0);
+  }
+
   /** The seed truck pulls up: its load goes straight into the barn. */
   private deliver(at: number): void {
     this.deliveredSlot++;
     this.revision++;
     const load = rollDelivery(this.seed, this.deliveredSlot, this.level, deliverySeeds(this.truck));
-    for (const id of CROP_ORDER) this.seeds[id] += load[id];
+    for (const id of CROP_ORDER) {
+      this.seeds[id] += load[id];
+      this.stats.seedsReceived += load[id];
+      if (getCrop(id).rarity === 'rara' || getCrop(id).rarity === 'epica') this.stats.rareSeedsReceived += load[id];
+    }
+    this.stats.deliveries++;
     this.deliveryEvents.push({ at, slot: this.deliveredSlot, seeds: load });
   }
 
@@ -738,6 +798,7 @@ export class Farm {
     if (this.coins >= wage) {
       this.coins -= wage;
       h.paidUntil += WAGE_PERIOD_MS;
+      this.stats.wagesPaid++;
       this.helperEvents.push({ helper: id, kind: 'wage', at, amount: wage });
       return;
     }
@@ -777,39 +838,63 @@ export class Farm {
   }
 
   /** One step of a walking helper: do the chore it arrived for, then choose where to go next. */
-  private walk(id: 'ajudante' | 'gato', h: HelperState, at: number): void {
+  private walk(id: WalkerId, h: HelperState, at: number): void {
     if (h.working) {
       const i = Math.floor(h.target.u);
       const j = Math.floor(h.target.v);
-      if (id === 'ajudante') {
+      if (id === 'cao') {
+        const species = SPECIES_ORDER.find((sp) => PEN_SPOTS[sp] === h.target || (PEN_SPOTS[sp].u === h.target.u && PEN_SPOTS[sp].v === h.target.v));
+        const pen = species ? this.pens[species] : undefined;
+        if (species && pen) {
+          const ready = pen.animals.filter((a) => animalStatus(species, a, at, pen.level).phase === 'ready').length;
+          if (this.collectAll(species, at).ok) this.helperEvents.push({ helper: id, kind: 'collect', at, species, count: ready });
+        }
+      } else if (id === 'ajudante') {
         const result = this.harvest(i, j, at);
+        if (result.ok) this.stats.farmhandHarvests += result.gain.item?.qty ?? 1;
         if (result.ok) this.helperEvents.push({ helper: id, kind: 'harvest', at, i, j, crop: result.gain.item?.cropId });
       } else if (this.care(i, j, at).ok) {
+        this.stats.catCares++;
         this.helperEvents.push({ helper: id, kind: 'care', at, i, j });
       }
     }
 
-    // Choose the nearest tile with work; ties go to the lowest row, then column, so the choice is stable.
+    // Choose the nearest tile (or pen) with work; ties go to the lowest row, then column, so the choice is stable.
     let best: { i: number; j: number } | null = null;
+    let bestSpot: Spot | null = null;
     let bestDistance = Infinity;
     const here = h.target;
-    for (const { i, j, tile } of this.entries()) {
-      if (!tile.crop || !this.isUnlocked(i, j)) continue;
-      const status = this.status(i, j, at);
-      const wanted = id === 'ajudante' ? status?.ripe === true : !!status?.pest;
-      if (!wanted) continue;
-      const d = Math.hypot(i + 0.5 - here.u, j + 0.5 - here.v);
-      if (d < bestDistance - 1e-9 || (Math.abs(d - bestDistance) <= 1e-9 && best && (j < best.j || (j === best.j && i < best.i)))) {
-        best = { i, j };
-        bestDistance = d;
+    if (id === 'cao') {
+      for (const species of SPECIES_ORDER) {
+        const pen = this.pens[species];
+        if (!pen || !pen.animals.some((a) => animalStatus(species, a, at, pen.level).phase === 'ready')) continue;
+        const spot = PEN_SPOTS[species];
+        const d = Math.hypot(spot.u - here.u, spot.v - here.v);
+        if (d < bestDistance - 1e-9) {
+          bestDistance = d;
+          bestSpot = spot;
+        }
       }
+    } else {
+      for (const { i, j, tile } of this.entries()) {
+        if (!tile.crop || !this.isUnlocked(i, j)) continue;
+        const status = this.status(i, j, at);
+        const wanted = id === 'ajudante' ? status?.ripe === true : !!status?.pest;
+        if (!wanted) continue;
+        const d = Math.hypot(i + 0.5 - here.u, j + 0.5 - here.v);
+        if (d < bestDistance - 1e-9 || (Math.abs(d - bestDistance) <= 1e-9 && best && (j < best.j || (j === best.j && i < best.i)))) {
+          best = { i, j };
+          bestDistance = d;
+        }
+      }
+      if (best) bestSpot = { u: best.i + 0.5, v: best.j + 0.5 };
     }
 
     const stats = walkerStats(id, h.level);
     h.from = { ...here };
     h.leftAt = at;
-    if (best) {
-      h.target = { u: best.i + 0.5, v: best.j + 0.5 };
+    if (bestSpot) {
+      h.target = { ...bestSpot };
       h.working = true;
       const walkMs = (routeLength(route(h.from, h.target, this.landSize)) / stats.speed) * 1000;
       h.nextAt = at + walkMs + stats.workMs;
@@ -844,6 +929,9 @@ export class Farm {
       helpers: cloneHelpers(this.helpers),
       deliveredSlot: this.deliveredSlot,
       truck: { ...this.truck },
+      decor: { ...this.decor },
+      stats: cloneStats(this.stats),
+      claimed: [...this.claimed],
       tiles,
     };
   }
@@ -858,7 +946,12 @@ export class Farm {
     farm.helpers = cloneHelpers(snapshot.version >= 4 ? (snapshot as { helpers: Helpers }).helpers : {});
     // Older saves have no truck record: they catch up on a few deliveries, like returning from a trip.
     farm.deliveredSlot = snapshot.version >= 5 ? (snapshot as { deliveredSlot: number }).deliveredSlot : 0;
-    if (snapshot.version === 6) farm.truck = { ...snapshot.truck };
+    if (snapshot.version === 6) {
+      farm.truck = { ...snapshot.truck };
+      for (const id of DECOR_ORDER) if (snapshot.decor[id]) farm.decor[id] = true;
+      farm.stats = normalizeStats(snapshot.stats);
+      farm.claimed = [...new Set(snapshot.claimed.filter((c) => typeof c === 'string'))];
+    }
     farm.coins = snapshot.coins;
     farm.xp = snapshot.xp;
     farm.landSize = snapshot.landSize;

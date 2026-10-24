@@ -104,6 +104,7 @@ export function normalizeSnapshot(raw: unknown): FarmSnapshot | null {
   if (raw['version'] !== 3 && raw['version'] !== 4 && (!isNumber(slot) || slot < 0)) return null;
   const truck = raw['truck'];
   if (raw['version'] === 6 && !(isObject(truck) && typeof truck['big'] === 'boolean' && typeof truck['fast'] === 'boolean')) return null;
+  if (raw['version'] === 6 && (!isObject(raw['decor']) || !isObject(raw['stats']) || !Array.isArray(raw['claimed']))) return null;
 
   try {
     const rebuilt = { ...clean, tiles: safeTiles, pens, helpers };

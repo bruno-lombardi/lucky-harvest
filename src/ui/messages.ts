@@ -36,7 +36,12 @@ export function reasonMessage(reason: FailReason): string {
     case 'nothing-to-sell':
       return 'Nada para vender';
     case 'pen-locked':
+    case 'already-claimed':
+      return 'Você já resgatou essa recompensa';
+    case 'not-done':
+      return 'Ainda falta um pouco para isso';
     case 'truck-locked':
+    case 'decor-locked':
       return 'Suba de nível para liberar isto';
     case 'pen-exists':
       return 'Você já tem esse abrigo';

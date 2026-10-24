@@ -1,6 +1,8 @@
 import { applyTool, Tool } from './actions';
 import { ProductId, SpeciesId } from './animals';
 import { CropId } from './crops';
+import { achievementKey, findAchievement, findGoal, goalDone, goalKey, stepDone } from './progress';
+import { DecorId } from './decor';
 import { TruckUpgradeId } from './delivery';
 import { HelperId } from './helpers';
 import { ActionResult, Farm } from './farm';
@@ -21,6 +23,9 @@ export type Command =
   | { type: 'buildPen'; species: SpeciesId }
   | { type: 'upgradePen'; species: SpeciesId }
   | { type: 'upgradeTruck'; upgrade: TruckUpgradeId }
+  | { type: 'buyDecor'; decor: DecorId }
+  | { type: 'claimGoal'; goal: number }
+  | { type: 'claimAchievement'; achievement: string; step: number }
   | { type: 'buyAnimal'; species: SpeciesId }
   | { type: 'buyFeed'; species: SpeciesId; qty: number }
   | { type: 'craftFeed'; species: SpeciesId; batches: number }
@@ -60,6 +65,20 @@ export function applyCommand(farm: Farm, command: Command, now: number): ActionR
       return farm.upgradePen(command.species);
     case 'upgradeTruck':
       return farm.upgradeTruck(command.upgrade, now);
+    case 'buyDecor':
+      return farm.buyDecor(command.decor);
+    case 'claimGoal': {
+      const goal = findGoal(command.goal);
+      if (!goal || !goalDone(goal, farm)) return { ok: false, reason: 'not-done' };
+      return farm.claim(goalKey(goal.id), goal.reward);
+    }
+    case 'claimAchievement': {
+      const a = findAchievement(command.achievement);
+      if (!a || !Number.isInteger(command.step) || command.step < 0 || command.step >= a.steps.length || !stepDone(a, command.step, farm)) {
+        return { ok: false, reason: 'not-done' };
+      }
+      return farm.claim(achievementKey(a.id, command.step), a.rewards[command.step]!);
+    }
     case 'buyAnimal':
       return farm.buyAnimal(command.species);
     case 'buyFeed':

@@ -1,5 +1,6 @@
 import { PRODUCTS, PRODUCT_ORDER, SPECIES, SPECIES_ORDER, SpeciesId, penCapacity } from '../core/animals';
 import { CROPS, CROP_ORDER, CropId } from '../core/crops';
+import { DECOR, DECOR_ORDER, DECOR_UNLOCK_LEVEL, DecorId } from '../core/decor';
 import { TRUCK_UPGRADES, TRUCK_UPGRADE_ORDER, TruckUpgradeId } from '../core/delivery';
 import { Farm } from '../core/farm';
 import { HELPERS, HELPER_ORDER, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage, nextHelperUpgrade } from '../core/helpers';
@@ -83,6 +84,9 @@ export class Shop extends Modal<ShopTab> {
         break;
       case 'expand':
         this.dispatch({ type: 'expandLand' });
+        break;
+      case 'decor':
+        this.dispatch({ type: 'buyDecor', decor: data['decor'] as DecorId });
         break;
       case 'truck':
         this.dispatch({ type: 'upgradeTruck', upgrade: data['upgrade'] as TruckUpgradeId });
@@ -253,7 +257,7 @@ export class Shop extends Modal<ShopTab> {
     const { farm } = this;
     const next = farm.nextExpansion();
     const now = `${farm.landSize}×${farm.landSize}`;
-    return `${this.landCard(next, now)}${this.truckHtml()}`;
+    return `${this.landCard(next, now)}${this.truckHtml()}${this.decorHtml()}`;
   }
 
   private truckHtml(): string {
@@ -275,6 +279,22 @@ export class Shop extends Modal<ShopTab> {
       );
     }).join('');
     return `${heading('Caminhão de sementes')}${rows}`;
+  }
+
+  private decorHtml(): string {
+    const { farm } = this;
+    if (farm.level < DECOR_UNLOCK_LEVEL) {
+      return `${heading('Enfeites')}${row(`<i class="ico">${LAND_ICON}</i>`, `<b>Enfeites da fazenda</b><small><i class="ico">${LOCK_ICON}</i>Libera no nível ${DECOR_UNLOCK_LEVEL}</small>`, '', true)}`;
+    }
+    const rows = DECOR_ORDER.map((id) => {
+      const def = DECOR[id];
+      const owned = !!farm.decor[id];
+      const button = owned
+        ? `<button type="button" class="buy wide" disabled>Na fazenda</button>`
+        : `<button type="button" class="buy wide" data-act="decor" data-decor="${id}" ${farm.coins < def.cost ? 'disabled' : ''}>Comprar</button>`;
+      return row(`<i class="ico">${LAND_ICON}</i>`, `<b>${def.name}</b><small>${owned ? def.text : `${def.text} ${coin(def.cost)}`}</small>`, button, false, `decor:${id}`);
+    }).join('');
+    return `${heading('Enfeites')}${rows}`;
   }
 
   private landCard(next: ReturnType<Farm['nextExpansion']>, now: string): string {

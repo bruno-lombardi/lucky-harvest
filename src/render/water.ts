@@ -83,6 +83,12 @@ export class Water {
     this.mesh.position.y = y;
   }
 
+  setTint(deep: Color, shallow: Color, foam: Color): void {
+    (this.material.uniforms['uFoam']!.value as Color).copy(foam);
+    (this.material.uniforms['uDeep']!.value as Color).copy(deep);
+    (this.material.uniforms['uShallow']!.value as Color).copy(shallow);
+  }
+
   update(time: number): void {
     this.material.uniforms['uTime']!.value = time;
   }

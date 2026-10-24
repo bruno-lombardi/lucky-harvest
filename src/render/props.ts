@@ -1,4 +1,5 @@
 import {
+  AdditiveBlending,
   BoxGeometry,
   BufferGeometry,
   CanvasTexture,
@@ -20,6 +21,8 @@ import {
   SRGBColorSpace,
   Shape,
   SphereGeometry,
+  Sprite,
+  SpriteMaterial,
   Vector3,
 } from 'three';
 import { mulberry32 } from '../core/noise';
@@ -44,7 +47,12 @@ const SCARECROW = { x: 6.5, z: 1.6 };
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Window glass: dark by day, glowing warm yellow at night (see Props.setNight). */
+const GLASS_DAY = new Color(0x3e5470);
+const GLASS_NIGHT = new Color(0xffd36a);
+
 class Palette {
+  readonly glass = new MeshBasicMaterial({ color: GLASS_DAY });
   private readonly cache = new Map<string, MeshToonMaterial>();
   constructor(private readonly gradientMap: DataTexture) {}
 
@@ -70,7 +78,7 @@ function box(
   z: number,
   outline = 0.018,
 ): Mesh {
-  const m = new Mesh(new BoxGeometry(w, h, d), palette.toon(color));
+  const m = new Mesh(new BoxGeometry(w, h, d), color < 0 ? palette.glass : palette.toon(color));
   m.position.set(x, y, z);
   m.castShadow = true;
   m.receiveShadow = true;
@@ -251,7 +259,7 @@ function buildBarn(palette: Palette): Group {
     }
   }
   barn.add(box(palette, white, 0.78, 0.7, 0.08, 0, 2.25, z, 0.012));
-  barn.add(box(palette, 0x3a2418, 0.58, 0.5, 0.09, 0, 2.25, z + 0.01, 0));
+  barn.add(box(palette, -1, 0.58, 0.5, 0.09, 0, 2.25, z + 0.01, 0));
   barn.add(box(palette, 0xe9c25a, 0.36, 0.12, 0.1, 0.04, 2.1, z + 0.04, 0));
 
   // Rake boards along the gable edge.
@@ -265,7 +273,7 @@ function buildBarn(palette: Palette): Group {
   for (const side of [-1, 1]) {
     for (const zz of [-0.55, 0.55]) {
       barn.add(box(palette, white, 0.08, 0.62, 0.62, side * 1.62, 1.15, zz, 0.01));
-      barn.add(box(palette, 0x3a2418, 0.09, 0.44, 0.44, side * 1.63, 1.15, zz, 0));
+      barn.add(box(palette, -1, 0.09, 0.44, 0.44, side * 1.63, 1.15, zz, 0));
     }
   }
   // Corner boards.
@@ -275,6 +283,52 @@ function buildBarn(palette: Palette): Group {
     }
   }
   return barn;
+}
+
+function glowTexture(): CanvasTexture | null {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,230,150,1)');
+  g.addColorStop(0.35, 'rgba(255,200,90,0.45)');
+  g.addColorStop(1, 'rgba(255,180,60,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  return texture;
+}
+
+/** A lantern on a post beside the path to the barn. The glow sprite is switched on by setNight(). */
+function glowMap(): { map?: CanvasTexture } {
+  const map = glowTexture();
+  return map ? { map } : {};
+}
+
+function buildLamp(palette: Palette): { group: Group; glow: Sprite } {
+  const group = new Group();
+  group.add(box(palette, 0x6b4423, 0.1, 1.5, 0.1, 0, 0.75, 0, 0.014));
+  group.add(box(palette, 0x6b4423, 0.34, 0.05, 0.05, 0.1, 1.45, 0, 0.01));
+  const lantern = new Group();
+  lantern.position.set(0.24, 1.3, 0);
+  lantern.add(box(palette, -1, 0.17, 0.22, 0.17, 0, 0, 0, 0.012));
+  const roof = new Mesh(new ConeGeometry(0.17, 0.14, 4), palette.toon(0x3b2a20));
+  roof.position.y = 0.17;
+  roof.rotation.y = Math.PI / 4;
+  roof.castShadow = true;
+  lantern.add(roof);
+  const glow = new Sprite(
+    new SpriteMaterial({ ...glowMap(), color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending }),
+  );
+  glow.scale.set(1.5, 1.5, 1);
+  glow.visible = false;
+  glow.renderOrder = 9;
+  lantern.add(glow);
+  group.add(lantern);
+  return { group, glow };
 }
 
 function buildHay(palette: Palette): Group {
@@ -336,7 +390,7 @@ function buildWindmill(palette: Palette): { group: Group; blades: Group } {
   facing.rotation.y = Math.PI / 4;
   facing.add(box(palette, 0x7a4a2a, 0.5, 0.9, 0.12, 0, 0.45, 0.93, 0.012));
   facing.add(box(palette, 0xf6efe0, 0.4, 0.4, 0.1, 0, 2.0, 0.66, 0.01));
-  facing.add(box(palette, 0x2f6fa8, 0.28, 0.28, 0.11, 0, 2.0, 0.67, 0));
+  facing.add(box(palette, -1, 0.28, 0.28, 0.11, 0, 2.0, 0.67, 0));
   group.add(facing);
 
   // Sails: a hub on the camera-facing side with four lattice arms.
@@ -681,10 +735,18 @@ export class Props {
   private readonly land = new Group();
   private readonly scarecrow: Group;
   private landSize = 0;
+  private readonly glass: MeshBasicMaterial;
+  private readonly lampGlow: Sprite;
 
   constructor(private readonly gradientMap: DataTexture, landSize: number) {
     const palette = new Palette(gradientMap);
+    this.glass = palette.glass;
     this.group.add(this.land, buildHay(palette), buildForest(palette));
+
+    const lamp = buildLamp(palette);
+    lamp.group.position.set(-6.5, 0, GATE_Z - 1.5);
+    this.lampGlow = lamp.glow;
+    this.group.add(lamp.group);
 
     const pond = buildPond(palette);
     pond.position.set(POND.x, 0, POND.z);
@@ -728,6 +790,14 @@ export class Props {
     const palette = new Palette(this.gradientMap);
     this.land.add(buildFence(palette, half), buildPath(palette, half));
     this.scarecrow.position.set(half + 1.05, 0, 1.6);
+  }
+
+  /** 0 = day, 1 = night: lights up the windows and the lamp. */
+  setNight(night: number): void {
+    this.glass.color.copy(GLASS_DAY).lerp(GLASS_NIGHT, Math.min(1, Math.max(0, (night - 0.3) / 0.5)));
+    const glow = Math.min(1, Math.max(0, (night - 0.25) / 0.5));
+    this.lampGlow.material.opacity = glow * 0.85;
+    this.lampGlow.visible = glow > 0.01;
   }
 
   update(dt: number): void {

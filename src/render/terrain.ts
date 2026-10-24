@@ -69,6 +69,10 @@ export class Terrain {
   private grass: InstancedMesh | null = null;
   private grassSeed = 0;
 
+  setWaterTint(deep: Color, shallow: Color, foam: Color): void {
+    this.water?.setTint(deep, shallow, foam);
+  }
+
   update(time: number): void {
     this.water?.update(time);
   }

@@ -1,5 +1,6 @@
 import {
   Clock,
+  Color,
   DirectionalLight,
   HemisphereLight,
   PCFSoftShadowMap,
@@ -13,6 +14,8 @@ import { GRID_SIZE, TileCoord, tileToWorld } from './core/grid';
 import { Clouds } from './render/clouds';
 import { renderCropIcons } from './render/icons';
 import { Props } from './render/props';
+import { DayNight, atmosphereAt, createAtmosphere, lightPosition } from './render/daynight';
+import { BurstKind, Effects, Fireflies, Particles } from './render/particles';
 import { FarmView } from './render/farm-view';
 import { TileHighlight } from './render/highlight';
 import { IsoCameraController } from './render/iso-camera';
@@ -40,6 +43,16 @@ export class Game {
   private readonly props: Props;
   private readonly farmView: FarmView;
   private readonly gradient = createToonGradient(4);
+  private readonly particles = new Particles();
+  private readonly effects = new Effects(this.particles);
+  private readonly fireflies = new Fireflies();
+  readonly dayNight: DayNight;
+  private readonly atmosphere = createAtmosphere();
+  private sun!: DirectionalLight;
+  private hemisphere!: HemisphereLight;
+  private readonly lightPos = { x: 0, y: 0, z: 0 };
+  private readonly foam = new Color();
+  private readonly nightFoam = new Color(0x6f86b8);
   private elapsed = 0;
   private shownLand: number;
   private readonly resizeObserver: ResizeObserver;
@@ -52,7 +65,10 @@ export class Game {
     private readonly container: HTMLElement,
     private readonly farm: Farm,
     private readonly events: GameEvents = {},
+    startHour = 9,
+    freezeTime = false,
   ) {
+    this.dayNight = new DayNight(startHour, 480, freezeTime);
     // Transparent canvas: the CSS sky gradient shows through behind the island.
     this.renderer = new WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -68,7 +84,14 @@ export class Game {
     this.farmView = new FarmView(farm, GRID_SIZE, gradient);
     this.props = new Props(gradient, farm.landSize);
     this.clouds = new Clouds();
-    this.scene.add(this.props.group, this.farmView.group, this.clouds.group, this.highlight.group);
+    this.scene.add(
+      this.props.group,
+      this.farmView.group,
+      this.clouds.group,
+      this.highlight.group,
+      this.particles.object,
+      this.fireflies.object,
+    );
     this.addLights();
 
     this.cameraController = new IsoCameraController(this.renderer.domElement, {
@@ -113,6 +136,17 @@ export class Game {
     return renderCropIcons(this.renderer, this.gradient);
   }
 
+  /** Plays a particle burst on a tile (plow dirt, water splash, harvest sparkles...). */
+  burst(kind: BurstKind, tile: TileCoord): void {
+    const { x, z } = tileToWorld(tile.i, tile.j, GRID_SIZE);
+    this.effects.burst(kind, x, z);
+  }
+
+  /** Confetti and dust centred on the plot, for land expansion. */
+  burstAtCenter(kind: BurstKind): void {
+    this.effects.burst(kind, 0, 0);
+  }
+
   setView(x: number, z: number, zoom: number): void {
     this.cameraController.setView(x, z, zoom);
   }
@@ -124,9 +158,11 @@ export class Game {
 
   private addLights(): void {
     // Sky above, green bounce light from the grass below: keeps shadows cool, not muddy.
-    this.scene.add(new HemisphereLight(0xdaf0ff, 0x7fae5c, 1.15));
+    this.hemisphere = new HemisphereLight(0xdaf0ff, 0x7fae5c, 1.15);
+    this.scene.add(this.hemisphere);
 
     const sun = new DirectionalLight(0xfff3d8, 2.0);
+    this.sun = sun;
     sun.position.set(16, 26, 10);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -139,6 +175,38 @@ export class Game {
     sun.shadow.camera.far = 90;
     sun.shadow.bias = -0.0004;
     this.scene.add(sun);
+  }
+
+  /** Pushes the current time of day into lights, sky, water, clouds and the lit windows. */
+  private applyAtmosphere(): void {
+    const a = atmosphereAt(this.dayNight.hour, this.atmosphere);
+    this.hemisphere.color.copy(a.hemiSky);
+    this.hemisphere.groundColor.copy(a.hemiGround);
+    this.hemisphere.intensity = a.hemiIntensity;
+    this.sun.color.copy(a.sun);
+    this.sun.intensity = a.sunIntensity;
+    lightPosition(this.dayNight.hour, this.lightPos);
+    this.sun.position.set(this.lightPos.x, this.lightPos.y, this.lightPos.z);
+
+    this.foam.set(0xf4fdff).lerp(this.nightFoam, a.night * 0.8);
+    this.terrain.setWaterTint(a.waterDeep, a.waterShallow, this.foam);
+    this.clouds.setTone(a.cloud);
+    this.props.setNight(a.night);
+
+    const style = document.documentElement.style;
+    style.setProperty('--sky-top', `#${a.skyTop.getHexString()}`);
+    style.setProperty('--sky-mid', `#${a.skyMid.getHexString()}`);
+    style.setProperty('--sky-bottom', `#${a.skyBottom.getHexString()}`);
+  }
+
+  private updateParticles(dt: number): void {
+    const camera = this.cameraController.camera;
+    const unitsHigh = (camera.top - camera.bottom) / camera.zoom;
+    const scale = this.renderer.domElement.height / unitsHigh;
+    this.particles.setScale(scale);
+    this.fireflies.setScale(scale);
+    this.particles.update(dt);
+    this.fireflies.update(this.elapsed, this.atmosphere.night);
   }
 
   private setHovered(tile: TileCoord | null): void {
@@ -166,6 +234,8 @@ export class Game {
     const now = Date.now();
     this.elapsed += dt;
     this.cameraController.update(dt);
+    this.dayNight.update(dt);
+    this.applyAtmosphere();
     this.terrain.update(this.elapsed);
     if (this.shownLand !== this.farm.landSize) {
       this.shownLand = this.farm.landSize;
@@ -175,6 +245,7 @@ export class Game {
     this.farmView.update(dt, now);
     this.props.update(dt);
     this.clouds.update(dt);
+    this.updateParticles(dt);
     this.highlight.update(dt);
     this.events.onFrame?.(now);
     this.renderer.render(this.scene, this.cameraController.camera);

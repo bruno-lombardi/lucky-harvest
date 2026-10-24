@@ -126,6 +126,29 @@ export const LAND_ICON = `${open}>
   <path d="M9 40 H39" stroke="${INK}" stroke-width="2.6" stroke-linecap="round" opacity=".0"/>
 </svg>`;
 
+export const SOUND_ON_ICON = `${open}>
+  <path d="M8 18 H15 L25 9 V39 L15 30 H8 Z" fill="#fff4dc" ${line}/>
+  <path d="M31 17 Q36 24 31 31 M35.5 12 Q44 24 35.5 36" fill="none" stroke="${INK}" stroke-width="3.2" stroke-linecap="round"/>
+</svg>`;
+
+export const SOUND_OFF_ICON = `${open}>
+  <path d="M8 18 H15 L25 9 V39 L15 30 H8 Z" fill="#d9ccb0" ${line}/>
+  <path d="M31 18 L42 30 M42 18 L31 30" fill="none" stroke="#d6372b" stroke-width="4" stroke-linecap="round"/>
+</svg>`;
+
+export const SUN_ICON = `${open}>
+  <g stroke="#c98300" stroke-width="3.2" stroke-linecap="round">
+    <path d="M24 3 V9 M24 39 V45 M3 24 H9 M39 24 H45 M9.2 9.2 L13.4 13.4 M34.6 34.6 L38.8 38.8 M38.8 9.2 L34.6 13.4 M13.4 34.6 L9.2 38.8"/>
+  </g>
+  <circle cx="24" cy="24" r="10.5" fill="#ffd23a" stroke="#c98300" stroke-width="3"/>
+  <path d="M18 20 A8 8 0 0 1 24 16" fill="none" stroke="#fff6bd" stroke-width="2.6" stroke-linecap="round"/>
+</svg>`;
+
+export const MOON_ICON = `${open}>
+  <path d="M33 7 A18 18 0 1 0 41 33 A14 14 0 0 1 33 7 Z" fill="#f4efc8" stroke="#6a6a9a" stroke-width="3" stroke-linejoin="round"/>
+  <circle cx="19" cy="26" r="2.6" fill="#d8d2a4"/><circle cx="25" cy="34" r="1.8" fill="#d8d2a4"/>
+</svg>`;
+
 /** Fills every `[data-icon]` placeholder in the page with its SVG. */
 export function hydrateIcons(root: ParentNode = document): void {
   const icons: Record<string, string> = { coin: COIN_ICON, star: STAR_ICON, shop: SHOP_ICON };

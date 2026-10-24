@@ -461,7 +461,6 @@ button.poor .cost {
 
 /* ---------- Shop button in the top bar ---------- */
 .hud-top .shop-btn {
-  margin-left: auto;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
@@ -857,4 +856,62 @@ button.poor .cost {
   .shop-row .info small {
     font-size: 12px;
   }
+}
+
+/* ---------- Clock and sound toggle ---------- */
+.hud-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.hud-right > * {
+  pointer-events: auto;
+}
+
+.clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 11px 3px 6px;
+  font-weight: 600;
+  font-size: 15px;
+  color: #fff3d6;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  border-radius: 999px;
+  border: 2px solid #5b3517;
+  background: linear-gradient(to bottom, var(--wood-1), var(--wood-2));
+  box-shadow: inset 0 2px 0 rgba(255, 220, 160, 0.45), 0 3px 0 rgba(60, 30, 10, 0.55);
+}
+
+.clock-icon {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+}
+
+.clock-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.round-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 7px;
+  cursor: pointer;
+  border-radius: 50%;
+  border: 2px solid #5b3517;
+  background: linear-gradient(to bottom, #c98a4a, var(--wood-2));
+  box-shadow: inset 0 2px 0 rgba(255, 220, 160, 0.5), 0 3px 0 rgba(60, 30, 10, 0.55);
+}
+
+.round-btn svg {
+  width: 100%;
+  height: 100%;
 }

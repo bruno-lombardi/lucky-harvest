@@ -1,4 +1,4 @@
-import { Group, Mesh, MeshBasicMaterial, SphereGeometry, Vector3 } from 'three';
+import { Color, Group, Mesh, MeshBasicMaterial, SphereGeometry, Vector3 } from 'three';
 import { mulberry32 } from '../core/noise';
 
 const ELEVATION = Math.atan(1 / Math.SQRT2);
@@ -37,6 +37,7 @@ const smoothstep = (a: number, b: number, x: number): number => {
 export class Clouds {
   readonly group = new Group();
   private readonly clouds: Cloud[] = [];
+  private readonly baseColors = [0xcfe2f6, 0xeaf4ff, 0xffffff].map((c) => new Color(c));
 
   constructor(count = 6, seed = 11) {
     const rand = mulberry32(seed);
@@ -81,6 +82,13 @@ export class Clouds {
       this.clouds.push(entry);
       this.group.add(cloud);
       this.place(entry);
+    }
+  }
+
+  /** Tints every cloud (multiplied with its natural shade): warm at sunset, dim at night. */
+  setTone(tone: Color): void {
+    for (const cloud of this.clouds) {
+      cloud.materials.forEach((m, k) => m.color.copy(this.baseColors[k]!).multiply(tone));
     }
   }
 

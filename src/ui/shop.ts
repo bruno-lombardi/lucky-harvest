@@ -14,8 +14,9 @@ const TABS: ReadonlyArray<{ id: TabId; label: string }> = [
 const coin = (amount: number): string => `<span class="price"><i class="ico">${COIN_ICON}</i>${amount.toLocaleString('pt-BR')}</span>`;
 
 export interface ShopEvents {
-  /** Called after any successful purchase or sale, so the HUD can refresh. */
-  onChange(result: ActionResult & { ok: true }): void;
+  /** Called after any successful purchase, sale or expansion, so the HUD can refresh. */
+  onChange(action: string): void;
+  onFail(): void;
   notify(message: string): void;
 }
 
@@ -113,9 +114,10 @@ export class Shop {
     }
     if (!result.ok) {
       this.events.notify(reasonMessage(result.reason));
+      this.events.onFail();
     } else {
       if (action === 'expand') this.events.notify(`Terreno ampliado para ${this.farm.landSize}×${this.farm.landSize}!`);
-      this.events.onChange(result);
+      this.events.onChange(action);
     }
     this.render();
   }

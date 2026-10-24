@@ -67,7 +67,7 @@ function house(palette: Palette, o: HouseOptions): Group {
   for (const side of [-1, 1]) {
     const slab = box(palette, o.roof, 0.07, length, o.d + 0.2, side * (o.w / 4 + 0.03), o.wallH + o.rise / 2 + 0.04, 0, 0.014);
     // The slab is tall along y; tilt it so its long side follows the roof slope.
-    slab.rotation.z = side * (slope - Math.PI / 2);
+    slab.rotation.z = side * (Math.PI / 2 - slope);
     g.add(slab);
   }
   if (o.trim !== undefined) {

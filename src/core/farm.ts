@@ -1,6 +1,20 @@
+import {
+  AnimalState,
+  PRODUCTS,
+  PRODUCT_ORDER,
+  PenState,
+  ProductId,
+  SPECIES,
+  SPECIES_ORDER,
+  SpeciesId,
+  animalStatus,
+  nextPenUpgrade,
+  penCapacity,
+} from './animals';
 import { CROP_ORDER, CropId, getCrop } from './crops';
 import { inBounds, tileKey } from './grid';
 import { levelFromXp } from './levels';
+import { hashUnit } from './noise';
 
 export const START_COINS = 100;
 export const START_SEEDS: Readonly<Partial<Record<CropId, number>>> = { cenoura: 6, trigo: 3 };
@@ -90,7 +104,18 @@ export type FailReason =
   | 'no-pest'
   | 'level-too-low'
   | 'max-land'
-  | 'nothing-to-sell';
+  | 'nothing-to-sell'
+  | 'pen-locked'
+  | 'pen-exists'
+  | 'no-pen'
+  | 'pen-full'
+  | 'no-animal'
+  | 'no-feed'
+  | 'already-fed'
+  | 'product-waiting'
+  | 'not-ready'
+  | 'max-level'
+  | 'no-ingredients';
 
 export interface Gain {
   coins: number;
@@ -99,22 +124,52 @@ export interface Gain {
   levelUp: number | null;
   /** Produce added to the barn (harvest). */
   item?: { cropId: CropId; qty: number };
+  /** Animal product added to the barn (collect). */
+  product?: { productId: ProductId; qty: number };
 }
 
 export type Stock = Record<CropId, number>;
+export type ProductStock = Record<ProductId, number>;
+export type FeedStock = Record<SpeciesId, number>;
+export type Pens = Partial<Record<SpeciesId, PenState>>;
 
 const emptyStock = (): Stock => Object.fromEntries(CROP_ORDER.map((id) => [id, 0])) as Stock;
+const emptyProducts = (): ProductStock => Object.fromEntries(PRODUCT_ORDER.map((id) => [id, 0])) as ProductStock;
+const emptyFeed = (): FeedStock => Object.fromEntries(SPECIES_ORDER.map((id) => [id, 0])) as FeedStock;
+const clonePens = (pens: Pens): Pens => {
+  const out: Pens = {};
+  for (const id of SPECIES_ORDER) {
+    const pen = pens[id];
+    if (pen) out[id] = { level: pen.level, animals: pen.animals.map((a) => ({ ...a })) };
+  }
+  return out;
+};
 
 export type ActionResult = { ok: true; gain: Gain } | { ok: false; reason: FailReason };
 
 export interface FarmSnapshot {
-  version: 2;
+  version: 3;
+  /** Per-player constant that seeds every random outcome (pests). */
+  seed: number;
+  /** Counts successful mutations; part of the random stream and handy for sync ordering. */
+  revision: number;
+  /** Next id handed to a bought animal. */
+  nextAnimalId: number;
   coins: number;
   xp: number;
   landSize: number;
   seeds: Stock;
   produce: Stock;
+  products: ProductStock;
+  feed: FeedStock;
+  pens: Pens;
   tiles: Record<string, TileState>;
+}
+
+export interface FarmOptions {
+  seed?: number;
+  /** Probability that a crop gets a pest. Only tests change it. */
+  pestChance?: number;
 }
 
 const fail = (reason: FailReason): ActionResult => ({ ok: false, reason });
@@ -129,10 +184,20 @@ export class Farm {
   landSize = START_LAND;
   seeds: Stock = { ...emptyStock(), ...START_SEEDS };
   produce: Stock = emptyStock();
+  products: ProductStock = emptyProducts();
+  feed: FeedStock = emptyFeed();
+  pens: Pens = {};
+  seed: number;
+  revision = 0;
+  nextAnimalId = 1;
+  private readonly pestChance: number;
   private readonly tiles = new Map<string, TileState>();
 
-  /** `rng` decides which crops get pests; inject a fixed one for deterministic tests. */
-  constructor(private readonly rng: () => number = Math.random) {}
+  /** Every random outcome comes from `seed`, so a server can replay the same commands to the same result. */
+  constructor(options: FarmOptions = {}) {
+    this.seed = (options.seed ?? Math.floor(Math.random() * 0xffffffff)) >>> 0;
+    this.pestChance = options.pestChance ?? PEST_CHANCE;
+  }
 
   get level(): number {
     return levelFromXp(this.xp);
@@ -215,15 +280,16 @@ export class Farm {
     if (this.seeds[cropId] < 1) return fail('no-seeds');
 
     this.seeds[cropId] -= 1;
-    const infested = this.rng() < PEST_CHANCE;
+    const roll = (salt: number): number => hashUnit(this.seed, this.revision, i, j, salt);
+    const infested = roll(1) < this.pestChance;
     tile.crop = {
       cropId,
       plantedAt: now,
       watered: false,
       anchorAt: now,
       anchorGrowth: 0,
-      pestAt: infested ? now + def.growthMs * (0.2 + 0.5 * this.rng()) : null,
-      pestKind: infested ? (this.rng() < 0.5 ? 'weed' : 'bug') : null,
+      pestAt: infested ? now + def.growthMs * (0.2 + 0.5 * roll(2)) : null,
+      pestKind: infested ? (roll(3) < 0.5 ? 'weed' : 'bug') : null,
     };
     this.tiles.set(tileKey(i, j), tile);
     return this.done(0, 0);
@@ -290,20 +356,153 @@ export class Farm {
 
   /** Sells harvested produce from the barn. Pass Infinity to sell everything of that crop. */
   sell(cropId: CropId, qty: number): ActionResult {
-    const count = Math.min(qty, this.produce[cropId]);
+    const count = Math.min(Number.isFinite(qty) ? qty : this.produce[cropId], this.produce[cropId]);
     if (count < 1) return fail('nothing-to-sell');
     this.produce[cropId] -= count;
     return this.done(count * getCrop(cropId).sellPrice, 0);
   }
 
+  /** Sells animal products (eggs, milk, truffles). */
+  sellProduct(productId: ProductId, qty: number): ActionResult {
+    const count = Math.min(Number.isFinite(qty) ? qty : this.products[productId], this.products[productId]);
+    if (count < 1) return fail('nothing-to-sell');
+    this.products[productId] -= count;
+    return this.done(count * PRODUCTS[productId].sellPrice, 0);
+  }
+
+  /** Sells everything in the barn: crops and animal products. */
   sellAll(): ActionResult {
     let coins = 0;
     for (const id of CROP_ORDER) {
       coins += this.produce[id] * getCrop(id).sellPrice;
       this.produce[id] = 0;
     }
+    for (const id of PRODUCT_ORDER) {
+      coins += this.products[id] * PRODUCTS[id].sellPrice;
+      this.products[id] = 0;
+    }
     if (coins === 0) return fail('nothing-to-sell');
     return this.done(coins, 0);
+  }
+
+  // ---- Pens and animals ---------------------------------------------------
+
+  /** Builds the pen for a species (one pen per species). */
+  buildPen(species: SpeciesId): ActionResult {
+    const def = SPECIES[species];
+    if (this.pens[species]) return fail('pen-exists');
+    if (this.level < def.unlockLevel) return fail('pen-locked');
+    if (this.coins < def.penCost) return fail('no-coins');
+    this.pens[species] = { level: 1, animals: [] };
+    return this.done(-def.penCost, 10);
+  }
+
+  /** Upgrades a pen to hold more animals. No upgrade exists yet, so this is refused for now. */
+  upgradePen(species: SpeciesId): ActionResult {
+    const pen = this.pens[species];
+    if (!pen) return fail('no-pen');
+    const next = nextPenUpgrade(species, pen.level);
+    if (!next) return fail('max-level');
+    if (this.coins < next.cost) return fail('no-coins');
+    pen.level = next.level;
+    return this.done(-next.cost, 0);
+  }
+
+  buyAnimal(species: SpeciesId): ActionResult {
+    const pen = this.pens[species];
+    if (!pen) return fail('no-pen');
+    const def = SPECIES[species];
+    if (pen.animals.length >= penCapacity(species, pen.level)) return fail('pen-full');
+    if (this.coins < def.animalCost) return fail('no-coins');
+    pen.animals.push({ id: this.nextAnimalId++, readyAt: null });
+    return this.done(-def.animalCost, 2);
+  }
+
+  private animal(species: SpeciesId, animalId: number): AnimalState | null {
+    return this.pens[species]?.animals.find((a) => a.id === animalId) ?? null;
+  }
+
+  /** Feeds one hungry animal with its species' feed; it produces after one cycle. */
+  feedAnimal(species: SpeciesId, animalId: number, now: number): ActionResult {
+    if (!this.pens[species]) return fail('no-pen');
+    const animal = this.animal(species, animalId);
+    if (!animal) return fail('no-animal');
+    const phase = animalStatus(species, animal, now).phase;
+    if (phase === 'working') return fail('already-fed');
+    if (phase === 'ready') return fail('product-waiting');
+    if (this.feed[species] < 1) return fail('no-feed');
+    this.feed[species] -= 1;
+    animal.readyAt = now + SPECIES[species].cycleMs;
+    return this.done(0, 1);
+  }
+
+  /** Feeds every hungry animal in the pen for as long as feed lasts. */
+  feedAll(species: SpeciesId, now: number): ActionResult {
+    const pen = this.pens[species];
+    if (!pen) return fail('no-pen');
+    const hungry = pen.animals.filter((a) => animalStatus(species, a, now).phase === 'hungry');
+    if (hungry.length === 0) return fail(pen.animals.length === 0 ? 'no-animal' : 'already-fed');
+    if (this.feed[species] < 1) return fail('no-feed');
+    let fed = 0;
+    for (const animal of hungry) {
+      if (this.feed[species] < 1) break;
+      this.feed[species] -= 1;
+      animal.readyAt = now + SPECIES[species].cycleMs;
+      fed++;
+    }
+    return this.done(0, fed);
+  }
+
+  /** Collects the product of one animal that finished its cycle. */
+  collect(species: SpeciesId, animalId: number, now: number): ActionResult {
+    if (!this.pens[species]) return fail('no-pen');
+    const animal = this.animal(species, animalId);
+    if (!animal) return fail('no-animal');
+    if (animalStatus(species, animal, now).phase !== 'ready') return fail('not-ready');
+    const def = SPECIES[species];
+    animal.readyAt = null;
+    this.products[def.product] += 1;
+    return this.done(0, def.xp, undefined, { productId: def.product, qty: 1 });
+  }
+
+  collectAll(species: SpeciesId, now: number): ActionResult {
+    const pen = this.pens[species];
+    if (!pen) return fail('no-pen');
+    const ready = pen.animals.filter((a) => animalStatus(species, a, now).phase === 'ready');
+    if (ready.length === 0) return fail('not-ready');
+    const def = SPECIES[species];
+    for (const animal of ready) animal.readyAt = null;
+    this.products[def.product] += ready.length;
+    return this.done(0, def.xp * ready.length, undefined, { productId: def.product, qty: ready.length });
+  }
+
+  // ---- Feed ---------------------------------------------------------------
+
+  /** Buys ready-made feed in the shop. */
+  buyFeed(species: SpeciesId, qty: number): ActionResult {
+    const def = SPECIES[species];
+    if (this.level < def.unlockLevel) return fail('pen-locked');
+    if (qty < 1 || this.coins < def.feedPrice * qty) return fail('no-coins');
+    this.feed[species] += qty;
+    return this.done(-def.feedPrice * qty, 0);
+  }
+
+  /** Mills feed from harvested crops in the barn. */
+  craftFeed(species: SpeciesId, batches: number): ActionResult {
+    const def = SPECIES[species];
+    if (this.level < def.unlockLevel) return fail('pen-locked');
+    if (batches < 1) return fail('no-ingredients');
+    const inputs = Object.entries(def.recipe.inputs) as Array<[CropId, number]>;
+    if (inputs.some(([crop, qty]) => this.produce[crop] < qty * batches)) return fail('no-ingredients');
+    for (const [crop, qty] of inputs) this.produce[crop] -= qty * batches;
+    this.feed[species] += def.recipe.yield * batches;
+    return this.done(0, batches);
+  }
+
+  /** How many batches of this feed the crops in the barn allow. */
+  maxFeedBatches(species: SpeciesId): number {
+    const inputs = Object.entries(SPECIES[species].recipe.inputs) as Array<[CropId, number]>;
+    return Math.min(...inputs.map(([crop, qty]) => Math.floor(this.produce[crop] / qty)));
   }
 
   /** The next plot upgrade, or null once the land is fully grown. */
@@ -328,18 +527,29 @@ export class Farm {
       tiles[key] = { kind: tile.kind, crop: tile.crop ? { ...tile.crop } : null };
     }
     return {
-      version: 2,
+      version: 3,
+      seed: this.seed,
+      revision: this.revision,
+      nextAnimalId: this.nextAnimalId,
       coins: this.coins,
       xp: this.xp,
       landSize: this.landSize,
       seeds: { ...this.seeds },
       produce: { ...this.produce },
+      products: { ...this.products },
+      feed: { ...this.feed },
+      pens: clonePens(this.pens),
       tiles,
     };
   }
 
-  static fromSnapshot(snapshot: FarmSnapshot, rng?: () => number): Farm {
-    const farm = new Farm(rng);
+  static fromSnapshot(snapshot: FarmSnapshot, options: Omit<FarmOptions, 'seed'> = {}): Farm {
+    const farm = new Farm({ ...options, seed: snapshot.seed });
+    farm.revision = snapshot.revision;
+    farm.nextAnimalId = snapshot.nextAnimalId;
+    farm.products = { ...emptyProducts(), ...snapshot.products };
+    farm.feed = { ...emptyFeed(), ...snapshot.feed };
+    farm.pens = clonePens(snapshot.pens);
     farm.coins = snapshot.coins;
     farm.xp = snapshot.xp;
     farm.landSize = snapshot.landSize;
@@ -357,13 +567,20 @@ export class Farm {
     crop.anchorAt = now;
   }
 
-  private done(coins: number, xp: number, item?: { cropId: CropId; qty: number }): ActionResult {
+  private done(
+    coins: number,
+    xp: number,
+    item?: { cropId: CropId; qty: number },
+    product?: { productId: ProductId; qty: number },
+  ): ActionResult {
+    this.revision++;
     const before = this.level;
     this.coins += coins;
     this.xp += xp;
     const after = this.level;
     const gain: Gain = { coins, xp, levelUp: after > before ? after : null };
     if (item) gain.item = item;
+    if (product) gain.product = product;
     return { ok: true, gain };
   }
 }

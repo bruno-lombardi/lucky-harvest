@@ -41,3 +41,19 @@ export function valueNoise2D(x: number, y: number, seed = 0): number {
 export function fbm2D(x: number, y: number, seed = 0): number {
   return valueNoise2D(x, y, seed) * 0.65 + valueNoise2D(x * 2.1, y * 2.1, seed + 101) * 0.35;
 }
+
+/**
+ * Deterministic float in [0, 1) from any list of integers (a murmur-style mix).
+ * The farm uses it instead of Math.random, so the same state and actions always give the same outcome,
+ * which is what lets a server replay a player's commands.
+ */
+export function hashUnit(...values: number[]): number {
+  let h = 0x9e3779b9;
+  for (const v of values) {
+    h = Math.imul(h ^ (v | 0), 0x85ebca6b);
+    h ^= h >>> 13;
+    h = Math.imul(h, 0xc2b2ae35);
+    h ^= h >>> 16;
+  }
+  return (h >>> 0) / 4294967296;
+}

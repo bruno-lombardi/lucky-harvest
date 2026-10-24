@@ -51,7 +51,7 @@ const SCARECROW = { x: 6.5, z: 1.6 };
 const GLASS_DAY = new Color(0x3e5470);
 const GLASS_NIGHT = new Color(0xffd36a);
 
-class Palette {
+export class Palette {
   readonly glass = new MeshBasicMaterial({ color: GLASS_DAY });
   private readonly cache = new Map<string, MeshToonMaterial>();
   constructor(private readonly gradientMap: DataTexture) {}
@@ -67,7 +67,7 @@ class Palette {
   }
 }
 
-function box(
+export function box(
   palette: Palette,
   color: number,
   w: number,
@@ -86,7 +86,7 @@ function box(
   return m;
 }
 
-function matrix(
+export function matrix(
   x: number,
   y: number,
   z: number,
@@ -102,7 +102,7 @@ function matrix(
   );
 }
 
-function instanced(
+export function instanced(
   geometry: BufferGeometry,
   material: MeshToonMaterial,
   matrices: Matrix4[],
@@ -624,6 +624,7 @@ function buildForest(palette: Palette): Group {
     if (Math.hypot(x - POND.x, z - POND.z) < POND.radius + 1.3) return false;
     if (Math.hypot(x - SCARECROW.x, z - SCARECROW.z) < 1.6) return false;
     if (x < -6 && x > -8.6 && z > 2.5 && z < 6.6) return false; // hay + path to the pond
+    if (x > 7.0 && z > -5.6 && z < 7.8) return false; // animal pens
     return true;
   };
 
@@ -737,6 +738,8 @@ export class Props {
   private landSize = 0;
   private readonly glass: MeshBasicMaterial;
   private readonly lampGlow: Sprite;
+  /** The clickable barn (tagged with `userData.pickId = 'barn'`). */
+  readonly barn: Group;
 
   constructor(private readonly gradientMap: DataTexture, landSize: number) {
     const palette = new Palette(gradientMap);
@@ -755,6 +758,8 @@ export class Props {
     const barn = buildBarn(palette);
     barn.position.set(BARN.x, 0, BARN.z);
     barn.rotation.y = Math.PI / 2; // door faces +x, toward the gate
+    barn.userData['pickId'] = 'barn';
+    this.barn = barn;
     this.group.add(barn);
 
     const mill = buildWindmill(palette);

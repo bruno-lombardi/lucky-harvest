@@ -1,3 +1,4 @@
+import { AnimalState, SPECIES, SpeciesId } from './core/animals';
 import { CROPS, CROP_ORDER, CropId } from './core/crops';
 import { CropState, Farm, FarmSnapshot, LAND, MAX_LAND, TileState } from './core/farm';
 import { tileKey } from './core/grid';
@@ -62,13 +63,33 @@ export function createDemoFarm(now: number): Farm {
     }
   }
 
+  // Pens with animals in every state: hungry, producing, and ready to collect.
+  const animal = (id: number, state: 'hungry' | 'working' | 'ready', species: SpeciesId): AnimalState => ({
+    id,
+    readyAt: state === 'hungry' ? null : state === 'ready' ? now - 1000 : now + SPECIES[species].cycleMs * 0.4,
+  });
+  const pens: FarmSnapshot['pens'] = {
+    galinha: {
+      level: 1,
+      animals: [animal(1, 'ready', 'galinha'), animal(2, 'working', 'galinha'), animal(3, 'hungry', 'galinha'), animal(4, 'ready', 'galinha')],
+    },
+    vaca: { level: 1, animals: [animal(5, 'working', 'vaca'), animal(6, 'ready', 'vaca'), animal(7, 'hungry', 'vaca')] },
+    porco: { level: 1, animals: [animal(8, 'hungry', 'porco'), animal(9, 'working', 'porco')] },
+  };
+
   const snapshot: FarmSnapshot = {
-    version: 2,
+    version: 3,
+    seed: 20240601,
+    revision: 0,
+    nextAnimalId: 10,
     coins: 1250,
     xp: levelThreshold(8) + 120,
     landSize: MAX_LAND,
     seeds: Object.fromEntries(CROP_ORDER.map((id) => [id, 12])) as FarmSnapshot['seeds'],
     produce: Object.fromEntries(CROP_ORDER.map((id, n) => [id, 3 + n * 2])) as FarmSnapshot['produce'],
+    products: { ovo: 5, leite: 3, trufa: 1 },
+    feed: { galinha: 6, vaca: 3, porco: 2 },
+    pens,
     tiles,
   };
   return Farm.fromSnapshot(snapshot);

@@ -50,9 +50,9 @@ describe('terrain', () => {
 
 describe('pest visuals', () => {
   it('shows weeds or bugs on infested crops and drops them once cared for', () => {
-    for (const rng of [() => 0.1, () => 0.9]) {
-      // rng 0.1 -> infested, first draw picks "weed"; the second run (0.9 -> no pest) must stay clean.
-      const farm = new Farm(rng);
+    for (const pestChance of [1, 0]) {
+      // First run: always infested. Second run: never, and must stay clean.
+      const farm = new Farm({ seed: 5, pestChance });
       const view = new FarmView(farm, 24, createToonGradient());
       farm.plow(I, J);
       farm.plant(I, J, 'cenoura', 0);
@@ -76,7 +76,7 @@ describe('pest visuals', () => {
 
 describe('FarmView', () => {
   it('follows the farm through plow, plant, grow, harvest and clear', () => {
-    const farm = new Farm(() => 0.99); // no pests
+    const farm = new Farm({ seed: 1, pestChance: 0 });
     const view = new FarmView(farm, 24, createToonGradient());
     const carrot = CROPS.cenoura;
     let now = 0;
@@ -110,7 +110,7 @@ describe('FarmView', () => {
 
   it('handles thirsty and withered crops', () => {
     // Abóbora unlocks at level 8, so start with enough XP and coins.
-    const farm = new Farm(() => 0.99);
+    const farm = new Farm({ seed: 1, pestChance: 0 });
     farm.xp = levelThreshold(8);
     farm.seeds.abobora = 1;
     const view = new FarmView(farm, 24, createToonGradient());

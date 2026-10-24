@@ -35,6 +35,28 @@ export function reasonMessage(reason: FailReason): string {
       return 'Seu terreno já está no máximo';
     case 'nothing-to-sell':
       return 'Nada para vender';
+    case 'pen-locked':
+      return 'Suba de nível para liberar isto';
+    case 'pen-exists':
+      return 'Você já tem esse abrigo';
+    case 'no-pen':
+      return 'Construa o abrigo primeiro';
+    case 'pen-full':
+      return 'O abrigo está cheio';
+    case 'no-animal':
+      return 'Nenhum animal aqui';
+    case 'no-feed':
+      return 'Sem ração: compre ou fabrique no celeiro';
+    case 'already-fed':
+      return 'Já foi alimentado';
+    case 'product-waiting':
+      return 'Colete o produto primeiro';
+    case 'not-ready':
+      return 'Ainda não está pronto';
+    case 'max-level':
+      return 'Já está no nível máximo';
+    case 'no-ingredients':
+      return 'Faltam colheitas no celeiro';
   }
 }
 

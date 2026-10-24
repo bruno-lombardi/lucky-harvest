@@ -17,7 +17,13 @@ export type Sfx =
   | 'levelup'
   | 'expand'
   | 'click'
-  | 'select';
+  | 'select'
+  | 'feed'
+  | 'collect'
+  | 'build'
+  | 'galinha'
+  | 'vaca'
+  | 'porco';
 
 const STORAGE_KEY = 'lucky-harvest:muted';
 
@@ -60,6 +66,7 @@ export class GameAudio {
   private nextBird = 0;
   private nextCricket = 0;
   private muted: boolean;
+  private volume = 1;
 
   constructor() {
     let stored = false;
@@ -119,9 +126,10 @@ export class GameAudio {
     this.night = night;
   }
 
-  play(sfx: Sfx): void {
+  play(sfx: Sfx, volume = 1): void {
     const ctx = this.ctx;
     if (!ctx || this.muted) return;
+    this.volume = volume;
     const t = ctx.currentTime;
     switch (sfx) {
       case 'plow':
@@ -171,7 +179,30 @@ export class GameAudio {
       case 'select':
         this.tone(t, 0.06, 520, { type: 'sine', slideTo: 600, gain: 0.14 });
         break;
+      case 'feed':
+        this.noise(t, 0.28, { type: 'bandpass', from: 1800, to: 900, gain: 0.3, attack: 0.02, q: 0.9 });
+        this.tone(t + 0.05, 0.1, 300, { type: 'sine', slideTo: 220, gain: 0.18 });
+        break;
+      case 'collect':
+        [784, 1047, 1319].forEach((f, n) => this.tone(t + n * 0.06, 0.22, f, { type: 'triangle', gain: 0.26 }));
+        break;
+      case 'build':
+        this.noise(t, 0.08, { type: 'lowpass', from: 900, gain: 0.5, attack: 0.002 });
+        this.noise(t + 0.18, 0.08, { type: 'lowpass', from: 900, gain: 0.5, attack: 0.002 });
+        [60, 67, 72].forEach((n, k) => this.tone(t + 0.34 + k * 0.08, 0.35, midi(n), { type: 'triangle', gain: 0.24 }));
+        break;
+      case 'galinha':
+        [0, 0.09, 0.2].forEach((d, n) => this.tone(t + d, 0.08, 900 + n * 120, { type: 'square', slideTo: 1300 + n * 100, gain: 0.07, filter: 2200 }));
+        break;
+      case 'vaca':
+        this.tone(t, 0.7, 150, { type: 'sawtooth', slideTo: 105, gain: 0.16, attack: 0.08, filter: 600 });
+        break;
+      case 'porco':
+        this.tone(t, 0.12, 260, { type: 'sawtooth', slideTo: 170, gain: 0.14, filter: 700 });
+        this.tone(t + 0.15, 0.14, 240, { type: 'sawtooth', slideTo: 150, gain: 0.14, filter: 700 });
+        break;
     }
+    this.volume = 1;
   }
 
   // ---- Synthesis helpers -------------------------------------------------
@@ -192,7 +223,7 @@ export class GameAudio {
     if (o.slideTo) osc.frequency.exponentialRampToValueAtTime(o.slideTo, start + dur);
 
     const gain = ctx.createGain();
-    const peak = o.gain ?? 0.2;
+    const peak = (o.gain ?? 0.2) * this.volume;
     const attack = o.attack ?? 0.008;
     gain.gain.setValueAtTime(0.0001, start);
     gain.gain.linearRampToValueAtTime(peak, start + attack);
@@ -224,7 +255,7 @@ export class GameAudio {
     if (o.to) filter.frequency.exponentialRampToValueAtTime(o.to, start + dur);
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.linearRampToValueAtTime(o.gain ?? 0.3, start + (o.attack ?? 0.02));
+    gain.gain.linearRampToValueAtTime((o.gain ?? 0.3) * this.volume, start + (o.attack ?? 0.02));
     gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
     src.connect(filter);
     filter.connect(gain);

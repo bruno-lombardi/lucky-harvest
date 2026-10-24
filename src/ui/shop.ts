@@ -1,146 +1,91 @@
+import { PRODUCTS, PRODUCT_ORDER, SPECIES, SPECIES_ORDER, SpeciesId, penCapacity } from '../core/animals';
 import { CROPS, CROP_ORDER, CropId } from '../core/crops';
-import { ActionResult, Farm } from '../core/farm';
-import { COIN_ICON, LAND_ICON, LOCK_ICON, SHOP_ICON } from './icons';
-import { reasonMessage } from './messages';
+import { Farm } from '../core/farm';
+import { BARN_ICON, LAND_ICON, LOCK_ICON, SHOP_ICON } from './icons';
+import { FEED_ICONS, PRODUCT_ICONS, SPECIES_ICONS } from './item-icons';
+import { Dispatch, coin, empty, heading, img, row } from './kit';
+import { Modal } from './modal';
 
-type TabId = 'seeds' | 'barn' | 'land';
+export type ShopTab = 'seeds' | 'feed' | 'sell' | 'animals' | 'land';
 
-const TABS: ReadonlyArray<{ id: TabId; label: string }> = [
+const TABS = [
   { id: 'seeds', label: 'Sementes' },
-  { id: 'barn', label: 'Celeiro' },
+  { id: 'feed', label: 'Ração' },
+  { id: 'sell', label: 'Vender' },
+  { id: 'animals', label: 'Animais' },
   { id: 'land', label: 'Terreno' },
-];
+] as const;
 
-const coin = (amount: number): string => `<span class="price"><i class="ico">${COIN_ICON}</i>${amount.toLocaleString('pt-BR')}</span>`;
-
-export interface ShopEvents {
-  /** Called after any successful purchase, sale or expansion, so the HUD can refresh. */
-  onChange(action: string): void;
-  onFail(): void;
-  notify(message: string): void;
-}
-
-/** The village market: buy seeds, sell harvested produce from the barn, and expand the land. */
-export class Shop {
-  private tab: TabId = 'seeds';
-  private readonly body: HTMLElement;
-  private readonly tabs = new Map<TabId, HTMLButtonElement>();
-
+/** The village market: seeds, feed, selling, animals and pens, and land. */
+export class Shop extends Modal<ShopTab> {
   constructor(
-    private readonly root: HTMLElement,
+    root: HTMLElement,
     private readonly farm: Farm,
     private readonly cropIcons: Record<CropId, string>,
-    private readonly events: ShopEvents,
+    private readonly dispatch: Dispatch,
   ) {
-    root.innerHTML = `
-      <div class="shop-backdrop" data-close></div>
-      <section class="shop-panel" role="dialog" aria-modal="true" aria-label="Loja">
-        <header class="shop-head">
-          <span class="shop-title"><i class="ico">${SHOP_ICON}</i>Loja da Vila</span>
-          <button type="button" class="shop-close" data-close aria-label="Fechar">×</button>
-        </header>
-        <nav class="shop-tabs"></nav>
-        <div class="shop-body"></div>
-      </section>`;
-    this.body = root.querySelector('.shop-body') as HTMLElement;
+    super(root, 'Loja', TABS, 'seeds');
+  }
 
-    const nav = root.querySelector('.shop-tabs') as HTMLElement;
-    for (const { id, label } of TABS) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'shop-tab';
-      button.textContent = label;
-      button.addEventListener('click', () => this.show(id));
-      this.tabs.set(id, button);
-      nav.appendChild(button);
+  open(tab: ShopTab = this.tab): void {
+    this.openAt(tab);
+  }
+
+  protected title(): string {
+    return `<i class="ico">${SHOP_ICON}</i>Loja da Vila`;
+  }
+
+  protected html(): string {
+    switch (this.tab) {
+      case 'seeds':
+        return this.seedsHtml();
+      case 'feed':
+        return this.feedHtml();
+      case 'sell':
+        return this.sellHtml();
+      case 'animals':
+        return this.animalsHtml();
+      case 'land':
+        return this.landHtml();
     }
-
-    root.addEventListener('click', (event) => {
-      if ((event.target as HTMLElement).closest('[data-close]')) this.close();
-    });
-    window.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && this.isOpen) this.close();
-    });
-
-    // One delegated handler for every button inside the list.
-    this.body.addEventListener('click', (event) => {
-      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-act]');
-      if (!button || button.disabled) return;
-      this.act(button.dataset['act']!, button.dataset['crop'] as CropId | undefined, Number(button.dataset['qty'] ?? 1));
-    });
   }
 
-  get isOpen(): boolean {
-    return !this.root.hidden;
-  }
-
-  open(tab: TabId = this.tab): void {
-    this.root.hidden = false;
-    this.show(tab);
-  }
-
-  close(): void {
-    this.root.hidden = true;
-  }
-
-  /** Re-renders the visible tab (cheap; only while open). */
-  refresh(): void {
-    if (this.isOpen) this.render();
-  }
-
-  private show(tab: TabId): void {
-    this.tab = tab;
-    this.render();
-    this.body.scrollTop = 0;
-  }
-
-  private act(action: string, crop: CropId | undefined, qty: number): void {
-    let result: ActionResult;
+  protected onAction(action: string, data: DOMStringMap): void {
+    const qty = Number(data['qty'] ?? 1);
+    const species = data['species'] as SpeciesId | undefined;
+    const crop = data['crop'] as CropId | undefined;
     switch (action) {
       case 'buy':
-        result = this.farm.buySeeds(crop!, qty);
+        this.dispatch({ type: 'buySeeds', crop: crop!, qty });
+        break;
+      case 'buy-feed':
+        this.dispatch({ type: 'buyFeed', species: species!, qty });
         break;
       case 'sell':
-        result = this.farm.sell(crop!, qty);
+        this.dispatch({ type: 'sellCrop', crop: crop!, qty });
+        break;
+      case 'sell-product':
+        this.dispatch({ type: 'sellProduct', product: data['product'] as 'ovo', qty });
         break;
       case 'sell-all':
-        result = this.farm.sellAll();
+        this.dispatch({ type: 'sellAll' });
         break;
       case 'expand':
-        result = this.farm.expandLand();
+        this.dispatch({ type: 'expandLand' });
         break;
-      default:
-        return;
+      case 'build':
+        this.dispatch({ type: 'buildPen', species: species! });
+        break;
+      case 'animal':
+        this.dispatch({ type: 'buyAnimal', species: species! });
+        break;
     }
-    if (!result.ok) {
-      this.events.notify(reasonMessage(result.reason));
-      this.events.onFail();
-    } else {
-      if (action === 'expand') this.events.notify(`Terreno ampliado para ${this.farm.landSize}×${this.farm.landSize}!`);
-      this.events.onChange(action);
-    }
-    this.render();
-  }
-
-  private render(): void {
-    for (const [id, button] of this.tabs) button.classList.toggle('active', id === this.tab);
-    const scroll = this.body.scrollTop;
-    this.body.innerHTML = this.tab === 'seeds' ? this.seedsHtml() : this.tab === 'barn' ? this.barnHtml() : this.landHtml();
-    this.body.scrollTop = scroll;
-  }
-
-  private row(id: CropId, content: string, buttons: string, locked = false): string {
-    return `
-      <div class="shop-row${locked ? ' locked' : ''}">
-        <span class="pic"><img alt="" draggable="false" src="${this.cropIcons[id]}" /></span>
-        <span class="info">${content}</span>
-        <span class="buttons">${buttons}</span>
-      </div>`;
+    this.repaint();
   }
 
   private seedsHtml(): string {
     const { farm } = this;
-    const rows = CROP_ORDER.map((id) => {
+    return CROP_ORDER.map((id) => {
       const crop = CROPS[id];
       const locked = farm.level < crop.unlockLevel;
       const info = locked
@@ -150,30 +95,91 @@ export class Shop {
         `<button type="button" class="buy" data-act="buy" data-crop="${id}" data-qty="${qty}" ${
           locked || farm.coins < crop.seedCost * qty ? 'disabled' : ''
         }>×${qty}</button>`;
-      return this.row(id, info, locked ? '' : `${button(1)}${button(5)}${button(10)}`, locked);
-    });
-    return rows.join('');
+      return row(img(this.cropIcons[id]), info, locked ? '' : `${button(1)}${button(5)}${button(10)}`, locked);
+    }).join('');
   }
 
-  private barnHtml(): string {
+  private feedHtml(): string {
     const { farm } = this;
-    const held = CROP_ORDER.filter((id) => farm.produce[id] > 0);
-    if (held.length === 0) {
-      return `<div class="shop-empty"><i class="ico big">${BARN_EMPTY}</i><p>Seu celeiro está vazio.</p><small>Colha plantas maduras para vendê-las aqui.</small></div>`;
+    const rows = SPECIES_ORDER.map((id) => {
+      const def = SPECIES[id];
+      const hasPen = !!farm.pens[id];
+      const info = `<b>${def.feedName}</b><small>${coin(def.feedPrice)} o saco · você tem ${farm.feed[id]}</small>`;
+      const button = (qty: number): string =>
+        `<button type="button" class="buy" data-act="buy-feed" data-species="${id}" data-qty="${qty}" ${
+          farm.coins < def.feedPrice * qty ? 'disabled' : ''
+        }>×${qty}</button>`;
+      return row(FEED_ICONS[id], info, `${button(1)}${button(5)}`, !hasPen && farm.level < def.unlockLevel);
+    }).join('');
+    return `${rows}<p class="tip">Dica: no celeiro você transforma suas colheitas em ração, de graça.</p>`;
+  }
+
+  private sellHtml(): string {
+    const { farm } = this;
+    const crops = CROP_ORDER.filter((id) => farm.produce[id] > 0);
+    const products = PRODUCT_ORDER.filter((id) => farm.products[id] > 0);
+    if (crops.length + products.length === 0) {
+      return empty(BARN_ICON, 'Você não tem nada para vender.', 'Colha plantas ou colete produtos dos animais.');
     }
-    const total = held.reduce((sum, id) => sum + farm.produce[id] * CROPS[id].sellPrice, 0);
-    const rows = held.map((id) => {
-      const crop = CROPS[id];
-      const qty = farm.produce[id];
-      return this.row(
-        id,
-        `<b>${crop.name} <span class="count">×${qty}</span></b><small>${coin(crop.sellPrice)} cada</small>`,
-        `<button type="button" class="sell" data-act="sell" data-crop="${id}" data-qty="1">Vender 1</button>` +
-          (qty > 1 ? `<button type="button" class="sell" data-act="sell" data-crop="${id}" data-qty="${qty}">Tudo</button>` : ''),
-      );
-    });
-    return `${rows.join('')}
-      <button type="button" class="big-action" data-act="sell-all">Vender tudo ${coin(total)}</button>`;
+    const total =
+      crops.reduce((sum, id) => sum + farm.produce[id] * CROPS[id].sellPrice, 0) +
+      products.reduce((sum, id) => sum + farm.products[id] * PRODUCTS[id].sellPrice, 0);
+    const sellButtons = (act: string, key: string, id: string, qty: number): string =>
+      `<button type="button" class="sell" data-act="${act}" data-${key}="${id}" data-qty="1">Vender 1</button>` +
+      (qty > 1 ? `<button type="button" class="sell" data-act="${act}" data-${key}="${id}" data-qty="${qty}">Tudo</button>` : '');
+    let html = '';
+    if (crops.length) {
+      html += heading('Colheitas');
+      html += crops
+        .map((id) =>
+          row(
+            img(this.cropIcons[id]),
+            `<b>${CROPS[id].name} <span class="count">×${farm.produce[id]}</span></b><small>${coin(CROPS[id].sellPrice)} cada</small>`,
+            sellButtons('sell', 'crop', id, farm.produce[id]),
+          ),
+        )
+        .join('');
+    }
+    if (products.length) {
+      html += heading('Produtos');
+      html += products
+        .map((id) =>
+          row(
+            PRODUCT_ICONS[id],
+            `<b>${PRODUCTS[id].name} <span class="count">×${farm.products[id]}</span></b><small>${coin(PRODUCTS[id].sellPrice)} cada</small>`,
+            sellButtons('sell-product', 'product', id, farm.products[id]),
+          ),
+        )
+        .join('');
+    }
+    return `${html}<button type="button" class="big-action" data-act="sell-all">Vender tudo ${coin(total)}</button>`;
+  }
+
+  private animalsHtml(): string {
+    const { farm } = this;
+    return SPECIES_ORDER.map((id) => {
+      const def = SPECIES[id];
+      const pen = farm.pens[id];
+      if (!pen) {
+        const locked = farm.level < def.unlockLevel;
+        const info = locked
+          ? `<b>${def.penName}</b><small><i class="ico">${LOCK_ICON}</i>Libera no nível ${def.unlockLevel}</small>`
+          : `<b>${def.penName}</b><small>Abrigo para ${def.name.toLowerCase()}s · ${coin(def.penCost)}</small>`;
+        const button = locked
+          ? ''
+          : `<button type="button" class="buy wide" data-act="build" data-species="${id}" ${
+              farm.coins < def.penCost ? 'disabled' : ''
+            }>Construir</button>`;
+        return row(SPECIES_ICONS[id], info, button, locked);
+      }
+      const cap = penCapacity(id, pen.level);
+      const full = pen.animals.length >= cap;
+      const info = `<b>${def.name}</b><small>${coin(def.animalCost)} · no ${def.penName.toLowerCase()}: ${pen.animals.length}/${cap}</small>`;
+      const button = `<button type="button" class="buy wide" data-act="animal" data-species="${id}" ${
+        full || farm.coins < def.animalCost ? 'disabled' : ''
+      }>${full ? 'Cheio' : 'Comprar'}</button>`;
+      return row(SPECIES_ICONS[id], info, button);
+    }).join('');
   }
 
   private landHtml(): string {
@@ -181,7 +187,7 @@ export class Shop {
     const next = farm.nextExpansion();
     const now = `${farm.landSize}×${farm.landSize}`;
     if (!next) {
-      return `<div class="shop-empty"><i class="ico big">${LAND_ICON}</i><p>Seu terreno está no tamanho máximo (${now}).</p><small>Mais terras virão em breve.</small></div>`;
+      return empty(LAND_ICON, `Seu terreno está no tamanho máximo (${now}).`, 'Mais terras virão em breve.');
     }
     const levelOk = farm.level >= next.level;
     const coinsOk = farm.coins >= next.cost;
@@ -198,5 +204,3 @@ export class Shop {
       </div>`;
   }
 }
-
-const BARN_EMPTY = `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 22 L24 6 L42 22 V42 Q42 44 40 44 H8 Q6 44 6 42 Z" fill="#e8c28a" stroke="#4a2b0f" stroke-width="2.6" stroke-linejoin="round"/><rect x="15" y="26" width="18" height="18" rx="1.5" fill="#c99a5b" stroke="#4a2b0f" stroke-width="2.6"/></svg>`;

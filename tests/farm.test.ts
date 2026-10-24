@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { applyTool } from '../src/core/actions';
 import { CROPS } from '../src/core/crops';
-import { Farm, FarmSnapshot, LAND_STEPS, START_COINS, START_LAND, landBounds } from '../src/core/farm';
+import { Farm, FarmOptions, FarmSnapshot, LAND_STEPS, START_COINS, START_LAND, landBounds } from '../src/core/farm';
 
 const START = landBounds(START_LAND);
 const I = START.min;
 const J = START.min;
-const NO_PEST = (): number => 0.99;
-const ALWAYS_PEST = (): number => 0.1;
-const newFarm = (rng = NO_PEST): Farm => new Farm(rng);
+const NO_PEST = { pestChance: 0 };
+const ALWAYS_PEST = { pestChance: 1 };
+const newFarm = (options: FarmOptions = NO_PEST): Farm => new Farm({ seed: 1, ...options });
 const carrot = CROPS.cenoura;
 const SEC = 1000;
 
@@ -174,14 +174,14 @@ describe('shovel', () => {
 
 describe('levelling', () => {
   it('reports a level-up when XP crosses a threshold', () => {
-    const farm = Farm.fromSnapshot({ version: 2, coins: 100, xp: 49, landSize: START_LAND, seeds: {} as FarmSnapshot['seeds'], produce: {} as FarmSnapshot['produce'], tiles: {} });
+    const farm = Farm.fromSnapshot({ ...newFarm().toSnapshot(), coins: 100, xp: 49 });
     const result = farm.plow(I, J);
     expect(result).toEqual({ ok: true, gain: { coins: 0, xp: 1, levelUp: 2 } });
     expect(farm.level).toBe(2);
   });
 
   it('unlocks crops as the level rises', () => {
-    const farm = Farm.fromSnapshot({ version: 2, coins: 500, xp: 50, landSize: START_LAND, seeds: { milho: 1 } as FarmSnapshot['seeds'], produce: {} as FarmSnapshot['produce'], tiles: {} });
+    const farm = Farm.fromSnapshot({ ...newFarm().toSnapshot(), coins: 500, xp: 50, seeds: { ...newFarm().seeds, milho: 1 } });
     farm.plow(I, J);
     expect(farm.plant(I, J, 'milho', 0).ok).toBe(true);
   });

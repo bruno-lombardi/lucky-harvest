@@ -20,12 +20,16 @@ import { FarmView } from './render/farm-view';
 import { TileHighlight } from './render/highlight';
 import { IsoCameraController } from './render/iso-camera';
 import { TilePicker } from './render/picking';
+import { ObjectPicker } from './render/object-picker';
+import { Pens } from './render/pens';
 import { Terrain } from './render/terrain';
 import { createToonGradient } from './render/toon';
 
 export interface GameEvents {
   /** A tap landed on a tile (or on empty water, with null). */
   onTileTap?: (tile: TileCoord | null) => void;
+  /** A tap landed on a building: 'barn' or 'pen:<species>'. */
+  onObjectTap?: (id: string) => void;
   /** Called every frame with the current wall-clock time in ms. */
   onFrame?: (now: number) => void;
 }
@@ -37,6 +41,8 @@ export class Game {
   private readonly clock = new Clock();
   private readonly cameraController: IsoCameraController;
   private readonly picker: TilePicker;
+  private readonly objectPicker: ObjectPicker;
+  private readonly pens: Pens;
   private readonly highlight = new TileHighlight(GRID_SIZE);
   private readonly terrain: Terrain;
   private readonly clouds: Clouds;
@@ -83,9 +89,11 @@ export class Game {
     this.scene.add(this.terrain.group);
     this.farmView = new FarmView(farm, GRID_SIZE, gradient);
     this.props = new Props(gradient, farm.landSize);
+    this.pens = new Pens(farm, gradient);
     this.clouds = new Clouds();
     this.scene.add(
       this.props.group,
+      this.pens.group,
       this.farmView.group,
       this.clouds.group,
       this.highlight.group,
@@ -99,9 +107,29 @@ export class Game {
     });
     this.picker = new TilePicker(this.cameraController.camera, this.renderer.domElement, GRID_SIZE);
 
-    this.cameraController.onHover = (x, y) => this.setHovered(this.picker.pick(x, y));
-    this.cameraController.onHoverEnd = () => this.setHovered(null);
-    this.cameraController.onTap = (x, y) => this.handleTap(this.picker.pick(x, y));
+    this.objectPicker = new ObjectPicker(this.cameraController.camera, this.renderer.domElement, () => [
+      this.props.barn,
+      ...this.pens.pickRoots(),
+    ]);
+
+    this.cameraController.onHover = (x, y) => {
+      const object = this.objectPicker.pick(x, y);
+      this.renderer.domElement.style.cursor = object ? 'pointer' : '';
+      this.setHovered(object ? null : this.picker.pick(x, y));
+    };
+    this.cameraController.onHoverEnd = () => {
+      this.renderer.domElement.style.cursor = '';
+      this.setHovered(null);
+    };
+    this.cameraController.onTap = (x, y) => {
+      const object = this.objectPicker.pick(x, y);
+      if (object) {
+        this.highlight.setSelected(null);
+        this.events.onObjectTap?.(object);
+      } else {
+        this.handleTap(this.picker.pick(x, y));
+      }
+    };
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
@@ -140,6 +168,21 @@ export class Game {
   burst(kind: BurstKind, tile: TileCoord): void {
     const { x, z } = tileToWorld(tile.i, tile.j, GRID_SIZE);
     this.effects.burst(kind, x, z);
+  }
+
+  /** Plays a particle burst at a world position. */
+  burstAt(kind: BurstKind, x: number, z: number): void {
+    this.effects.burst(kind, x, z);
+  }
+
+  /** Screen position (client px) of a world point. */
+  screenPositionOfWorld(x: number, y: number, z: number): { x: number; y: number } {
+    this.projected.set(x, y, z).project(this.cameraController.camera);
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    return {
+      x: rect.left + ((this.projected.x + 1) / 2) * rect.width,
+      y: rect.top + ((1 - this.projected.y) / 2) * rect.height,
+    };
   }
 
   /** Confetti and dust centred on the plot, for land expansion. */
@@ -244,6 +287,7 @@ export class Game {
     }
     this.farmView.update(dt, now);
     this.props.update(dt);
+    this.pens.update(dt, now);
     this.clouds.update(dt);
     this.updateParticles(dt);
     this.highlight.update(dt);

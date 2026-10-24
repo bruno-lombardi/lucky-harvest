@@ -125,6 +125,114 @@ const pestTexture = (): CanvasTexture | null =>
     ctx.stroke();
   });
 
+/** Round badge used for animal needs: dark rim, pale face, then the icon drawn by `icon`. */
+const badge = (rim: string, icon: (ctx: CanvasRenderingContext2D) => void): CanvasTexture | null =>
+  paint((ctx) => {
+    ctx.beginPath();
+    ctx.arc(0, 0, 56, 0, Math.PI * 2);
+    ctx.fillStyle = rim;
+    ctx.fill();
+    const face = ctx.createRadialGradient(-14, -18, 4, 0, 0, 48);
+    face.addColorStop(0, '#ffffff');
+    face.addColorStop(1, '#f1e6c6');
+    ctx.beginPath();
+    ctx.arc(0, 0, 47, 0, Math.PI * 2);
+    ctx.fillStyle = face;
+    ctx.fill();
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    icon(ctx);
+  });
+
+const ink = '#4a2b0f';
+
+function eggIcon(ctx: CanvasRenderingContext2D): void {
+  ctx.beginPath();
+  ctx.moveTo(0, -34);
+  ctx.bezierCurveTo(22, -34, 30, 6, 28, 16);
+  ctx.bezierCurveTo(26, 34, -26, 34, -28, 16);
+  ctx.bezierCurveTo(-30, 6, -22, -34, 0, -34);
+  ctx.fillStyle = '#fff8ea';
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 6;
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(-10, -8, 5, 10, 0.4, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fill();
+}
+
+function milkIcon(ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(-10, -36);
+  ctx.lineTo(10, -36);
+  ctx.lineTo(10, -22);
+  ctx.lineTo(22, -6);
+  ctx.lineTo(22, 30);
+  ctx.quadraticCurveTo(22, 36, 16, 36);
+  ctx.lineTo(-16, 36);
+  ctx.quadraticCurveTo(-22, 36, -22, 30);
+  ctx.lineTo(-22, -6);
+  ctx.lineTo(-10, -22);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#6fb6ea';
+  ctx.fillRect(-18, 2, 36, 18);
+  ctx.fillStyle = '#e5372b';
+  ctx.fillRect(-11, -38, 22, 8);
+}
+
+function truffleIcon(ctx: CanvasRenderingContext2D): void {
+  ctx.beginPath();
+  ctx.moveTo(-26, 10);
+  ctx.bezierCurveTo(-34, -14, -8, -34, 8, -28);
+  ctx.bezierCurveTo(30, -26, 36, 4, 26, 20);
+  ctx.bezierCurveTo(14, 34, -18, 34, -26, 10);
+  ctx.fillStyle = '#5b4030';
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 6;
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#8a6a50';
+  for (const [x, y] of [[-8, -10], [10, -4], [-4, 12], [14, 14], [-16, 4]] as const) {
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function bowlIcon(ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = '#e6a23c';
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 5;
+  for (const [x, y] of [[-12, -4], [2, -14], [14, -2], [-2, 0]] as const) {
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(-32, 6);
+  ctx.lineTo(32, 6);
+  ctx.quadraticCurveTo(28, 34, 0, 34);
+  ctx.quadraticCurveTo(-28, 34, -32, 6);
+  ctx.closePath();
+  ctx.fillStyle = '#c0623a';
+  ctx.fill();
+  ctx.stroke();
+}
+
+const productDraw: Record<string, (ctx: CanvasRenderingContext2D) => void> = {
+  ovo: eggIcon,
+  leite: milkIcon,
+  trufa: truffleIcon,
+};
+
 const glowTexture = (): CanvasTexture | null =>
   paint((ctx) => {
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 62);
@@ -195,5 +303,40 @@ export function createPestIndicator(): Group {
   bubble.renderOrder = 11;
   group.add(bubble);
   group.userData['kind'] = 'pest';
+  return group;
+}
+
+const bubbleMaterials = new Map<string, SpriteMaterial>();
+
+function bubbleSprite(key: string, rim: string, icon: (ctx: CanvasRenderingContext2D) => void, size: number): Sprite {
+  let material = bubbleMaterials.get(key);
+  if (!material) {
+    const map = badge(rim, icon);
+    material = new SpriteMaterial({ ...(map ? { map } : {}), color: map ? 0xffffff : 0xffffff, transparent: true, depthWrite: false });
+    bubbleMaterials.set(key, material);
+  }
+  const sprite = new Sprite(material);
+  sprite.scale.set(size, size, 1);
+  sprite.renderOrder = 11;
+  return sprite;
+}
+
+/** A bowl bubble over a hungry animal. userData.kind = 'hungry'. */
+export function createHungryIndicator(): Group {
+  const group = new Group();
+  group.add(bubbleSprite('hungry', '#a64b1e', bowlIcon, 0.42));
+  group.userData['kind'] = 'hungry';
+  return group;
+}
+
+/** The finished product (egg, milk, truffle) in a glowing bubble. userData.kind = 'product'. */
+export function createProductIndicator(product: string): Group {
+  glowMaterial = material(glowMaterial, glowTexture, 0xffe066, true);
+  const group = new Group();
+  const glow = new Sprite(glowMaterial);
+  glow.scale.set(0.95, 0.95, 1);
+  glow.renderOrder = 10;
+  group.add(glow, bubbleSprite(`product:${product}`, '#c98300', productDraw[product] ?? eggIcon, 0.44));
+  group.userData['kind'] = 'product';
   return group;
 }

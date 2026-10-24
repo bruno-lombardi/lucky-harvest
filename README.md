@@ -28,12 +28,15 @@ You start with 100 coins, a few seeds and a 6×6 plot.
 5. **Colher:** when a gold coin spins over the crop, tap it. The harvest goes to your barn.
 6. **Limpar:** clears withered crops, or turns bare soil back to grass.
 7. **Sound and time:** the speaker button mutes everything. A day lasts 8 real minutes, and at night the windows light up and fireflies come out.
-8. **Loja:** buy seeds, sell the harvest from the barn (**Celeiro**), and pay to expand the plot (**Terreno**: 6×6, 8×8, 10×10).
+8. **Loja:** buy seeds (**Sementes**) and animal feed (**Ração**), sell crops and animal products (**Vender**), build pens and buy animals (**Animais**), and expand the plot (**Terreno**: 6×6, 8×8, 10×10).
+9. **Celeiro:** tap the barn to see everything you own, and to mill feed from your crops for free (2 trigo → 3 rações de galinha, 2 milho → 2 de vaca, 3 tomate → 2 de porco).
+10. **Animais:** each species lives in its own pen (Galinheiro Nv 2, Curral Nv 4, Chiqueiro Nv 6) on the east side of the island. Tap a pen to feed its animals with the matching feed, wait out the timer, and collect eggs, milk or truffles. Pens are built to be upgradable later.
+11. **Menu (gear):** the game saves itself every few seconds on this device. Export or import the save file, or start over.
 
 Level up to unlock more valuable crops: 🥕 🌾 → 🌽 (Nv 2) → 🍅 (Nv 3) → 🍓 (Nv 5) → 🎃 (Nv 8).
 Growth times are short for now (45 s to 25 min); tune them in `src/core/crops.ts`.
 
-Debug URLs: `?demo` loads a showcase farm with every crop at every stage; `?view=x,z,zoom` sets the camera; `?shop=seeds|barn|land` opens the shop; `?time=21` sets the hour and `?freeze` stops the clock; `?fx` replays every particle burst.
+Debug URLs: `?demo` loads a showcase farm with every crop at every stage; `?view=x,z,zoom` sets the camera; `?shop=seeds|feed|sell|animals|land` opens the shop, `?barn` / `?barn=feed` the barn, `?pen=galinha|vaca|porco` a pen, `?menu` the menu; `?reset` wipes the save (`?demo` never touches it); `?time=21` sets the hour and `?freeze` stops the clock; `?fx` replays every particle burst.
 
 | | Desktop | Mobile |
 |---|---|---|
@@ -48,7 +51,8 @@ src/core/     Pure game logic: grid, noise, crops, levels, Farm rules (inventory
               no clock (time is passed in), so a future server can reuse it as-is.
 src/render/   Three.js: iso camera, terrain, water shader, clouds, props (barn, windmill, fence, trees, pond),
               outlines, crop models, pests, particles, day/night, seed-icon renderer, FarmView.
-src/ui/       DOM HUD: top bar, toolbar + seed tray, shop dialog, toast, floating numbers, Portuguese messages.
+src/ui/       DOM HUD: top bar, toolbar + seed tray, shop / barn / pen / menu dialogs, toast, floating numbers, Portuguese messages.
+src/persistence.ts  Browser save manager (localStorage, backup slot, autosave).
 src/audio.ts  Web Audio synthesis: effects, generated music, birds by day and crickets by night.
 src/game.ts   Renderer, scene and main loop.
 tests/        Vitest suites for src/core plus render smoke tests.
@@ -61,5 +65,15 @@ tests/        Vitest suites for src/core plus render smoke tests.
 - [x] **3. Procedural art pass:** detailed crop models, toon outlines, barn, windmill, fence, forest, pond, animated water, Fredoka UI with custom icons
 - [x] **4. Progression:** seed inventory, shop and barn, land expansion (6×6 to 10×10), weeds and bugs
 - [x] **5. Polish:** particle bursts for every action, synthesized sound and music (no audio files), day/night cycle with lit windows and fireflies
-- [ ] **6. Persistence and PWA:** saves, offline growth catch-up (the core is already snapshot-ready), install to home screen
-- [ ] **7. Server and social:** neighbors, visiting, stealing, gifts
+- [x] **6. Animals and saves:** a pen per species (chickens, cows, pigs), species-specific feed (milled from crops or bought), clickable barn, versioned save game with backup, determinism for server sync
+- [ ] **7. PWA:** install to home screen, offline cache
+- [ ] **8. Server and social:** neighbors, visiting, stealing, gifts, pen upgrades
+
+## Determinism and server sync
+
+The rules in `src/core` are a pure function of *(state, command, now)*; nothing reads a clock or `Math.random`.
+Pests are rolled from `hashUnit(seed, revision, ...)`, so the same farm seed and command history always give the same result.
+Every player action is a plain-data `Command` (`src/core/commands.ts`) applied through `applyCommand`.
+
+The save file (`src/core/save.ts`, checksummed JSON) holds the current state plus a *baseline snapshot* and an *outbox* of commands since that baseline.
+A server can replay the outbox on the baseline and must land on the same state (covered by `tests/save.test.ts` and `tests/animals.test.ts`); once it acknowledges them the client drops the outbox and rebases the baseline.

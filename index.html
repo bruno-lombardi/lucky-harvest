@@ -22,6 +22,7 @@
         <div class="hud-right">
           <div class="clock" aria-label="Hora do dia"><span class="clock-icon" id="hud-clock-icon"></span><span id="hud-time">09:00</span></div>
           <button type="button" id="sound-btn" class="round-btn" aria-label="Som"></button>
+          <button type="button" id="menu-btn" class="round-btn" aria-label="Menu"></button>
         </div>
         <button type="button" id="shop-btn" class="shop-btn" aria-label="Abrir a loja">
           <span class="shop-pic" data-icon="shop"></span><span class="shop-label">Loja</span>
@@ -33,10 +34,13 @@
         <div id="seed-tray" hidden></div>
         <div id="toolbar"></div>
       </div>
-      <div class="hud-hint">Arraste: mover · Pinça ou rolagem: zoom</div>
+      <div class="hud-hint">Toque no celeiro e nos abrigos · Arraste: mover · Pinça: zoom</div>
     </div>
     <div id="floaters"></div>
     <div id="shop" hidden></div>
+    <div id="barn" hidden></div>
+    <div id="pen" hidden></div>
+    <div id="menu" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

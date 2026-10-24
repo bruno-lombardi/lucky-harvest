@@ -1,6 +1,7 @@
 import '@fontsource-variable/fredoka';
 import './ui/style.css';
-import { CropId } from './core/crops';
+import { slotOf, slotTime } from './core/delivery';
+import { CROPS, CROP_ORDER, CropId } from './core/crops';
 import { SPECIES, SPECIES_ORDER, SpeciesId, animalStatus } from './core/animals';
 import { Command, applyCommand } from './core/commands';
 import { Farm, Gain } from './core/farm';
@@ -42,7 +43,7 @@ const saves = new SaveManager();
 const isDemo = params.has('demo');
 if (isDemo) saves.disable();
 const loaded = isDemo || params.has('reset') ? null : saves.load();
-const farm = isDemo ? createDemoFarm(Date.now()) : (loaded?.farm ?? new Farm());
+const farm = isDemo ? createDemoFarm(Date.now()) : (loaded?.farm ?? new Farm({ now: Date.now() }));
 saves.attach(farm);
 saves.startAutosave();
 const hud = new Hud();
@@ -141,8 +142,32 @@ function showHelperEvents(now: number): void {
   }
 }
 
+/** The seed truck's arrivals: one toast for everything dropped off, and floating seeds above the barn for fresh ones. */
+function showDeliveries(now: number): void {
+  const events = farm.deliveryEvents.splice(0);
+  if (events.length === 0) return;
+  const total = Object.fromEntries(CROP_ORDER.map((id) => [id, 0])) as Record<CropId, number>;
+  for (const e of events) for (const id of CROP_ORDER) total[id] += e.seeds[id];
+  const parts = CROP_ORDER.filter((id) => total[id] > 0).map((id) => `${total[id]}× ${CROPS[id].name}`);
+  const many = events.length > 1 ? ` (${events.length} entregas)` : '';
+  toast.show(`Chegou a entrega de sementes${many}: ${parts.join(', ')}`, 4200);
+  audio.play('delivery');
+  if (now - events[events.length - 1]!.at > 4000) return;
+  const spot = game.deliverySpot();
+  let n = 0;
+  for (const id of CROP_ORDER) {
+    if (total[id] === 0) continue;
+    window.setTimeout(() => {
+      const pos = game.screenPositionOfWorld(spot.x, 1.6, spot.z);
+      floaters.spawn(`+${total[id]}`, pos.x, pos.y, 'coins', `<img alt="" src="${cropIcons[id]}" />`);
+    }, 250 * n);
+    n++;
+  }
+}
+
 function refreshUi(now: number): void {
   showHelperEvents(now);
+  showDeliveries(now);
   if (farm.level > knownLevel) {
     if (knownLevel > 0) {
       toast.show(`Você chegou ao nível ${farm.level}!`, 2800);
@@ -361,12 +386,16 @@ const followZoom = Number(params.get('zoom') ?? 4) || 4;
 
 const parsedHour = Number(params.get('time') ?? 9);
 const startHour = Number.isFinite(parsedHour) ? parsedHour : 9;
+const truckParam = params.get('truck');
 const shopButton = required('shop-btn');
 const container = required('game');
 const game = new Game(container, farm, {
   onTileTap: handleTap,
   onObjectTap: handleObjectTap,
   onHover: handleHover,
+  onTruck: (cue) => {
+    if (cue === 'honk') audio.play('truck', 0.7);
+  },
   onFrame: (now) => {
     if (follow) {
       const state = farm.helpers[follow];
@@ -494,6 +523,14 @@ function scheduleAnimalSound(): void {
 scheduleAnimalSound();
 
 refreshUi(Date.now());
+// Debug: `?truck=-4` puts the clock four seconds before the next seed truck arrives (positive = after);
+// add `&stopclock` to hold it there.
+if (truckParam !== null && Number.isFinite(Number(truckParam))) {
+  const nowMs = Date.now();
+  const at = slotTime(slotOf(nowMs) + 1) + Number(truckParam) * 1000;
+  if (params.has('stopclock')) game.freezeClockAt(at);
+  else game.setClockOffset(at - nowMs);
+}
 game.start();
 
 // Debug: `?fx` replays every particle burst on the plot, once a second (handy for screenshots).

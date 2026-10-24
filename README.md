@@ -38,12 +38,14 @@ You start with 100 coins, a few seeds and a 6×6 plot.
     - **Mingau, o gato** (Nv 7): stalks and pounces on weeds and bugs.
     Each can be upgraded to level 3. Away from the game they work for at most 30 minutes.
 13. **Detalhes:** hover (or long-press on touch) any seed, tool, feed, animal, pen, helper or land item for a card with its story, how long it takes, what it costs and what it earns.
-14. **Menu (gear):** the game saves itself every few seconds on this device. Export or import the save file, or start over.
+14. **Entrega de sementes:** every 5 minutes (on the wall clock) a little green farm truck comes down the country road, stops beside the barn and lobs 6 sacks of seeds into the loft. Two of the six are always cheap staples (cenoura or trigo) and the rest are drawn from every crop you have unlocked, so even a broke farm can always start over. If you were away you find up to 6 deliveries waiting.
+15. **Campo:** the farm sits in the countryside: a gravel road circles it and runs off to the horizon past telephone poles, with fields of wheat and plowed rows, pastures, woods, hedges, hay bales and hills.
+16. **Menu (gear):** the game saves itself every few seconds on this device. Export or import the save file, or start over.
 
 Level up to unlock more valuable crops: 🥕 🌾 → 🌽 (Nv 2) → 🍅 (Nv 3) → 🍓 (Nv 5) → 🎃 (Nv 8).
 Growth times are short for now (45 s to 25 min); tune them in `src/core/crops.ts`.
 
-Debug URLs: `?demo` loads a showcase farm with every crop at every stage; `?view=x,z,zoom` sets the camera; `?shop=seeds|feed|sell|animals|land` opens the shop, `?barn` / `?barn=feed` the barn, `?pen=galinha|vaca|porco` a pen, `?menu` the menu; `?follow=ajudante|gato&zoom=6` keeps the camera on a helper, `?spray` keeps the sprinklers running, `?reset` wipes the save (`?demo` never touches it); `?time=21` sets the hour and `?freeze` stops the clock; `?fx` replays every particle burst.
+Debug URLs: `?demo` loads a showcase farm with every crop at every stage; `?view=x,z,zoom` sets the camera; `?shop=seeds|feed|sell|animals|land` opens the shop, `?barn` / `?barn=feed` the barn, `?pen=galinha|vaca|porco` a pen, `?menu` the menu; `?follow=ajudante|gato&zoom=6` keeps the camera on a helper, `?spray` keeps the sprinklers running, `?reset` wipes the save (`?demo` never touches it); `?truck=-4` sets the clock four seconds before the next seed truck arrives (add `&stopclock` to hold it there); `?time=21` sets the hour and `?freeze` stops the clock; `?fx` replays every particle burst.
 
 | | Desktop | Mobile |
 |---|---|---|
@@ -56,7 +58,7 @@ Debug URLs: `?demo` loads a showcase farm with every crop at every stage; `?view
 ```
 src/core/     Pure game logic: grid, noise, crops, levels, Farm rules (inventory, shop, land, pests), tool actions. No Three.js,
               no clock (time is passed in), so a future server can reuse it as-is.
-src/render/   Three.js: iso camera, terrain, water shader, clouds, props (barn, windmill, fence, trees, pond),
+src/render/   Three.js: iso camera, terrain, countryside (fields, road, poles, hills), seed truck, clouds, props (barn, windmill, fence, trees, pond),
               outlines, crop models, pests, particles, day/night, seed-icon renderer, FarmView.
 src/ui/       DOM HUD: top bar, toolbar + seed tray, shop / barn / pen / menu dialogs, toast, floating numbers, Portuguese messages.
 src/persistence.ts  Browser save manager (localStorage, backup slot, autosave).
@@ -74,6 +76,7 @@ tests/        Vitest suites for src/core plus render smoke tests.
 - [x] **5. Polish:** particle bursts for every action, synthesized sound and music (no audio files), day/night cycle with lit windows and fireflies
 - [x] **6. Animals and saves:** a pen per species (chickens, cows, pigs), species-specific feed (milled from crops or bought), clickable barn, versioned save game with backup, determinism for server sync
 - [x] **7. Helpers:** neutral look tool and tool cursors, sprinklers, Tonico the farmhand, Mingau the cat, wages, upgrades (all deterministic, offline-capped)
+- [x] **7b. Countryside and seed truck:** rural scenery with a road around the farm, a truck that delivers 6 random seeds every 5 minutes (deterministic, offline-capped)
 - [ ] **8. PWA:** install to home screen, offline cache
 - [ ] **9. Server and social:** neighbors, visiting, stealing, gifts, pen upgrades
 
@@ -82,6 +85,7 @@ tests/        Vitest suites for src/core plus render smoke tests.
 The rules in `src/core` are a pure function of *(state, command, now)*; nothing reads a clock or `Math.random`.
 Pests are rolled from `hashUnit(seed, revision, ...)`, so the same farm seed and command history always give the same result.
 Helpers are part of the same rules: `Farm.runHelpers(now)` plays their routines forward in time order (each event depends only on state and its own timestamp), and `applyCommand` calls it first, so the client's per-frame catch-up and a server's replay agree.
+The seed truck rides the same timeline: delivery slot *k* happens at `k * 5 min` of wall-clock time, its contents are `rollDelivery(seed, slot, level)` (pure hash draws), and `Farm.deliveredSlot` is the only state. Deliveries and helper steps are processed in one time-ordered loop, so the level used for a roll never depends on how often the client ticked. A long absence leaves at most 6 deliveries. The truck on screen is a pure function of the clock, so it needs no state at all.
 Every player action is a plain-data `Command` (`src/core/commands.ts`) applied through `applyCommand`.
 
 The save file (`src/core/save.ts`, checksummed JSON) holds the current state plus a *baseline snapshot* and an *outbox* of commands since that baseline.

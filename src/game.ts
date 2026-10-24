@@ -1,6 +1,5 @@
 import {
   Clock,
-  Color,
   DirectionalLight,
   HemisphereLight,
   PCFSoftShadowMap,
@@ -24,6 +23,8 @@ import { ObjectPicker } from './render/object-picker';
 import { Pens } from './render/pens';
 import { HelperView } from './render/helper-view';
 import { Terrain } from './render/terrain';
+import { Countryside } from './render/countryside';
+import { DeliveryView, TRUCK_STOP, TruckCue } from './render/delivery-view';
 import { createToonGradient } from './render/toon';
 
 export interface GameEvents {
@@ -35,6 +36,8 @@ export interface GameEvents {
   onHover?: (hit: { tile: TileCoord | null; object: string | null; x: number; y: number } | null) => void;
   /** Called every frame with the current wall-clock time in ms. */
   onFrame?: (now: number) => void;
+  /** The seed truck honks on its way in, and starts unloading. */
+  onTruck?: (cue: TruckCue) => void;
 }
 
 /** Owns the renderer, scene and main loop. Game rules live in src/core. */
@@ -47,6 +50,8 @@ export class Game {
   private readonly objectPicker: ObjectPicker;
   private readonly pens: Pens;
   private readonly helperView: HelperView;
+  private readonly deliveryView: DeliveryView;
+  private readonly countryside: Countryside;
   private readonly highlight = new TileHighlight(GRID_SIZE);
   private readonly terrain: Terrain;
   private readonly clouds: Clouds;
@@ -61,9 +66,10 @@ export class Game {
   private sun!: DirectionalLight;
   private hemisphere!: HemisphereLight;
   private readonly lightPos = { x: 0, y: 0, z: 0 };
-  private readonly foam = new Color();
-  private readonly nightFoam = new Color(0x6f86b8);
   private elapsed = 0;
+  /** Debug only: shifts the game's wall clock (see `?truck=` in main.ts). */
+  private clockOffset = 0;
+  private frozenAt: number | null = null;
   private shownLand: number;
   private readonly resizeObserver: ResizeObserver;
   private readonly projected = new Vector3();
@@ -96,11 +102,17 @@ export class Game {
     this.props = new Props(gradient, farm.landSize);
     this.pens = new Pens(farm, gradient);
     this.helperView = new HelperView(farm, gradient);
+    this.deliveryView = new DeliveryView(gradient);
+    this.deliveryView.onCue = (cue) => this.events.onTruck?.(cue);
+    this.deliveryView.onDust = (x, z) => this.effects.burst('clear', x, z);
+    this.countryside = new Countryside(gradient);
     this.clouds = new Clouds();
     this.scene.add(
+      this.countryside.group,
       this.props.group,
       this.pens.group,
       this.helperView.group,
+      this.deliveryView.group,
       this.farmView.group,
       this.clouds.group,
       this.highlight.group,
@@ -206,6 +218,20 @@ export class Game {
     this.effects.burst(kind, 0, 0);
   }
 
+  /** Where the seed truck unloads (world position of the barn side), for floating text. */
+  deliverySpot(): { x: number; z: number } {
+    return { x: TRUCK_STOP.x + 2.4, z: TRUCK_STOP.z };
+  }
+
+  setClockOffset(ms: number): void {
+    this.clockOffset = ms;
+  }
+
+  /** Debug only: stops the game's clock at a wall-clock time. */
+  freezeClockAt(ms: number): void {
+    this.frozenAt = ms;
+  }
+
   /** The cursor shown over the world (the active tool's icon). */
   setToolCursor(css: string): void {
     this.toolCursor = css;
@@ -231,7 +257,7 @@ export class Game {
     sun.position.set(16, 26, 10);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
-    const extent = GRID_SIZE * 0.8;
+    const extent = GRID_SIZE * 0.95;
     sun.shadow.camera.left = -extent;
     sun.shadow.camera.right = extent;
     sun.shadow.camera.top = extent;
@@ -253,8 +279,6 @@ export class Game {
     lightPosition(this.dayNight.hour, this.lightPos);
     this.sun.position.set(this.lightPos.x, this.lightPos.y, this.lightPos.z);
 
-    this.foam.set(0xf4fdff).lerp(this.nightFoam, a.night * 0.8);
-    this.terrain.setWaterTint(a.waterDeep, a.waterShallow, this.foam);
     this.clouds.setTone(a.cloud);
     this.props.setNight(a.night);
     this.helperView.setNight(a.night);
@@ -297,12 +321,11 @@ export class Game {
 
   private frame(): void {
     const dt = Math.min(this.clock.getDelta(), 0.1);
-    const now = Date.now();
+    const now = this.frozenAt ?? Date.now() + this.clockOffset;
     this.elapsed += dt;
     this.cameraController.update(dt);
     this.dayNight.update(dt);
     this.applyAtmosphere();
-    this.terrain.update(this.elapsed);
     if (this.shownLand !== this.farm.landSize) {
       this.shownLand = this.farm.landSize;
       this.props.setLandSize(this.shownLand);
@@ -313,6 +336,7 @@ export class Game {
     this.props.update(dt);
     this.pens.update(dt, now);
     this.helperView.update(dt, now);
+    this.deliveryView.update(now);
     this.clouds.update(dt);
     this.updateParticles(dt);
     this.highlight.update(dt);

@@ -6,7 +6,6 @@ import {
   Group,
   InstancedMesh,
   Matrix4,
-  Mesh,
   MeshToonMaterial,
   Quaternion,
   SphereGeometry,
@@ -14,20 +13,17 @@ import {
 } from 'three';
 import { tileToWorld } from '../core/grid';
 import { fbm2D, mulberry32 } from '../core/noise';
-import { Water } from './water';
 
 const TILE_HEIGHT = 0.5;
-const WATER_Y = -1.15;
 
 const FLOWER_COLORS = [0xff7fa8, 0xffd84a, 0xffffff, 0xff9a3c, 0xb98cff];
 
 /**
- * The farm island: grass tiles on an earth block floating in water,
- * with procedurally scattered grass tufts and flowers.
+ * The farm's grass tiles (the plot and the wild strip around it) with procedurally scattered
+ * grass tufts and flowers. The countryside beyond them lives in countryside.ts.
  */
 export class Terrain {
   readonly group = new Group();
-  private water: Water | null = null;
 
   constructor(
     readonly size: number,
@@ -36,46 +32,12 @@ export class Terrain {
     /** Locked (not yet farmable) tiles get a duller, wilder tint. */
     private readonly isUnlocked: (i: number, j: number) => boolean = () => true,
   ) {
-    this.buildBase(gradientMap);
-    this.buildWater();
     this.buildGrass(gradientMap, seed);
     this.buildDetails(gradientMap, seed);
   }
 
-  private buildBase(gradientMap: DataTexture): void {
-    const depth = 1.7;
-    const base = new Mesh(
-      new BoxGeometry(this.size, depth, this.size),
-      new MeshToonMaterial({ color: 0x8a5a33, gradientMap }),
-    );
-    base.position.y = -TILE_HEIGHT - depth / 2;
-    base.receiveShadow = true;
-    this.group.add(base);
-
-    // A slightly darker lower band reads as damp soil near the waterline.
-    const band = new Mesh(
-      new BoxGeometry(this.size + 0.02, 0.5, this.size + 0.02),
-      new MeshToonMaterial({ color: 0x6d4325, gradientMap }),
-    );
-    band.position.y = WATER_Y - 0.15;
-    this.group.add(band);
-  }
-
-  private buildWater(): void {
-    this.water = new Water(this.size, WATER_Y);
-    this.group.add(this.water.mesh);
-  }
-
   private grass: InstancedMesh | null = null;
   private grassSeed = 0;
-
-  setWaterTint(deep: Color, shallow: Color, foam: Color): void {
-    this.water?.setTint(deep, shallow, foam);
-  }
-
-  update(time: number): void {
-    this.water?.update(time);
-  }
 
   private buildGrass(gradientMap: DataTexture, seed: number): void {
     const count = this.size * this.size;

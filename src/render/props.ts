@@ -38,7 +38,7 @@ import { addHullOutline, addInstancedHullOutline } from './outline';
 const FENCE_MARGIN = 0.45;
 const GATE_Z = 1.0;
 
-const BARN = { x: -8.4, z: 1.0 };
+export const BARN = { x: -9.6, z: 1.0 };
 const WINDMILL = { x: 7.8, z: -8.2 };
 const POND = { x: -6.2, z: 8.2, radius: 2.0 };
 const SCARECROW = { x: 6.5, z: 1.6 };
@@ -197,7 +197,7 @@ function buildPath(palette: Palette, fenceHalf: number): Group {
   const rand = mulberry32(77);
   // Stepping stones run from the gate to the barn, then branch off toward the pond.
   const spots: Array<[number, number]> = [];
-  for (let x = -(fenceHalf + 0.35), n = 0; x > -7.1; x -= 0.6, n++) {
+  for (let x = -(fenceHalf + 0.35), n = 0; x > -7.5; x -= 0.6, n++) {
     spots.push([x, GATE_Z + (n % 2 === 0 ? 0.08 : -0.1)]);
   }
   spots.push([-6.7, 3.3], [-6.45, 4.1], [-6.3, 5.0], [-6.4, 5.9]);
@@ -600,12 +600,13 @@ function scatter(
   minSpacing: number,
   taken: Spot[],
   allowed: (x: number, z: number) => boolean,
+  extent: number,
 ): Spot[] {
   const out: Spot[] = [];
   let attempts = 0;
   while (out.length < count && attempts++ < count * 80) {
-    const x = (rand() * 2 - 1) * 11.2;
-    const z = (rand() * 2 - 1) * 11.2;
+    const x = (rand() * 2 - 1) * extent;
+    const z = (rand() * 2 - 1) * extent;
     if (!allowed(x, z)) continue;
     if ([...taken, ...out].some((p) => Math.hypot(p.x - x, p.z - z) < minSpacing)) continue;
     out.push({ x, z, s: 0.8 + rand() * 0.55, rot: rand() * Math.PI * 2 });
@@ -613,10 +614,19 @@ function scatter(
   return out;
 }
 
-function buildForest(palette: Palette): Group {
-  const group = new Group();
-  const rand = mulberry32(9001);
+export interface ForestOptions {
+  seed: number;
+  /** Candidates are drawn from the square [-extent, extent]. */
+  extent: number;
+  trees: number;
+  bushes: number;
+  rocks: number;
+  /** Where something may stand. */
+  free: (x: number, z: number) => boolean;
+}
 
+/** The trees, bushes and rocks between the fence and the countryside road. */
+function buildFarmEdge(palette: Palette): Group {
   const free = (x: number, z: number): boolean => {
     if (Math.max(Math.abs(x), Math.abs(z)) < 6.7) return false; // fence + path clearance
     if (Math.hypot(x - BARN.x, z - BARN.z) < 3.6) return false;
@@ -627,10 +637,18 @@ function buildForest(palette: Palette): Group {
     if (x > 7.0 && z > -5.6 && z < 7.8) return false; // animal pens
     return true;
   };
+  return buildForest(palette, { seed: 9001, extent: 11.2, trees: 30, bushes: 22, rocks: 10, free });
+}
 
-  const trees = scatter(rand, 30, 1.9, [], free);
-  const bushes = scatter(rand, 22, 1.0, trees, free);
-  const rocks = scatter(rand, 10, 1.2, [...trees, ...bushes], free);
+/** Scatters and models a patch of woodland. Used inside the farm edge and out in the countryside. */
+export function buildForest(palette: Palette, options: ForestOptions): Group {
+  const group = new Group();
+  const rand = mulberry32(options.seed);
+  const { free, extent } = options;
+
+  const trees = scatter(rand, options.trees, 1.9, [], free, extent);
+  const bushes = scatter(rand, options.bushes, 1.0, trees, free, extent);
+  const rocks = scatter(rand, options.rocks, 1.2, [...trees, ...bushes], free, extent);
 
   const trunkM: Matrix4[] = [];
   const crownM: Matrix4[] = [];
@@ -744,7 +762,7 @@ export class Props {
   constructor(private readonly gradientMap: DataTexture, landSize: number) {
     const palette = new Palette(gradientMap);
     this.glass = palette.glass;
-    this.group.add(this.land, buildHay(palette), buildForest(palette));
+    this.group.add(this.land, buildHay(palette), buildFarmEdge(palette));
 
     const lamp = buildLamp(palette);
     lamp.group.position.set(-6.5, 0, GATE_Z - 1.5);

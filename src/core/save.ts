@@ -2,7 +2,7 @@ import { SPECIES_ORDER } from './animals';
 import { LoggedCommand } from './commands';
 import { CROPS } from './crops';
 import { HELPER_ORDER } from './helpers';
-import { Farm, FarmSnapshot } from './farm';
+import { Farm, FarmSnapshot, LegacySnapshot } from './farm';
 
 /**
  * The save file: the whole farm, plus what a server needs to take over later.
@@ -61,7 +61,7 @@ const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.is
  * (new crops, new species) and drops anything unknown. Returns null if it is not a farm at all.
  */
 export function normalizeSnapshot(raw: unknown): FarmSnapshot | null {
-  if (!isObject(raw) || (raw['version'] !== 3 && raw['version'] !== 4)) return null;
+  if (!isObject(raw) || (raw['version'] !== 3 && raw['version'] !== 4 && raw['version'] !== 5)) return null;
   const { coins, xp, landSize, seed, revision, nextAnimalId, tiles } = raw;
   if (![coins, xp, landSize, seed, revision, nextAnimalId].every(isNumber) || !isObject(tiles)) return null;
   if ((coins as number) < 0 || (xp as number) < 0) return null;
@@ -89,7 +89,7 @@ export function normalizeSnapshot(raw: unknown): FarmSnapshot | null {
   }
 
   const helpers: FarmSnapshot['helpers'] = {};
-  if (raw['version'] === 4 && isObject(clean.helpers)) {
+  if (raw['version'] !== 3 && isObject(clean.helpers)) {
     for (const id of HELPER_ORDER) {
       const h = clean.helpers[id] as unknown;
       if (h === undefined) continue;
@@ -100,8 +100,14 @@ export function normalizeSnapshot(raw: unknown): FarmSnapshot | null {
     }
   }
 
+  const slot = raw['deliveredSlot'];
+  if (raw['version'] === 5 && (!isNumber(slot) || slot < 0)) return null;
+
   try {
-    return Farm.fromSnapshot({ ...clean, version: 4, tiles: safeTiles, pens, helpers }).toSnapshot();
+    const rebuilt = { ...clean, tiles: safeTiles, pens, helpers };
+    return Farm.fromSnapshot(
+      raw['version'] === 5 ? ({ ...rebuilt, version: 5 } as FarmSnapshot) : ({ ...rebuilt, version: raw['version'] } as LegacySnapshot),
+    ).toSnapshot();
   } catch {
     return null;
   }
@@ -128,7 +134,10 @@ export function decodeSave(text: string): DecodeResult {
   const outbox = raw['sync']['outbox'];
   if (!state || !baseline || !isCommandLog(outbox)) return { ok: false, error: 'O jogo salvo está corrompido.' };
 
-  const data: SaveData = { playerId: raw['playerId'], savedAt: raw['savedAt'], state, sync: { baseline, outbox } };
+  // A save from before the seed truck starts a fresh sync history: its old log cannot be replayed on the new rules.
+  const legacy = !isObject(raw['state']) || raw['state']['version'] !== 5;
+  const sync = legacy ? { baseline: state, outbox: [] } : { baseline, outbox };
+  const data: SaveData = { playerId: raw['playerId'], savedAt: raw['savedAt'], state, sync };
   // Checksum is over the file as written; normalising may add defaults, so compare against the original payload.
   const original = JSON.stringify({ playerId: raw['playerId'], savedAt: raw['savedAt'], state: raw['state'], sync: raw['sync'] });
   if (checksumOf(original) !== raw['checksum']) return { ok: false, error: 'O jogo salvo está corrompido (verificação falhou).' };

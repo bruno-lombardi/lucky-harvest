@@ -44,7 +44,7 @@ describe('procedural crop models', () => {
 describe('terrain', () => {
   it('builds with a locked-land predicate', () => {
     const terrain = new Terrain(24, createToonGradient(), 1337, (i, j) => i > 6 && j > 6);
-    expect(terrain.group.children.length).toBeGreaterThan(3);
+    expect(terrain.group.children.length).toBeGreaterThanOrEqual(3);
   });
 });
 

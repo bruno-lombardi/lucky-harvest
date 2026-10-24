@@ -2,6 +2,7 @@ import { AnimalState, SPECIES, SpeciesId } from './core/animals';
 import { CROPS, CROP_ORDER, CropId } from './core/crops';
 import { HOME, HelperState } from './core/helpers';
 import { CropState, Farm, FarmSnapshot, LAND, MAX_LAND, TileState } from './core/farm';
+import { slotOf } from './core/delivery';
 import { tileKey } from './core/grid';
 import { levelThreshold } from './core/levels';
 import { mulberry32 } from './core/noise';
@@ -91,7 +92,8 @@ export function createDemoFarm(now: number): Farm {
   });
 
   const snapshot: FarmSnapshot = {
-    version: 4,
+    version: 5,
+    deliveredSlot: slotOf(now),
     seed: 20240601,
     revision: 0,
     nextAnimalId: 10,

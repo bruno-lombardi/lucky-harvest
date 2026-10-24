@@ -25,7 +25,9 @@ export type Sfx =
   | 'vaca'
   | 'porco'
   | 'sprinkle'
-  | 'meow';
+  | 'meow'
+  | 'truck'
+  | 'delivery';
 
 const STORAGE_KEY = 'lucky-harvest:muted';
 
@@ -202,6 +204,19 @@ export class GameAudio {
       case 'sprinkle':
         this.noise(t, 1.4, { type: 'bandpass', from: 3500, to: 5200, gain: 0.16, attack: 0.25, q: 0.6 });
         for (let n = 0; n < 4; n++) this.tone(t + 0.1 + n * 0.22, 0.08, 1500 + n * 120, { type: 'sine', slideTo: 2400, gain: 0.05 });
+        break;
+      case 'truck':
+        // Two friendly beeps from an old horn, over a low engine grumble.
+        this.tone(t, 0.16, 392, { type: 'square', gain: 0.07, filter: 1200 });
+        this.tone(t + 0.22, 0.26, 392, { type: 'square', gain: 0.07, filter: 1200 });
+        this.tone(t, 0.16, 494, { type: 'square', gain: 0.05, filter: 1200 });
+        this.tone(t + 0.22, 0.26, 494, { type: 'square', gain: 0.05, filter: 1200 });
+        this.tone(t, 1.1, 62, { type: 'sawtooth', slideTo: 48, gain: 0.07, filter: 220, attack: 0.1 });
+        break;
+      case 'delivery':
+        // Sacks thumping into the loft, then a bright arpeggio.
+        for (let n = 0; n < 4; n++) this.tone(t + n * 0.14, 0.12, 150 - n * 14, { type: 'triangle', gain: 0.16, slideTo: 90 });
+        for (let n = 0; n < 4; n++) this.tone(t + 0.6 + n * 0.09, 0.25, midi(72 + [0, 4, 7, 12][n]!), { type: 'sine', gain: 0.1 });
         break;
       case 'meow':
         this.tone(t, 0.32, 620, { type: 'triangle', slideTo: 900, gain: 0.14, attack: 0.05 });

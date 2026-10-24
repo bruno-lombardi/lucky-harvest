@@ -12,6 +12,7 @@ import {
   penCapacity,
 } from './animals';
 import { CROP_ORDER, CropId, getCrop } from './crops';
+import { MAX_CATCHUP_SLOTS, SeedLoad, rollDelivery, slotOf, slotTime } from './delivery';
 import {
   HELPERS,
   HELPER_ORDER,
@@ -157,6 +158,13 @@ export type Pens = Partial<Record<SpeciesId, PenState>>;
 export type Helpers = Partial<Record<HelperId, HelperState>>;
 
 /** Something a helper did, for the renderer to show (not saved, not part of the rules). */
+/** A seed truck that just pulled up, for toasts and sounds. */
+export interface DeliveryEvent {
+  at: number;
+  slot: number;
+  seeds: SeedLoad;
+}
+
 export interface HelperEvent {
   helper: HelperId;
   kind: 'harvest' | 'water' | 'care' | 'wage' | 'unpaid';
@@ -193,7 +201,7 @@ const cloneHelpers = (helpers: Helpers): Helpers => {
 export type ActionResult = { ok: true; gain: Gain } | { ok: false; reason: FailReason };
 
 export interface FarmSnapshot {
-  version: 4;
+  version: 5;
   /** Per-player constant that seeds every random outcome (pests). */
   seed: number;
   /** Counts successful mutations; part of the random stream and handy for sync ordering. */
@@ -209,14 +217,20 @@ export interface FarmSnapshot {
   feed: FeedStock;
   pens: Pens;
   helpers: Helpers;
+  /** Last seed-truck slot that has been delivered (see delivery.ts). */
+  deliveredSlot: number;
   tiles: Record<string, TileState>;
 }
 
-/** Saves from before helpers existed. */
-export type LegacySnapshot = Omit<FarmSnapshot, 'version' | 'helpers'> & { version: 3 };
+/** Saves from before helpers (v3) and before the seed truck (v4). */
+export type LegacySnapshot =
+  | (Omit<FarmSnapshot, 'version' | 'helpers' | 'deliveredSlot'> & { version: 3 })
+  | (Omit<FarmSnapshot, 'version' | 'deliveredSlot'> & { version: 4 });
 
 export interface FarmOptions {
   seed?: number;
+  /** Wall-clock ms of a brand new game: the first seed truck comes one slot later. */
+  now?: number;
   /** Probability that a crop gets a pest. Only tests change it. */
   pestChance?: number;
 }
@@ -239,6 +253,9 @@ export class Farm {
   helpers: Helpers = {};
   /** Recent helper actions for the renderer. Never saved and never read by the rules. */
   helperEvents: HelperEvent[] = [];
+  /** Recent seed deliveries for the renderer. Never saved and never read by the rules. */
+  deliveryEvents: DeliveryEvent[] = [];
+  deliveredSlot = 0;
   seed: number;
   revision = 0;
   nextAnimalId = 1;
@@ -249,6 +266,7 @@ export class Farm {
   constructor(options: FarmOptions = {}) {
     this.seed = (options.seed ?? Math.floor(Math.random() * 0xffffffff)) >>> 0;
     this.pestChance = options.pestChance ?? PEST_CHANCE;
+    if (options.now !== undefined) this.deliveredSlot = slotOf(options.now);
   }
 
   get level(): number {
@@ -626,8 +644,10 @@ export class Farm {
    * own timestamp, running it at any moment gives the same result, which a server can reproduce.
    */
   runHelpers(now: number): void {
+    // Away for ages: the truck only left the last few deliveries at the door.
+    this.deliveredSlot = Math.max(this.deliveredSlot, slotOf(now) - MAX_CATCHUP_SLOTS);
+
     const active = HELPER_ORDER.filter((id) => this.helpers[id]);
-    if (active.length === 0) return;
 
     // Away longer than the limit: the helpers rested, so their clocks skip ahead (and aren't paid for the rest).
     const horizon = now - OFFLINE_LIMIT_MS;
@@ -643,6 +663,7 @@ export class Farm {
       }
     }
 
+    // Helper steps and seed deliveries share one timeline, so each sees the state the other left at that moment.
     for (let guard = 0; guard < 4000; guard++) {
       let pick: HelperId | null = null;
       let pickAt = Infinity;
@@ -655,6 +676,11 @@ export class Farm {
           pick = id;
         }
       }
+      const truckAt = slotTime(this.deliveredSlot + 1);
+      if (truckAt <= now && truckAt <= pickAt) {
+        this.deliver(truckAt);
+        continue;
+      }
       if (pick === null || pickAt > now) break;
       const h = this.helpers[pick]!;
       if (h.paidUntil <= h.nextAt) this.payday(pick, h, pickAt);
@@ -662,6 +688,16 @@ export class Farm {
       else this.walk(pick, h, pickAt);
     }
     if (this.helperEvents.length > 80) this.helperEvents.splice(0, this.helperEvents.length - 80);
+    if (this.deliveryEvents.length > 20) this.deliveryEvents.splice(0, this.deliveryEvents.length - 20);
+  }
+
+  /** The seed truck pulls up: its load goes straight into the barn. */
+  private deliver(at: number): void {
+    this.deliveredSlot++;
+    this.revision++;
+    const load = rollDelivery(this.seed, this.deliveredSlot, this.level);
+    for (const id of CROP_ORDER) this.seeds[id] += load[id];
+    this.deliveryEvents.push({ at, slot: this.deliveredSlot, seeds: load });
   }
 
   private payday(id: HelperId, h: HelperState, at: number): void {
@@ -761,7 +797,7 @@ export class Farm {
       tiles[key] = { kind: tile.kind, crop: tile.crop ? { ...tile.crop } : null };
     }
     return {
-      version: 4,
+      version: 5,
       seed: this.seed,
       revision: this.revision,
       nextAnimalId: this.nextAnimalId,
@@ -774,6 +810,7 @@ export class Farm {
       feed: { ...this.feed },
       pens: clonePens(this.pens),
       helpers: cloneHelpers(this.helpers),
+      deliveredSlot: this.deliveredSlot,
       tiles,
     };
   }
@@ -785,7 +822,9 @@ export class Farm {
     farm.products = { ...emptyProducts(), ...snapshot.products };
     farm.feed = { ...emptyFeed(), ...snapshot.feed };
     farm.pens = clonePens(snapshot.pens);
-    farm.helpers = cloneHelpers(snapshot.version === 4 ? snapshot.helpers : {});
+    farm.helpers = cloneHelpers(snapshot.version >= 4 ? (snapshot as { helpers: Helpers }).helpers : {});
+    // Older saves have no truck record: they catch up on a few deliveries, like returning from a trip.
+    farm.deliveredSlot = snapshot.version === 5 ? snapshot.deliveredSlot : 0;
     farm.coins = snapshot.coins;
     farm.xp = snapshot.xp;
     farm.landSize = snapshot.landSize;

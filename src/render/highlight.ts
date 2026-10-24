@@ -1,7 +1,7 @@
 import { DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Shape, ShapeGeometry } from 'three';
 import { TileCoord, tileToWorld } from '../core/grid';
 
-const LIFT = 0.02;
+const LIFT = 0.115; // clears the plowed-soil ridges
 
 function squareFrame(outer: number, inner: number): ShapeGeometry {
   const o = outer / 2;

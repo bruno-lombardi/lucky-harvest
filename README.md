@@ -9,35 +9,48 @@ Everything you see is modeled procedurally in code: no external art assets.
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run build      # typecheck + production build
-npm test           # game-logic tests
+npm run dev                # http://localhost:5173
+npm run dev -- --host      # also reachable from your phone on the same Wi-Fi
+npm run build              # typecheck + production build
+npm test                   # game-logic and render smoke tests
 ```
 
-## Controls
+Pushes to `main` deploy to GitHub Pages (Settings → Pages → Source: GitHub Actions).
+
+## How to play
+
+1. **⛏️ Arar:** tap grass inside the bright plot to plow it into soil.
+2. **🌱 Semear:** pick a seed from the tray and tap plowed soil. Seeds cost coins.
+3. **💧 Regar:** water the crop. An unwatered crop stalls at halfway (a blue droplet appears) and wilts if left too long.
+4. **🧺 Colher:** when a gold coin spins over the crop, tap it to harvest coins and XP.
+5. **🧹 Limpar:** clears withered crops, or turns bare soil back to grass.
+
+Level up to unlock more valuable crops: 🥕 🌾 → 🌽 (Nv 2) → 🍅 (Nv 3) → 🍓 (Nv 5) → 🎃 (Nv 8).
+Growth times are short for now (45 s to 25 min); tune them in `src/core/crops.ts`.
 
 | | Desktop | Mobile |
 |---|---|---|
 | Pan | Drag | One-finger drag |
 | Zoom | Mouse wheel | Pinch |
-| Select tile | Click | Tap |
+| Use tool | Click | Tap |
 
 ## Project layout
 
 ```
-src/core/     Pure game logic (grid math, noise). No Three.js, so a future server can reuse it.
-src/render/   Three.js: iso camera, terrain, clouds, tile picking, highlights, toon material.
-src/ui/       HUD styling (plain DOM/CSS).
+src/core/     Pure game logic: grid, noise, crops, levels, Farm rules, tool actions. No Three.js,
+              no clock (time is passed in), so a future server can reuse it as-is.
+src/render/   Three.js: iso camera, terrain, clouds, picking, highlights, crop models, FarmView.
+src/ui/       DOM HUD: top bar, toolbar + seed tray, toast, floating numbers, Portuguese messages.
 src/game.ts   Renderer, scene and main loop.
-tests/        Vitest suites for src/core.
+tests/        Vitest suites for src/core plus render smoke tests.
 ```
 
 ## Roadmap
 
 - [x] **1. Foundation:** Vite + TS + Three.js, isometric camera (mouse + touch), 24×24 grid, tile picking
-- [ ] **2. Farming loop:** tools, plow / plant / water / harvest, growth timers, coins and XP
-- [ ] **3. Procedural art pass:** crops (6-8), fences, barn, trees, toon outlines
-- [ ] **4. Progression:** shop, inventory, levels, land expansion, weeds and bugs
-- [ ] **5. Polish:** animations, particles, sound, day/night, glossy HUD
-- [ ] **6. Persistence and PWA:** saves, offline growth catch-up, install to home screen
+- [x] **2. Farming loop:** tools, plow / plant / water / harvest, growth stages, thirst and withering, coins and XP, levels, locked land
+- [ ] **3. Procedural art pass:** better crop models, fences, barn, trees, toon outlines
+- [ ] **4. Progression:** shop, inventory, land expansion, weeds and bugs
+- [ ] **5. Polish:** particles, sound, day/night, glossy HUD
+- [ ] **6. Persistence and PWA:** saves, offline growth catch-up (the core is already snapshot-ready), install to home screen
 - [ ] **7. Server and social:** neighbors, visiting, stealing, gifts

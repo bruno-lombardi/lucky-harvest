@@ -14,12 +14,22 @@
     <div id="game"></div>
     <div id="hud">
       <div class="hud-top">
-        <div class="badge level"><span class="label">Nível</span><span id="hud-level">1</span></div>
+        <div class="badge level">
+          <div class="lvl"><span class="label">Nível</span><span id="hud-level">1</span></div>
+          <div class="xpbar"><div class="fill" id="hud-xp-fill"></div></div>
+          <div class="xptext" id="hud-xp-text">0/50 XP</div>
+        </div>
         <div class="badge coins"><span class="icon">🪙</span><span id="hud-coins">0</span></div>
       </div>
-      <div class="hud-tile" id="hud-tile">—</div>
-      <div class="hud-hint">Arraste para mover · Role/pinça para zoom</div>
+      <div id="toast" role="status" aria-live="polite"></div>
+      <div class="hud-bottom">
+        <div class="hud-tile" id="hud-tile">Toque num terreno</div>
+        <div id="seed-tray" hidden></div>
+        <div id="toolbar"></div>
+      </div>
+      <div class="hud-hint">Arraste: mover · Pinça ou rolagem: zoom</div>
     </div>
+    <div id="floaters"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -4,10 +4,13 @@ import {
   HemisphereLight,
   PCFSoftShadowMap,
   Scene,
+  Vector3,
   WebGLRenderer,
 } from 'three';
-import { GRID_SIZE, TileCoord, sameTile } from './core/grid';
+import { Farm, isUnlocked } from './core/farm';
+import { GRID_SIZE, TileCoord, tileToWorld } from './core/grid';
 import { Clouds } from './render/clouds';
+import { FarmView } from './render/farm-view';
 import { TileHighlight } from './render/highlight';
 import { IsoCameraController } from './render/iso-camera';
 import { TilePicker } from './render/picking';
@@ -15,7 +18,10 @@ import { Terrain } from './render/terrain';
 import { createToonGradient } from './render/toon';
 
 export interface GameEvents {
-  onSelect?: (tile: TileCoord | null) => void;
+  /** A tap landed on a tile (or on empty water, with null). */
+  onTileTap?: (tile: TileCoord | null) => void;
+  /** Called every frame with the current wall-clock time in ms. */
+  onFrame?: (now: number) => void;
 }
 
 /** Owns the renderer, scene and main loop. Game rules live in src/core. */
@@ -27,14 +33,16 @@ export class Game {
   private readonly picker: TilePicker;
   private readonly highlight = new TileHighlight(GRID_SIZE);
   private readonly clouds: Clouds;
+  private readonly farmView: FarmView;
   private readonly resizeObserver: ResizeObserver;
+  private readonly projected = new Vector3();
 
   private hovered: TileCoord | null = null;
-  private selected: TileCoord | null = null;
   private running = false;
 
   constructor(
     private readonly container: HTMLElement,
+    farm: Farm,
     private readonly events: GameEvents = {},
   ) {
     // Transparent canvas: the CSS sky gradient shows through behind the island.
@@ -46,9 +54,10 @@ export class Game {
     container.appendChild(this.renderer.domElement);
 
     const gradient = createToonGradient(4);
-    this.scene.add(new Terrain(GRID_SIZE, gradient).group);
+    this.scene.add(new Terrain(GRID_SIZE, gradient, 1337, isUnlocked).group);
+    this.farmView = new FarmView(farm, GRID_SIZE, gradient);
     this.clouds = new Clouds(gradient);
-    this.scene.add(this.clouds.group, this.highlight.group);
+    this.scene.add(this.farmView.group, this.clouds.group, this.highlight.group);
     this.addLights();
 
     this.cameraController = new IsoCameraController(this.renderer.domElement, {
@@ -58,7 +67,7 @@ export class Game {
 
     this.cameraController.onHover = (x, y) => this.setHovered(this.picker.pick(x, y));
     this.cameraController.onHoverEnd = () => this.setHovered(null);
-    this.cameraController.onTap = (x, y) => this.setSelected(this.picker.pick(x, y));
+    this.cameraController.onTap = (x, y) => this.handleTap(this.picker.pick(x, y));
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
@@ -75,6 +84,22 @@ export class Game {
   stop(): void {
     this.running = false;
     this.renderer.setAnimationLoop(null);
+  }
+
+  /** Screen position (client px) of a point above a tile, for floating text. */
+  screenPositionOf(tile: TileCoord, height = 0.6): { x: number; y: number } {
+    const { x, z } = tileToWorld(tile.i, tile.j, GRID_SIZE);
+    this.projected.set(x, height, z).project(this.cameraController.camera);
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    return {
+      x: rect.left + ((this.projected.x + 1) / 2) * rect.width,
+      y: rect.top + ((1 - this.projected.y) / 2) * rect.height,
+    };
+  }
+
+  /** Marks the tile the player last acted on. */
+  setSelected(tile: TileCoord | null): void {
+    this.highlight.setSelected(tile);
   }
 
   private addLights(): void {
@@ -96,17 +121,14 @@ export class Game {
   }
 
   private setHovered(tile: TileCoord | null): void {
-    if (sameTile(tile, this.hovered)) return;
+    if (tile?.i === this.hovered?.i && tile?.j === this.hovered?.j) return;
     this.hovered = tile;
     this.highlight.setHover(tile);
   }
 
-  private setSelected(tile: TileCoord | null): void {
-    // Tapping the selected tile again, or empty water, clears the selection.
-    const next = sameTile(tile, this.selected) ? null : tile;
-    this.selected = next;
-    this.highlight.setSelected(next);
-    this.events.onSelect?.(next);
+  private handleTap(tile: TileCoord | null): void {
+    this.highlight.setSelected(tile);
+    this.events.onTileTap?.(tile);
   }
 
   private resize(): void {
@@ -120,9 +142,12 @@ export class Game {
 
   private frame(): void {
     const dt = Math.min(this.clock.getDelta(), 0.1);
+    const now = Date.now();
     this.cameraController.update(dt);
+    this.farmView.update(dt, now);
     this.clouds.update(dt);
     this.highlight.update(dt);
+    this.events.onFrame?.(now);
     this.renderer.render(this.scene, this.cameraController.camera);
   }
 }

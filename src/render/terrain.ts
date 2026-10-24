@@ -32,6 +32,8 @@ export class Terrain {
     readonly size: number,
     gradientMap: DataTexture,
     seed = 1337,
+    /** Locked (not yet farmable) tiles get a duller, wilder tint. */
+    private readonly isUnlocked: (i: number, j: number) => boolean = () => true,
   ) {
     this.buildBase(gradientMap);
     this.buildWater(gradientMap);
@@ -97,7 +99,12 @@ export class Terrain {
 
         const noise = fbm2D(i * 0.35, j * 0.35, seed);
         const checker = (i + j) % 2 === 0 ? 0.018 : -0.012;
-        color.setHSL(0.255 + (noise - 0.5) * 0.05, 0.58, 0.5 + (noise - 0.5) * 0.14 + checker);
+        const wild = this.isUnlocked(i, j) ? 0 : 1;
+        color.setHSL(
+          0.255 + (noise - 0.5) * 0.05 - wild * 0.012,
+          0.58 - wild * 0.2,
+          0.5 + (noise - 0.5) * 0.14 + checker - wild * 0.075,
+        );
         mesh.setColorAt(n, color);
         n++;
       }

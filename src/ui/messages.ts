@@ -8,7 +8,7 @@ export function reasonMessage(reason: FailReason): string {
     case 'not-grass':
       return 'Essa terra já foi arada';
     case 'not-soil':
-      return 'Ara a terra primeiro ⛏️';
+      return 'Ara a terra primeiro com a enxada';
     case 'occupied':
       return 'Já tem uma planta aqui';
     case 'no-crop':
@@ -16,13 +16,13 @@ export function reasonMessage(reason: FailReason): string {
     case 'crop-locked':
       return 'Semente bloqueada: suba de nível!';
     case 'no-coins':
-      return 'Moedas insuficientes 🪙';
+      return 'Moedas insuficientes';
     case 'already-watered':
-      return 'Já foi regada 💧';
+      return 'Já foi regada';
     case 'not-ripe':
       return 'Ainda não está madura';
     case 'withered':
-      return 'Está murcha: use a vassoura 🧹';
+      return 'Está murcha: limpe com a vassoura';
     case 'nothing-to-clear':
       return 'Nada para limpar aqui';
   }
@@ -49,9 +49,9 @@ export function describeTile(farm: Farm, i: number, j: number, now: number): str
   if (!status) return `Terra arada ${label}`;
 
   const name = getCrop(status.cropId).name;
-  if (status.withered) return `${name} murcha 🥀`;
-  if (status.ripe) return `${name}: pronta para colher! ✨`;
-  if (status.thirsty) return `${name} com sede 💧`;
+  if (status.withered) return `${name} murcha`;
+  if (status.ripe) return `${name}: pronta para colher!`;
+  if (status.thirsty) return `${name} com sede`;
 
   const stageName = ['Semente', 'Brotando', 'Crescendo'][status.stage] ?? 'Crescendo';
   const percent = Math.round(status.progress * 100);

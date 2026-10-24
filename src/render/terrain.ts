@@ -8,13 +8,13 @@ import {
   Matrix4,
   Mesh,
   MeshToonMaterial,
-  PlaneGeometry,
   Quaternion,
   SphereGeometry,
   Vector3,
 } from 'three';
 import { tileToWorld } from '../core/grid';
 import { fbm2D, mulberry32 } from '../core/noise';
+import { Water } from './water';
 
 const TILE_HEIGHT = 0.5;
 const WATER_Y = -1.15;
@@ -27,6 +27,7 @@ const FLOWER_COLORS = [0xff7fa8, 0xffd84a, 0xffffff, 0xff9a3c, 0xb98cff];
  */
 export class Terrain {
   readonly group = new Group();
+  private water: Water | null = null;
 
   constructor(
     readonly size: number,
@@ -36,7 +37,7 @@ export class Terrain {
     private readonly isUnlocked: (i: number, j: number) => boolean = () => true,
   ) {
     this.buildBase(gradientMap);
-    this.buildWater(gradientMap);
+    this.buildWater();
     this.buildGrass(gradientMap, seed);
     this.buildDetails(gradientMap, seed);
   }
@@ -60,20 +61,13 @@ export class Terrain {
     this.group.add(band);
   }
 
-  private buildWater(gradientMap: DataTexture): void {
-    const water = new Mesh(
-      new PlaneGeometry(240, 240),
-      new MeshToonMaterial({
-        color: 0x4fb8ec,
-        gradientMap,
-        transparent: true,
-        opacity: 0.88,
-      }),
-    );
-    water.rotation.x = -Math.PI / 2;
-    water.position.y = WATER_Y;
-    water.receiveShadow = true;
-    this.group.add(water);
+  private buildWater(): void {
+    this.water = new Water(this.size, WATER_Y);
+    this.group.add(this.water.mesh);
+  }
+
+  update(time: number): void {
+    this.water?.update(time);
   }
 
   private buildGrass(gradientMap: DataTexture, seed: number): void {
@@ -101,9 +95,9 @@ export class Terrain {
         const checker = (i + j) % 2 === 0 ? 0.018 : -0.012;
         const wild = this.isUnlocked(i, j) ? 0 : 1;
         color.setHSL(
-          0.255 + (noise - 0.5) * 0.05 - wild * 0.012,
-          0.58 - wild * 0.2,
-          0.5 + (noise - 0.5) * 0.14 + checker - wild * 0.075,
+          0.272 + (noise - 0.5) * 0.04 - wild * 0.01,
+          0.7 - wild * 0.16,
+          0.5 + (noise - 0.5) * 0.12 + checker - wild * 0.06,
         );
         mesh.setColorAt(n, color);
         n++;

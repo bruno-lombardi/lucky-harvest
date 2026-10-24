@@ -1,22 +1,17 @@
-import {
-  BoxGeometry,
-  ConeGeometry,
-  CylinderGeometry,
-  DataTexture,
-  Group,
-  Mesh,
-  MeshToonMaterial,
-  SphereGeometry,
-} from 'three';
+import { BoxGeometry, DataTexture, Group, Mesh, MeshToonMaterial } from 'three';
 import { getCrop } from '../core/crops';
 import { CropStatus, Farm } from '../core/farm';
 import { tileKey, tileToWorld } from '../core/grid';
 import { CropKit, buildCropModel } from './crop-models';
+import { createCoinIndicator, createDropIndicator } from './indicators';
 
 const SOIL_DRY = 0x7a4a26;
 const SOIL_WET = 0x4a2d17;
 const RIDGE_DRY = 0x8f5c31;
 const RIDGE_WET = 0x5a3820;
+
+/** Crops are modeled at tile scale; this fills the tile a little more generously. */
+const BASE_SCALE = 1.3;
 
 interface SoilEntry {
   group: Group;
@@ -31,8 +26,17 @@ interface CropEntry {
   indicator: Group | null;
   signature: string;
   stage: number;
+  grow: number; // 0.8..1 within-stage growth, so plants swell gradually instead of snapping
   age: number; // seconds since the last model change, drives the pop animation
   phase: number;
+}
+
+/** Smooth size within a growth stage: starts at 80% and reaches 100% as the next stage nears. */
+function growthFactor(status: CropStatus): number {
+  if (status.ripe || status.withered) return 1;
+  const [from, to] = status.stage === 0 ? [0, 0.15] : status.stage === 1 ? [0.15, 0.45] : [0.45, 1];
+  const fraction = Math.min(1, Math.max(0, (status.progress - from) / (to - from)));
+  return 0.8 + 0.2 * fraction;
 }
 
 /** Renders plowed soil and growing crops from Farm state. Read-only: it never mutates the farm. */
@@ -53,12 +57,6 @@ export class FarmView {
     ridgeWet: new MeshToonMaterial({ color: RIDGE_WET }),
   };
 
-  private readonly dropBody = new SphereGeometry(0.085, 12, 8);
-  private readonly dropTip = new ConeGeometry(0.075, 0.16, 10);
-  private readonly dropMaterial = new MeshToonMaterial({ color: 0x3aa0ff, emissive: 0x0b3a70 });
-  private readonly coinGeometry = new CylinderGeometry(0.13, 0.13, 0.035, 18);
-  private readonly coinMaterial = new MeshToonMaterial({ color: 0xffc928, emissive: 0x6a4300 });
-
   constructor(
     private readonly farm: Farm,
     private readonly gridSize: number,
@@ -66,8 +64,6 @@ export class FarmView {
   ) {
     this.kit = new CropKit(gradientMap);
     for (const m of Object.values(this.materials)) m.gradientMap = gradientMap;
-    this.dropMaterial.gradientMap = gradientMap;
-    this.coinMaterial.gradientMap = gradientMap;
   }
 
   update(dt: number, now: number): void {
@@ -86,9 +82,8 @@ export class FarmView {
       if (!seen.has(key)) this.removeSoil(key);
     }
     for (const key of [...this.crops.keys()]) {
-      const entry = this.crops.get(key);
-      const stillThere = seen.has(key) && this.farm.tile(...parseKey(key)).crop !== null;
-      if (entry && !stillThere) this.removeCrop(key);
+      const [i, j] = parseKey(key);
+      if (!seen.has(key) || this.farm.tile(i, j).crop === null) this.removeCrop(key);
     }
 
     this.animate(dt);
@@ -138,9 +133,19 @@ export class FarmView {
       const { x, z } = tileToWorld(i, j, this.gridSize);
       group.position.set(x, 0.08, z);
       this.group.add(group);
-      entry = { group, model: null, indicator: null, signature: '', stage: -1, age: 0, phase: (i * 7 + j * 13) % 6 };
+      entry = {
+        group,
+        model: null,
+        indicator: null,
+        signature: '',
+        stage: -1,
+        grow: 1,
+        age: 0,
+        phase: (i * 7 + j * 13) % 6,
+      };
       this.crops.set(key, entry);
     }
+    entry.grow = growthFactor(status);
     if (entry.signature === signature) return;
 
     if (entry.model) entry.group.remove(entry.model);
@@ -156,27 +161,11 @@ export class FarmView {
     entry.signature = signature;
   }
 
-  /** Blue droplet above thirsty crops, spinning gold coin above ripe ones. */
+  /** Blue drop above thirsty crops, glowing gold coin above ripe ones. */
   private buildIndicator(status: CropStatus): Group | null {
     if (status.withered) return null;
-    const g = new Group();
-    if (status.thirsty) {
-      const body = new Mesh(this.dropBody, this.dropMaterial);
-      const tip = new Mesh(this.dropTip, this.dropMaterial);
-      tip.position.y = 0.11;
-      g.add(body, tip);
-      g.userData['kind'] = 'drop';
-      return g;
-    }
-    if (status.ripe) {
-      const coin = new Mesh(this.coinGeometry, this.coinMaterial);
-      coin.rotation.x = Math.PI / 2;
-      const holder = new Group();
-      holder.add(coin);
-      g.add(holder);
-      g.userData['kind'] = 'coin';
-      return g;
-    }
+    if (status.thirsty) return createDropIndicator();
+    if (status.ripe) return createCoinIndicator();
     return null;
   }
 
@@ -188,16 +177,17 @@ export class FarmView {
         // Springy pop when something changes, then a gentle sway.
         const popT = entry.age / 0.45;
         const pop = popT < 1 ? 1 + Math.sin(popT * Math.PI) * 0.32 * (1 - popT * 0.4) : 1;
-        const sway = Math.sin(this.time * 1.6 + entry.phase) * 0.025;
-        model.scale.set(pop, pop, pop);
-        model.rotation.z = sway;
+        const s = BASE_SCALE * entry.grow * pop;
+        model.scale.set(s, s, s);
+        model.rotation.z = Math.sin(this.time * 1.6 + entry.phase) * 0.025;
         model.rotation.x = Math.cos(this.time * 1.3 + entry.phase) * 0.015;
       }
-      const ind = entry.indicator;
-      if (ind) {
-        const bob = Math.sin(this.time * 3 + entry.phase) * 0.05;
-        ind.position.y = 0.98 + bob;
-        if (ind.userData['kind'] === 'coin') ind.rotation.y = this.time * 3;
+      const indicator = entry.indicator;
+      if (indicator) {
+        const bob = Math.sin(this.time * 3 + entry.phase);
+        indicator.position.y = 1.02 + bob * 0.05;
+        const pulse = 1 + (indicator.userData['kind'] === 'coin' ? 0.08 : 0.05) * Math.sin(this.time * 4 + entry.phase);
+        indicator.scale.setScalar(pulse);
       }
     }
   }

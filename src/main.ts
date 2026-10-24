@@ -1,10 +1,14 @@
+import '@fontsource-variable/fredoka';
+import './ui/style.css';
 import { applyTool } from './core/actions';
 import { Farm } from './core/farm';
 import { TileCoord } from './core/grid';
+import { createDemoFarm } from './demo';
 import { Game } from './game';
 import { Floaters, Toast } from './ui/feedback';
 import { Hud } from './ui/hud';
 import { describeTile, reasonMessage } from './ui/messages';
+import { COIN_ICON, hydrateIcons } from './ui/icons';
 import { Toolbar } from './ui/toolbar';
 
 function required(id: string): HTMLElement {
@@ -13,13 +17,15 @@ function required(id: string): HTMLElement {
   return found;
 }
 
-const farm = new Farm();
+const params = new URLSearchParams(window.location.search);
+const farm = params.has('demo') ? createDemoFarm(Date.now()) : new Farm();
 const hud = new Hud();
 const toast = new Toast(required('toast'));
 const floaters = new Floaters(required('floaters'));
-const toolbar = new Toolbar(required('toolbar'), required('seed-tray'), (m) => toast.show(m));
+hydrateIcons();
 
 let selected: TileCoord | null = null;
+let toolbar: Toolbar;
 let lastUiUpdate = 0;
 
 function refreshUi(now: number): void {
@@ -47,16 +53,16 @@ function handleTap(tile: TileCoord | null): void {
     const { coins, xp, levelUp } = result.gain;
     const at = game.screenPositionOf(tile);
     let offset = 0;
-    const emit = (text: string, kind: 'coins' | 'spend' | 'xp' | 'level'): void => {
-      floaters.spawn(text, at.x, at.y - offset, kind);
+    const emit = (text: string, kind: 'coins' | 'spend' | 'xp' | 'level', icon = ''): void => {
+      floaters.spawn(text, at.x, at.y - offset, kind, icon);
       offset += 24;
     };
-    if (coins > 0) emit(`+${coins} 🪙`, 'coins');
-    if (coins < 0) emit(`${coins} 🪙`, 'spend');
+    if (coins > 0) emit(`+${coins}`, 'coins', COIN_ICON);
+    if (coins < 0) emit(`${coins}`, 'spend', COIN_ICON);
     if (xp > 0) emit(`+${xp} XP`, 'xp');
     if (levelUp !== null) {
       emit(`Nível ${levelUp}!`, 'level');
-      toast.show(`🎉 Você chegou ao nível ${levelUp}!`, 2800);
+      toast.show(`Você chegou ao nível ${levelUp}!`, 2800);
     }
   }
   refreshUi(now);
@@ -73,6 +79,13 @@ const game = new Game(container, farm, {
     }
   },
 });
+
+toolbar = new Toolbar(required('toolbar'), required('seed-tray'), (m) => toast.show(m), game.renderCropIcons());
+
+const view = params.get('view')?.split(',').map(Number);
+if (view && view.length === 3 && view.every(Number.isFinite)) {
+  game.setView(view[0]!, view[1]!, view[2]!);
+}
 
 refreshUi(Date.now());
 game.start();

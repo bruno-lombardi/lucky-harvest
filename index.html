@@ -8,18 +8,17 @@
     />
     <meta name="theme-color" content="#7ec850" />
     <title>Lucky Harvest</title>
-    <link rel="stylesheet" href="/src/ui/style.css" />
   </head>
   <body>
     <div id="game"></div>
     <div id="hud">
       <div class="hud-top">
         <div class="badge level">
-          <div class="lvl"><span class="label">Nível</span><span id="hud-level">1</span></div>
+          <div class="lvl"><span class="star" data-icon="star"></span><span class="label">Nível</span><span id="hud-level" class="num">1</span></div>
           <div class="xpbar"><div class="fill" id="hud-xp-fill"></div></div>
           <div class="xptext" id="hud-xp-text">0/50 XP</div>
         </div>
-        <div class="badge coins"><span class="icon">🪙</span><span id="hud-coins">0</span></div>
+        <div class="badge coins"><span class="coin" data-icon="coin"></span><span id="hud-coins" class="num">0</span></div>
       </div>
       <div id="toast" role="status" aria-live="polite"></div>
       <div class="hud-bottom">

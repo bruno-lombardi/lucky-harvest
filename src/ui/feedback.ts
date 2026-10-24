@@ -14,14 +14,15 @@ export class Toast {
   }
 }
 
-/** Rising "+10 🪙" style numbers anchored to a screen position. */
+/** Rising "+10" style numbers anchored to a screen position; `html` may carry an inline icon. */
 export class Floaters {
   constructor(private readonly layer: HTMLElement) {}
 
-  spawn(text: string, x: number, y: number, kind: FloaterKind): void {
+  spawn(text: string, x: number, y: number, kind: FloaterKind, iconHtml = ''): void {
     const el = document.createElement('div');
     el.className = `floater ${kind}`;
     el.textContent = text;
+    if (iconHtml) el.insertAdjacentHTML('beforeend', `<i class="ico">${iconHtml}</i>`);
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
     this.layer.appendChild(el);

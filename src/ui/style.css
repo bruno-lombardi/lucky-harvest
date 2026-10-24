@@ -1,5 +1,5 @@
 :root {
-  --font: 'Trebuchet MS', 'Lucida Grande', Verdana, sans-serif;
+  --font: 'Fredoka Variable', 'Trebuchet MS', Verdana, sans-serif;
   --sky-top: #5db7f2;
   --sky-mid: #a6dcfb;
   --sky-bottom: #e4f6ff;
@@ -82,14 +82,72 @@ body {
 }
 
 .badge .label {
-  font-size: 12px;
-  text-transform: uppercase;
+  font-size: 14px;
+  font-weight: 600;
   opacity: 0.95;
 }
 
-.badge .icon {
-  font-size: 22px;
-  filter: drop-shadow(0 2px 0 rgba(120, 70, 10, 0.5));
+/* Sticker-style numerals: white fill, thick brown outline. */
+.num,
+.floater {
+  paint-order: stroke fill;
+  -webkit-text-stroke: 4px var(--ink);
+  text-shadow: 0 2px 0 var(--ink);
+}
+
+.badge .coin,
+.badge .star {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 2px 0 rgba(90, 50, 5, 0.55));
+}
+
+.badge .coin svg,
+.badge .star svg,
+.ico svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ico {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  margin: 0 0.2em;
+  vertical-align: -0.18em;
+  -webkit-text-stroke: 0;
+}
+
+button .pic {
+  display: flex;
+  width: 40px;
+  height: 40px;
+}
+
+button .pic svg,
+button .pic img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+button.seed .pic {
+  width: 46px;
+  height: 46px;
+  margin-top: -2px;
+}
+
+button .cost {
+  display: inline-flex;
+  align-items: center;
+}
+
+button .cost .ico {
+  width: 12px;
+  height: 12px;
+  margin: 0 3px 0 0;
 }
 
 .hud-tile {
@@ -260,11 +318,6 @@ button.seed {
   height: 78px;
 }
 
-button .emoji {
-  font-size: 28px;
-  line-height: 1;
-}
-
 button .name {
   font-size: 11px;
   font-weight: 700;
@@ -345,9 +398,6 @@ button.poor .cost {
   font-weight: 800;
   font-size: 21px;
   white-space: nowrap;
-  text-shadow:
-    0 2px 0 rgba(60, 30, 5, 0.65),
-    0 0 8px rgba(0, 0, 0, 0.35);
   animation: rise 1.3s ease-out forwards;
 }
 
@@ -389,8 +439,13 @@ button.poor .cost {
     width: 68px;
     height: 74px;
   }
-  button .emoji {
-    font-size: 25px;
+  button .pic {
+    width: 36px;
+    height: 36px;
+  }
+  button.seed .pic {
+    width: 42px;
+    height: 42px;
   }
   .badge.level {
     min-width: 104px;

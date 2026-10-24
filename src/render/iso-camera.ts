@@ -85,6 +85,19 @@ export class IsoCameraController {
     this.camera.updateProjectionMatrix();
   }
 
+  /** Jump straight to a view (used by `?view=x,z,zoom` for previews and screenshots). */
+  setView(x: number, z: number, zoom: number): void {
+    this.target.set(
+      MathUtils.clamp(x, -this.panLimit, this.panLimit),
+      0,
+      MathUtils.clamp(z, -this.panLimit, this.panLimit),
+    );
+    this.zoom = this.desiredZoom = MathUtils.clamp(zoom, this.minZoom, this.maxZoom);
+    this.camera.zoom = this.zoom;
+    this.camera.updateProjectionMatrix();
+    this.applyCameraTransform();
+  }
+
   /** Smoothly eases zoom toward its target; call once per frame. */
   update(dt: number): void {
     const k = 1 - Math.exp(-dt * 12);

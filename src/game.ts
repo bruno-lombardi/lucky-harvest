@@ -7,9 +7,12 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
+import { CropId } from './core/crops';
 import { Farm, isUnlocked } from './core/farm';
 import { GRID_SIZE, TileCoord, tileToWorld } from './core/grid';
 import { Clouds } from './render/clouds';
+import { renderCropIcons } from './render/icons';
+import { Props } from './render/props';
 import { FarmView } from './render/farm-view';
 import { TileHighlight } from './render/highlight';
 import { IsoCameraController } from './render/iso-camera';
@@ -32,8 +35,12 @@ export class Game {
   private readonly cameraController: IsoCameraController;
   private readonly picker: TilePicker;
   private readonly highlight = new TileHighlight(GRID_SIZE);
+  private readonly terrain: Terrain;
   private readonly clouds: Clouds;
+  private readonly props: Props;
   private readonly farmView: FarmView;
+  private readonly gradient = createToonGradient(4);
+  private elapsed = 0;
   private readonly resizeObserver: ResizeObserver;
   private readonly projected = new Vector3();
 
@@ -53,11 +60,13 @@ export class Game {
     this.renderer.setClearColor(0x000000, 0);
     container.appendChild(this.renderer.domElement);
 
-    const gradient = createToonGradient(4);
-    this.scene.add(new Terrain(GRID_SIZE, gradient, 1337, isUnlocked).group);
+    const gradient = this.gradient;
+    this.terrain = new Terrain(GRID_SIZE, gradient, 1337, isUnlocked);
+    this.scene.add(this.terrain.group);
     this.farmView = new FarmView(farm, GRID_SIZE, gradient);
-    this.clouds = new Clouds(gradient);
-    this.scene.add(this.farmView.group, this.clouds.group, this.highlight.group);
+    this.props = new Props(gradient);
+    this.clouds = new Clouds();
+    this.scene.add(this.props.group, this.farmView.group, this.clouds.group, this.highlight.group);
     this.addLights();
 
     this.cameraController = new IsoCameraController(this.renderer.domElement, {
@@ -97,15 +106,25 @@ export class Game {
     };
   }
 
+  /** Seed-tray icons rendered from the real 3D crop models. */
+  renderCropIcons(): Record<CropId, string> {
+    return renderCropIcons(this.renderer, this.gradient);
+  }
+
+  setView(x: number, z: number, zoom: number): void {
+    this.cameraController.setView(x, z, zoom);
+  }
+
   /** Marks the tile the player last acted on. */
   setSelected(tile: TileCoord | null): void {
     this.highlight.setSelected(tile);
   }
 
   private addLights(): void {
-    this.scene.add(new HemisphereLight(0xcfe9ff, 0x9a7a45, 1.05));
+    // Sky above, green bounce light from the grass below: keeps shadows cool, not muddy.
+    this.scene.add(new HemisphereLight(0xdaf0ff, 0x7fae5c, 1.15));
 
-    const sun = new DirectionalLight(0xfff0d0, 2.1);
+    const sun = new DirectionalLight(0xfff3d8, 2.0);
     sun.position.set(16, 26, 10);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -143,8 +162,11 @@ export class Game {
   private frame(): void {
     const dt = Math.min(this.clock.getDelta(), 0.1);
     const now = Date.now();
+    this.elapsed += dt;
     this.cameraController.update(dt);
+    this.terrain.update(this.elapsed);
     this.farmView.update(dt, now);
+    this.props.update(dt);
     this.clouds.update(dt);
     this.highlight.update(dt);
     this.events.onFrame?.(now);

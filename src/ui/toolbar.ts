@@ -1,13 +1,14 @@
 import { TOOLS, Tool } from '../core/actions';
 import { CROPS, CROP_ORDER, CropId } from '../core/crops';
 import { Farm } from '../core/farm';
+import { COIN_ICON, LOCK_ICON, TOOL_ICONS } from './icons';
 
-const TOOL_META: Record<Tool, { emoji: string; label: string }> = {
-  colher: { emoji: '🧺', label: 'Colher' },
-  arar: { emoji: '⛏️', label: 'Arar' },
-  semear: { emoji: '🌱', label: 'Semear' },
-  regar: { emoji: '💧', label: 'Regar' },
-  limpar: { emoji: '🧹', label: 'Limpar' },
+const TOOL_LABEL: Record<Tool, string> = {
+  colher: 'Colher',
+  arar: 'Arar',
+  semear: 'Semear',
+  regar: 'Regar',
+  limpar: 'Limpar',
 };
 
 /** Bottom toolbar plus the seed picker that appears while "Semear" is active. */
@@ -23,10 +24,11 @@ export class Toolbar {
     private readonly bar: HTMLElement,
     private readonly tray: HTMLElement,
     private readonly notify: (message: string) => void,
+    cropIcons: Record<CropId, string>,
   ) {
     for (const tool of TOOLS) {
-      const meta = TOOL_META[tool];
-      const button = this.makeButton('tool', `<span class="emoji">${meta.emoji}</span><span class="name">${meta.label}</span>`);
+      const button = this.makeButton('tool', `<span class="pic">${TOOL_ICONS[tool]}</span><span class="name">${TOOL_LABEL[tool]}</span>`);
+      button.setAttribute('aria-label', TOOL_LABEL[tool]);
       button.addEventListener('click', () => this.selectTool(tool));
       this.toolButtons.set(tool, button);
       this.bar.appendChild(button);
@@ -36,7 +38,7 @@ export class Toolbar {
       const crop = CROPS[id];
       const button = this.makeButton(
         'seed',
-        `<span class="emoji">${crop.emoji}</span><span class="name">${crop.name}</span><span class="cost"></span>`,
+        `<span class="pic"><img alt="" draggable="false" src="${cropIcons[id]}" /></span><span class="name">${crop.name}</span><span class="cost"></span>`,
       );
       button.addEventListener('click', () => this.selectCrop(id));
       this.cropButtons.set(id, button);
@@ -61,7 +63,11 @@ export class Toolbar {
       button.classList.toggle('locked', locked);
       button.classList.toggle('poor', poor);
       const cost = button.querySelector('.cost');
-      if (cost) cost.textContent = locked ? `🔒 Nv ${crop.unlockLevel}` : `🪙 ${crop.seedCost}`;
+      if (cost) {
+        cost.innerHTML = locked
+          ? `<i class="ico">${LOCK_ICON}</i>Nv ${crop.unlockLevel}`
+          : `<i class="ico">${COIN_ICON}</i>${crop.seedCost}`;
+      }
     }
   }
 

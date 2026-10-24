@@ -200,3 +200,29 @@ describe('barn tiers and the keeper', () => {
     expect(keeper.root.children.length).toBeGreaterThan(0);
   });
 });
+
+describe('the Confeitaria', () => {
+  it('stays hidden until built, grows with each tier and animates Dona Zefa', async () => {
+    const { BakeryView } = await import('../src/render/bakery-view');
+    const farm = new Farm({ seed: 1 });
+    const view = new BakeryView(farm, createToonGradient());
+    view.update(0.016, 0);
+    expect(view.root.visible).toBe(false);
+    expect(view.root.userData['pickId']).toBe('bakery');
+    farm.bakery = { level: 1, jobs: [] };
+    const sizes: number[] = [];
+    for (const level of [1, 2, 3]) {
+      farm.bakery.level = level;
+      farm.bakery.jobs = [{ good: 'pao', batches: 1, startedAt: 0, readyAt: level === 2 ? 0 : 10_000 }];
+      for (let n = 0; n < 5; n++) view.update(0.016, 5000);
+      expect(view.root.visible).toBe(true);
+      let meshes = 0;
+      view.root.traverse((o) => {
+        if ((o as { isMesh?: boolean }).isMesh) meshes++;
+      });
+      sizes.push(meshes);
+    }
+    expect(sizes[1]!).toBeGreaterThan(sizes[0]!);
+    expect(sizes[2]!).toBeGreaterThan(sizes[1]!);
+  });
+});

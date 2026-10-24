@@ -697,6 +697,7 @@ function buildFarmEdge(palette: Palette): Group {
     if (Math.hypot(x - POND.x, z - POND.z) < POND.radius + 1.3) return false;
     if (x > -1.9 && x < 5.9 && z > -11.9 && z < -7.2) return false; // the Pomar
     if (Math.hypot(x - SCARECROW.x, z - SCARECROW.z) < 1.6) return false;
+    if (Math.hypot(x + 8.6, z + 8.5) < 4.8) return false; // the Confeitaria
     if (x < -6 && x > -8.6 && z > 2.5 && z < 6.6) return false; // hay + path to the pond
     if (x > 7.0 && z > -5.6 && z < 7.8) return false; // animal pens
     for (const d of Object.values(DECOR)) if (Math.hypot(x - d.x, z - d.z) < 2.4) return false; // room for the decorations

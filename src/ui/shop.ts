@@ -5,6 +5,9 @@ import { TRUCK_UPGRADES, TRUCK_UPGRADE_ORDER, TruckUpgradeId } from '../core/del
 import { BARN_TIERS, barnPerk, barnTier, nextBarnTier } from '../core/barn';
 import { Farm } from '../core/farm';
 import { POMAR, TREES, TREE_ORDER, TreeId } from '../core/trees';
+import { BAKERY_COST, BAKERY_TIERS, BAKERY_UNLOCK_LEVEL, GOODS, GOOD_ORDER, GoodId, bakeryTier } from '../core/goods';
+import { BAKERY_ICON } from './bakery-icon';
+import { GOOD_ICONS } from './good-icons';
 import { HELPERS, HELPER_ORDER, HelperId, maxHelperLevel, WAGE_PERIOD_MS, helperWage, nextHelperUpgrade, payWord } from '../core/helpers';
 import { formatDuration } from './messages';
 import { humanDuration } from './info';
@@ -98,8 +101,17 @@ export class Shop extends Modal<ShopTab> {
       case 'sell-product':
         this.dispatch({ type: 'sellProduct', product: data['product'] as 'ovo', qty });
         break;
+      case 'sell-good':
+        this.dispatch({ type: 'sellGood', good: data['good'] as GoodId, qty });
+        break;
       case 'sell-all':
         this.dispatch({ type: 'sellAll' });
+        break;
+      case 'bakery':
+        this.dispatch({ type: 'buyBakery' });
+        break;
+      case 'bakery-up':
+        this.dispatch({ type: 'upgradeBakery' });
         break;
       case 'expand':
         this.dispatch({ type: 'expandLand' });
@@ -205,13 +217,15 @@ export class Shop extends Modal<ShopTab> {
     const crops = CROP_ORDER.filter((id) => farm.produce[id] > 0);
     const products = PRODUCT_ORDER.filter((id) => farm.products[id] > 0);
     const fruits = TREE_ORDER.filter((id) => farm.fruit[id] > 0);
-    if (crops.length + products.length + fruits.length === 0) {
+    const goods = GOOD_ORDER.filter((id) => farm.goods[id] > 0);
+    if (crops.length + products.length + fruits.length + goods.length === 0) {
       return empty(BARN_ICON, 'Você não tem nada para vender.', 'Colha plantas ou colete produtos dos animais.');
     }
     const total =
       crops.reduce((sum, id) => sum + farm.produce[id] * CROPS[id].sellPrice, 0) +
       products.reduce((sum, id) => sum + farm.products[id] * PRODUCTS[id].sellPrice, 0) +
-      fruits.reduce((sum, id) => sum + farm.fruit[id] * TREES[id].fruitPrice, 0);
+      fruits.reduce((sum, id) => sum + farm.fruit[id] * TREES[id].fruitPrice, 0) +
+      goods.reduce((sum, id) => sum + farm.goods[id] * GOODS[id].sellPrice, 0);
     const sellButtons = (act: string, key: string, id: string, qty: number): string =>
       `<button type="button" class="sell" data-act="${act}" data-${key}="${id}" data-qty="1">Vender 1</button>` +
       (qty > 1 ? `<button type="button" class="sell" data-act="${act}" data-${key}="${id}" data-qty="${qty}">Tudo</button>` : '');
@@ -254,6 +268,20 @@ export class Shop extends Modal<ShopTab> {
             sellButtons('sell-fruit', 'tree', id, farm.fruit[id]),
             false,
             `tree:${id}`,
+          ),
+        )
+        .join('');
+    }
+    if (goods.length) {
+      html += heading('Da confeitaria');
+      html += goods
+        .map((id) =>
+          row(
+            GOOD_ICONS[id],
+            `<b>${GOODS[id].name} <span class="count">×${farm.goods[id]}</span></b><small>${coin(GOODS[id].sellPrice)} cada</small>`,
+            sellButtons('sell-good', 'good', id, farm.goods[id]),
+            false,
+            `good:${id}`,
           ),
         )
         .join('');
@@ -335,7 +363,7 @@ export class Shop extends Modal<ShopTab> {
     const { farm } = this;
     const next = farm.nextExpansion();
     const now = `${farm.landSize}×${farm.landSize}`;
-    return `${this.landCard(next, now)}${this.barnHtml()}${this.truckHtml()}${this.decorHtml()}`;
+    return `${this.landCard(next, now)}${this.barnHtml()}${this.bakeryHtml()}${this.truckHtml()}${this.decorHtml()}`;
   }
 
   private barnHtml(): string {
@@ -360,6 +388,47 @@ export class Shop extends Modal<ShopTab> {
       `barn:${next.level}`,
     );
     return `${heading('Celeiro')}${current}${upgrade}`;
+  }
+
+  private bakeryHtml(): string {
+    const { farm } = this;
+    const bakery = farm.bakery;
+    if (!bakery) {
+      const locked = farm.level < BAKERY_UNLOCK_LEVEL;
+      const detail = locked ? `<i class="ico">${LOCK_ICON}</i>Libera no nível ${BAKERY_UNLOCK_LEVEL}` : coin(BAKERY_COST);
+      return (
+        heading('Confeitaria') +
+        row(
+          `<i class="ico">${BAKERY_ICON}</i>`,
+          `<b>Confeitaria da Dona Zefa</b><small>Pães, bolos, geleias e sucos que valem mais · ${detail}</small>`,
+          `<button type="button" class="buy wide" data-act="bakery" ${locked || farm.coins < BAKERY_COST ? 'disabled' : ''}>Construir</button>`,
+          locked,
+          'bakery:1',
+        )
+      );
+    }
+    const tier = bakeryTier(bakery.level);
+    const next = BAKERY_TIERS[bakery.level];
+    const current = row(
+      `<i class="ico">${BAKERY_ICON}</i>`,
+      `<b>${tier.name} <span class="count">${bakery.level}/${BAKERY_TIERS.length}</span></b><small>${tier.perk}</small>`,
+      '',
+      false,
+      `bakery:${tier.level}`,
+    );
+    if (!next) return `${heading('Confeitaria')}${current}`;
+    const locked = farm.level < next.unlockLevel;
+    return (
+      heading('Confeitaria') +
+      current +
+      row(
+        `<i class="ico">${BAKERY_ICON}</i>`,
+        `<b>${next.name}</b><small>${next.perk} · ${locked ? `<i class="ico">${LOCK_ICON}</i>Nível ${next.unlockLevel}` : coin(next.cost)}</small>`,
+        `<button type="button" class="buy wide" data-act="bakery-up" ${locked || farm.coins < next.cost ? 'disabled' : ''}>Melhorar</button>`,
+        locked,
+        `bakery:${next.level}`,
+      )
+    );
   }
 
   private truckHtml(): string {

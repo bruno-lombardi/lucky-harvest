@@ -4,6 +4,7 @@ export type CropId =
   | 'milho'
   | 'tomate'
   | 'morango'
+  | 'cana'
   | 'abobora'
   | 'girassol'
   | 'melancia'
@@ -38,7 +39,7 @@ export const RARITIES: Readonly<Record<Rarity, RarityDef>> = {
 };
 
 /** Drives which procedural model is used when rendering the crop. */
-export type CropShape = 'root' | 'grain' | 'tall' | 'bush' | 'berry' | 'gourd' | 'sunflower' | 'melon' | 'cactus' | 'vine' | 'moon';
+export type CropShape = 'cane' | 'root' | 'grain' | 'tall' | 'bush' | 'berry' | 'gourd' | 'sunflower' | 'melon' | 'cactus' | 'vine' | 'moon';
 
 export interface CropDef {
   readonly id: CropId;
@@ -182,6 +183,21 @@ export const CROPS: Readonly<Record<CropId, CropDef>> = {
     witherMs: 150 * MIN,
     colors: { leaf: 0x2f8a3a, fruit: 0x58b04a },
   },
+  cana: {
+    id: 'cana',
+    rarity: 'comum',
+    name: 'Cana-de-açúcar',
+    lore: 'Alta, doce e teimosa. Dela saem o açúcar, o caldo e metade das sobremesas do Brasil. Sem cana, a confeitaria fecha.',
+    emoji: '🎋',
+    shape: 'cane',
+    unlockLevel: 6,
+    seedCost: 90,
+    sellPrice: 330,
+    xp: 7,
+    growthMs: 10 * MIN,
+    witherMs: 60 * MIN,
+    colors: { leaf: 0x5aa83a, fruit: 0x9a3f78 },
+  },
   pitaya: {
     id: 'pitaya',
     rarity: 'rara',
@@ -235,6 +251,7 @@ export const CROP_ORDER: readonly CropId[] = [
   'milho',
   'tomate',
   'morango',
+  'cana',
   'abobora',
   'girassol',
   'melancia',

@@ -6,6 +6,8 @@ import { DECOR, DecorId } from '../core/decor';
 import { POMAR, TREES, TreeId, coinsPerMinute } from '../core/trees';
 import { TRUCK_UPGRADES, TruckUpgradeId } from '../core/delivery';
 import { BARN_TIERS, barnPerk } from '../core/barn';
+import { BAKERY_COST, BAKERY_TIERS, GOODS, GoodId, batchCost, bakeMs } from '../core/goods';
+import { ingredientName } from './bakery';
 import { LOCK_ICON } from './icons';
 import { coin } from './kit';
 
@@ -205,6 +207,42 @@ function barnCard(level: number, farm: Farm): Card {
   };
 }
 
+function goodCard(id: GoodId, farm: Farm): Card {
+  const g = GOODS[id];
+  const cost = batchCost(id);
+  const made = g.sellPrice * g.yield;
+  return {
+    title: g.name,
+    tag: lockTag(g.unlockLevel, farm.level),
+    lore: g.lore,
+    stats: [
+      ['Ingredientes', g.inputs.map((i) => `${i.qty} ${ingredientName(i).toLowerCase()}`).join(', ')],
+      ['Rende', `${g.yield} por fornada`],
+      ['Tempo', humanDuration(bakeMs(id, farm.bakery?.level ?? 1, 1))],
+      ['Vende por', `${coin(g.sellPrice)} cada`],
+      ['Lucro da fornada', `${coin(made - cost)} sobre os ingredientes`],
+      ['Experiência', `${g.xp} XP por fornada`],
+    ],
+    note: 'Fazer várias fornadas de uma vez leva menos tempo por fornada.',
+  };
+}
+
+function bakeryCard(level: number, farm: Farm): Card {
+  const t = BAKERY_TIERS[level - 1]!;
+  const have = farm.bakery?.level ?? 0;
+  return {
+    title: t.name,
+    tag: have >= level ? (have === level ? 'Sua confeitaria' : 'Já tem') : lockTag(t.unlockLevel, farm.level),
+    lore: 'Dona Zefa transforma o que você colhe em pães, doces e sucos que valem bem mais do que a matéria-prima.',
+    stats: [
+      ['Preço', coin(level === 1 ? BAKERY_COST : t.cost)],
+      ['Fornos', `${t.slots} ao mesmo tempo`],
+      ['Velocidade', t.timeMul === 1 ? 'Normal' : `${Math.round((1 - t.timeMul) * 100)}% mais rápido`],
+    ],
+    note: 'Planta cana-de-açúcar para o açúcar. Receitas novas liberam com o nível.',
+  };
+}
+
 function truckCard(id: TruckUpgradeId, farm: Farm): Card {
   const def = TRUCK_UPGRADES[id];
   return {
@@ -256,6 +294,12 @@ export function infoCard(key: string, farm: Farm): string | null {
     case 'barn': {
       const n = Number(id);
       return n >= 1 && n <= BARN_TIERS.length ? render(barnCard(n, farm)) : null;
+    }
+    case 'good':
+      return id in GOODS ? render(goodCard(id as GoodId, farm)) : null;
+    case 'bakery': {
+      const n = Number(id);
+      return n >= 1 && n <= BAKERY_TIERS.length ? render(bakeryCard(n, farm)) : null;
     }
     case 'truck':
       return id in TRUCK_UPGRADES ? render(truckCard(id as TruckUpgradeId, farm)) : null;

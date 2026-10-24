@@ -82,6 +82,18 @@ export function reasonMessage(reason: FailReason): string {
       return 'Você já contratou esse ajudante';
     case 'no-helper':
       return 'Contrate o ajudante primeiro';
+    case 'bakery-locked':
+      return 'Suba de nível para a confeitaria';
+    case 'bakery-exists':
+      return 'Você já tem a confeitaria';
+    case 'no-bakery':
+      return 'Construa a confeitaria primeiro';
+    case 'recipe-locked':
+      return 'Receita ainda bloqueada';
+    case 'no-slot':
+      return 'Os fornos estão cheios: pegue o que está pronto';
+    case 'bad-qty':
+      return 'Quantidade inválida';
     case 'already-paid':
       return 'O pagamento já está em dia';
   }

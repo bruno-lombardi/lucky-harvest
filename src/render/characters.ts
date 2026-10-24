@@ -275,6 +275,122 @@ export class CharacterKit {
   }
 
   // -------------------------------------------------------------------------
+  // Dona Zefa, the baker
+  // -------------------------------------------------------------------------
+
+  /**
+   * Dona Zefa: a cheerful doceira in a flowery headscarf, a pink polka-dot dress and a white apron.
+   * She stands still behind the counter. While `busy` she stirs a bowl; otherwise she sways and waves.
+   */
+  confeiteira(): { root: Group; height: number; update(dt: number, time: number, busy: boolean): void } {
+    const SKIN = 0xa8683f;
+    const DRESS = 0xe8618c;
+    const APRON = 0xfff6e4;
+    const SCARF = 0x2f9a8a;
+
+    const root = new Group();
+    const hips = new Group();
+    hips.position.y = 0.4;
+    root.add(hips);
+
+    for (const side of [-1, 1]) {
+      const leg = new Group();
+      leg.position.set(side * 0.075, 0, 0);
+      leg.add(this.tube(SKIN, 0.05, 0.3, 0, -0.15, 0, 0.008));
+      leg.add(this.blob(0x5a3a22, 0.07, 0.05, 0.1, 0, -0.33, 0.03));
+      hips.add(leg);
+    }
+
+    const upper = new Group();
+    hips.add(upper);
+    // A round dress with a flared skirt, an apron and polka dots.
+    const skirt = new Mesh(new CylinderGeometry(0.15, 0.26, 0.34, 16), this.toon(DRESS));
+    skirt.position.y = 0.0;
+    skirt.castShadow = true;
+    addOutline(skirt, 0.01);
+    upper.add(skirt);
+    upper.add(this.blob(DRESS, 0.2, 0.22, 0.17, 0, 0.2, 0, 0.012));
+    upper.add(this.blob(APRON, 0.17, 0.22, 0.06, 0, 0.09, 0.14, 0.008));
+    upper.add(this.slab(APRON, 0.2, 0.2, 0.03, 0, 0.0, 0.215));
+    for (const [x, y, z] of [[-0.12, 0.02, 0.17], [0.12, -0.04, 0.17], [-0.2, -0.06, 0.1], [0.2, 0.04, 0.1], [0, 0.26, 0.17], [-0.1, 0.18, 0.17], [0.1, 0.22, 0.17]] as const) {
+      upper.add(this.blob(0xfff6e4, 0.02, 0.02, 0.01, x, y, z, 0));
+    }
+    for (const side of [-1, 1]) upper.add(this.slab(0xf2c94a, 0.03, 0.2, 0.025, side * 0.07, 0.28, 0.2));
+
+    const arms: Group[] = [];
+    for (const side of [-1, 1]) {
+      const arm = new Group();
+      arm.position.set(side * 0.22, 0.3, 0);
+      arm.add(this.tube(DRESS, 0.052, 0.18, 0, -0.09, 0, 0.008));
+      arm.add(this.blob(SKIN, 0.056, 0.056, 0.056, 0, -0.2, 0.005));
+      upper.add(arm);
+      arms.push(arm);
+    }
+    // A wooden spoon in the right hand and a mixing bowl in the left.
+    const spoon = new Group();
+    spoon.position.set(0, -0.2, 0.02);
+    spoon.add(this.tube(0xc98a3e, 0.012, 0.3, 0, -0.1, 0));
+    spoon.add(this.blob(0xc98a3e, 0.03, 0.045, 0.012, 0, -0.27, 0));
+    arms[1]!.add(spoon);
+    const bowl = new Mesh(new CylinderGeometry(0.11, 0.07, 0.09, 14), this.toon(0xfff6e4));
+    bowl.position.set(0, -0.23, 0.08);
+    bowl.castShadow = true;
+    addOutline(bowl, 0.008);
+    bowl.add(this.blob(0xf4d28a, 0.1, 0.02, 0.1, 0, 0.04, 0, 0));
+    arms[0]!.add(bowl);
+
+    const head = new Group();
+    head.position.set(0, 0.5, 0.01);
+    upper.add(head);
+    head.add(this.blob(SKIN, 0.19, 0.18, 0.18, 0, 0, 0, 0.012));
+    for (const side of [-1, 1]) {
+      head.add(this.blob(0xf2c94a, 0.03, 0.045, 0.02, side * 0.19, -0.07, 0.02, 0.006)); // earrings
+      head.add(this.blob(0x1c1410, 0.024, 0.032, 0.02, side * 0.07, 0.025, 0.165, 0));
+      head.add(this.blob(0xffffff, 0.008, 0.01, 0.008, side * 0.064, 0.037, 0.18, 0));
+      head.add(this.blob(0xe07a8a, 0.04, 0.026, 0.02, side * 0.115, -0.035, 0.145, 0));
+      const brow = this.slab(0x2a1a12, 0.06, 0.014, 0.02, side * 0.07, 0.07, 0.16);
+      brow.rotation.z = side * -0.12;
+      head.add(brow);
+    }
+    head.add(this.blob(0x9a5632, 0.036, 0.032, 0.036, 0, -0.01, 0.18, 0.006)); // nose
+    head.add(this.blob(0xb0302f, 0.05, 0.02, 0.02, 0, -0.07, 0.165, 0)); // a big smile
+    head.add(this.blob(0xfff6e4, 0.038, 0.01, 0.012, 0, -0.064, 0.172, 0));
+    // The headscarf: a bright turban with a knot and little flowers.
+    const scarf = new Group();
+    scarf.position.y = 0.1;
+    scarf.add(this.blob(SCARF, 0.205, 0.12, 0.2, 0, 0.02, -0.01, 0.01));
+    scarf.add(this.tube(0xf2c94a, 0.205, 0.03, 0, -0.03, 0));
+    scarf.add(this.blob(SCARF, 0.07, 0.07, 0.05, 0.12, 0.1, 0.06, 0.008));
+    for (const [x, y, z] of [[-0.1, 0.06, 0.14], [0.02, 0.1, 0.15], [0.1, 0.05, 0.13], [-0.14, 0.04, 0.04]] as const) {
+      scarf.add(this.blob(0xfff6e4, 0.028, 0.028, 0.015, x, y, z, 0));
+      scarf.add(this.blob(0xf2c94a, 0.01, 0.01, 0.01, x, y, z + 0.012, 0));
+    }
+    head.add(scarf);
+
+    return {
+      root,
+      height: 1.1,
+      update: (_dt, time, busy) => {
+        const breathe = Math.sin(time * 2.2);
+        hips.position.y = 0.4 - breathe * 0.004;
+        if (busy) {
+          // Stir the bowl: the spoon circles while the free hand holds on.
+          arms[1]!.rotation.set(-1.0 + Math.sin(time * 9) * 0.18, 0, -0.35 + Math.cos(time * 9) * 0.16);
+          arms[0]!.rotation.set(-1.0, 0, 0.3);
+          upper.rotation.set(0.05, Math.sin(time * 4.5) * 0.05, Math.sin(time * 9) * 0.02);
+          head.rotation.set(0.12, Math.sin(time * 1.4) * 0.15, 0);
+        } else {
+          const wave = Math.max(0, (Math.sin(time * 0.5) - 0.7) / 0.3);
+          arms[1]!.rotation.set(-2.5 * wave, 0, -0.12 - 0.5 * wave + Math.sin(time * 12) * 0.2 * wave);
+          arms[0]!.rotation.set(-0.5, 0, 0.3);
+          upper.rotation.set(0, 0, Math.sin(time * 1.3) * 0.04);
+          head.rotation.set(0, Math.sin(time * 0.7) * 0.4, Math.sin(time * 1.3) * 0.05);
+        }
+      },
+    };
+  }
+
+  // -------------------------------------------------------------------------
   // Mingau, the cat
   // -------------------------------------------------------------------------
 

@@ -135,7 +135,7 @@ describe('orchard goals', () => {
   it('follow the first book, and the title stays with goal 24', async () => {
     const { BOOK_TITLE_GOAL } = await import('../src/core/progress');
     expect(GOALS.length).toBeGreaterThan(BOOK_TITLE_GOAL);
-    expect(GOALS.slice(BOOK_TITLE_GOAL).every((g) => g.chapter === 5)).toBe(true);
+    expect(GOALS.slice(BOOK_TITLE_GOAL).every((g) => g.chapter >= 5)).toBe(true);
     const farm = new Farm({ seed: 2 });
     expect(GOALS[24]!.value(farm)).toBe(0);
     expect(ACHIEVEMENTS.some((a) => a.category === 'Pomar')).toBe(true);

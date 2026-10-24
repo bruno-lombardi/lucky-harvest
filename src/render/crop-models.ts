@@ -311,7 +311,7 @@ function buildSeedling(c: Context): Group {
     g.add(blob(c.kit, c.leaf, 0.03, 0.045, 0.03, 0.02, 0.09, 0));
     return g;
   }
-  const narrow = c.def.shape === 'grain' || c.def.shape === 'tall';
+  const narrow = c.def.shape === 'grain' || c.def.shape === 'tall' || c.def.shape === 'cane';
   g.add(mound(c.kit, 0.13, 0.05));
   g.add(stem(c.kit, c.stemColor, 0.07, 0.012));
   const count = narrow ? 3 : 2;
@@ -395,6 +395,28 @@ function buildGrain(c: Context): Group {
   }
   for (let k = 0; k < 6; k++) {
     g.add(frond(c.kit, c.kit.leafBlade, c.withered ? DRY_LEAF : c.leaf, 0.32, 0.24, 0.6 * c.droop, k * 1.1, 0.05));
+  }
+  return g;
+}
+
+function buildCane(c: Context): Group {
+  const g = new Group();
+  const height = (c.stage === 2 ? 0.62 : 0.95) * (c.withered ? 0.85 : 1);
+  const body = c.withered ? DRY_STEM : c.ripe ? c.def.colors.fruit : 0x78b546;
+  const node = c.withered ? 0x6f5526 : c.ripe ? 0x6e2a57 : 0x4f8a35;
+  for (let n = 0; n < 5; n++) {
+    const angle = n * 1.9;
+    const radius = n === 0 ? 0 : 0.12;
+    const stalk = new Group();
+    stalk.position.set(Math.cos(angle) * radius, 0.04, Math.sin(angle) * radius);
+    stalk.rotation.set(Math.sin(angle) * 0.07, 0, -Math.cos(angle) * 0.07);
+    const h = height * (0.8 + 0.2 * ((n * 3) % 4) / 3);
+    stalk.add(stem(c.kit, body, h, 0.03));
+    for (let k = 1; k <= 5; k++) stalk.add(blob(c.kit, node, 0.04, 0.012, 0.04, 0, (h * k) / 6, 0));
+    for (let k = 0; k < 3; k++) {
+      stalk.add(frond(c.kit, c.kit.leafBlade, c.withered ? DRY_LEAF : c.leaf, 0.46 - 0.06 * k, 0.26, (0.5 + 0.12 * k) * c.droop, k * 2.1 + n, h * 0.72 + k * 0.06));
+    }
+    g.add(stalk);
   }
   return g;
 }
@@ -777,6 +799,8 @@ export function buildCropModel(kit: CropKit, def: CropDef, look: CropAppearance)
 
 function buildShape(context: Context): Group {
   switch (context.def.shape) {
+    case 'cane':
+      return buildCane(context);
     case 'root':
       return buildRoot(context);
     case 'grain':

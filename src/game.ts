@@ -28,6 +28,7 @@ import { HelperView } from './render/helper-view';
 import { Terrain } from './render/terrain';
 import { Countryside } from './render/countryside';
 import { deliveryInterval } from './core/delivery';
+import { BakeryView } from './render/bakery-view';
 import { DecorView } from './render/decor-view';
 import { DeliveryView, TRUCK_STOP, TruckCue } from './render/delivery-view';
 import { createToonGradient } from './render/toon';
@@ -57,6 +58,7 @@ export class Game {
   private readonly helperView: HelperView;
   private readonly deliveryView: DeliveryView;
   private readonly decorView: DecorView;
+  private readonly bakeryView: BakeryView;
   private readonly countryside: Countryside;
   private readonly highlight = new TileHighlight(GRID_SIZE);
   private readonly terrain: Terrain;
@@ -112,6 +114,7 @@ export class Game {
     this.helperView = new HelperView(farm, gradient);
     this.helperView.isHidden = (point) => this.isOccluded(point);
     this.decorView = new DecorView(farm, gradient);
+    this.bakeryView = new BakeryView(farm, gradient);
     this.deliveryView = new DeliveryView(gradient);
     this.deliveryView.onCue = (cue) => this.events.onTruck?.(cue);
     this.deliveryView.onDust = (x, z) => this.effects.burst('clear', x, z);
@@ -124,6 +127,7 @@ export class Game {
       this.helperView.group,
       this.deliveryView.group,
       this.decorView.group,
+      this.bakeryView.group,
       this.farmView.group,
       this.orchardView.group,
       this.clouds.group,
@@ -140,6 +144,7 @@ export class Game {
 
     this.objectPicker = new ObjectPicker(this.cameraController.camera, this.renderer.domElement, () => [
       this.props.barn,
+      this.bakeryView.root,
       ...this.pens.pickRoots(),
       ...this.helperView.pickRoots(),
     ]);
@@ -206,7 +211,7 @@ export class Game {
     this.sight.set(point.clone().addScaledVector(this.sightDir, -far), this.sightDir);
     this.sight.far = far - 0.45;
     const hits = this.sight.intersectObjects(
-      [this.props.group, this.pens.group, this.orchardView.group, this.decorView.group],
+      [this.props.group, this.pens.group, this.orchardView.group, this.decorView.group, this.bakeryView.group],
       true,
     );
     return hits.some((h) => h.point.y > 0.65 && h.object.visible);
@@ -374,6 +379,7 @@ export class Game {
     this.pens.update(dt, now);
     this.helperView.update(dt, now);
     this.decorView.update(dt);
+    this.bakeryView.update(dt, now);
     this.deliveryView.update(now, deliveryInterval(this.farm.truck));
     this.clouds.update(dt);
     this.updateParticles(dt);

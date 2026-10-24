@@ -15,6 +15,22 @@ import {
 import { CROP_ORDER, CropId, RARITIES, getCrop } from './crops';
 import { MAX_BARN_LEVEL, barnTier, nextBarnTier } from './barn';
 import { AutoPlant, cloneAutoPlant, defaultAutoPlant, normalizeAutoPlant, plantOrder, sayLine } from './autoplant';
+import {
+  BAKERY_COST,
+  BAKERY_UNLOCK_LEVEL,
+  BakeryState,
+  GOODS,
+  GOOD_ORDER,
+  GoodId,
+  GoodStock,
+  Ingredient,
+  MAX_BATCHES,
+  bakeMs,
+  bakeryTier,
+  emptyGoods,
+  nextBakeryTier,
+  normalizeBakery,
+} from './goods';
 import { Stats, cloneStats, emptyStats, normalizeStats } from './stats';
 import { DECOR, DECOR_ORDER, DECOR_UNLOCK_LEVEL, DecorId, Decorations } from './decor';
 import {
@@ -157,6 +173,12 @@ export type FailReason =
   | 'no-tree'
   | 'tree-locked'
   | 'no-sapling'
+  | 'bakery-locked'
+  | 'bakery-exists'
+  | 'no-bakery'
+  | 'recipe-locked'
+  | 'no-slot'
+  | 'bad-qty'
   | 'pen-exists'
   | 'no-pen'
   | 'pen-full'
@@ -271,6 +293,9 @@ export interface FarmSnapshot {
   fruit: FruitStock;
   /** Orchard trees by tile key. */
   trees: Record<string, TreeState>;
+  /** The Confeitaria (null until bought) and the goods in the barn. Saves from before it leave both out. */
+  bakery?: BakeryState | null;
+  goods?: GoodStock;
   /** Tonico's planting settings. Saves from before this existed leave it out and get the defaults. */
   autoPlant?: AutoPlant;
   tiles: Record<string, TileState>;
@@ -320,6 +345,8 @@ export class Farm {
   stats: Stats = emptyStats();
   claimed: string[] = [];
   barn = 1;
+  bakery: BakeryState | null = null;
+  goods: GoodStock = emptyGoods();
   /** How the level-4 Tonico plants (see autoplant.ts). */
   autoPlant: AutoPlant = defaultAutoPlant();
   pomar = false;
@@ -660,8 +687,112 @@ export class Farm {
       coins += this.fruit[id] * TREES[id].fruitPrice;
       this.fruit[id] = 0;
     }
+    for (const id of GOOD_ORDER) {
+      coins += this.goods[id] * GOODS[id].sellPrice;
+      this.goods[id] = 0;
+    }
     if (coins === 0) return fail('nothing-to-sell');
     return this.sold(coins);
+  }
+
+  /** Sells baked goods from the barn. */
+  sellGood(id: GoodId, qty: number): ActionResult {
+    const count = Math.min(Number.isFinite(qty) ? qty : this.goods[id], this.goods[id]);
+    if (!(count >= 1)) return fail('nothing-to-sell');
+    this.goods[id] -= count;
+    return this.sold(count * GOODS[id].sellPrice);
+  }
+
+  // ---- The Confeitaria ----------------------------------------------------
+
+  /** Builds the Confeitaria, where Dona Zefa turns the harvest into sweets and bread. */
+  buyBakery(): ActionResult {
+    if (this.bakery) return fail('bakery-exists');
+    if (this.level < BAKERY_UNLOCK_LEVEL) return fail('bakery-locked');
+    if (this.coins < BAKERY_COST) return fail('no-coins');
+    this.bakery = { level: 1, jobs: [] };
+    return this.done(-BAKERY_COST, 30);
+  }
+
+  upgradeBakery(): ActionResult {
+    if (!this.bakery) return fail('no-bakery');
+    const next = nextBakeryTier(this.bakery.level);
+    if (!next) return fail('max-level');
+    if (this.level < next.unlockLevel) return fail('bakery-locked');
+    if (this.coins < next.cost) return fail('no-coins');
+    this.bakery.level = next.level;
+    return this.done(-next.cost, 0);
+  }
+
+  private have(ing: Ingredient): number {
+    switch (ing.kind) {
+      case 'crop':
+        return this.produce[ing.id];
+      case 'product':
+        return this.products[ing.id];
+      case 'fruit':
+        return this.fruit[ing.id];
+      case 'good':
+        return this.goods[ing.id];
+    }
+  }
+
+  private take(ing: Ingredient, qty: number): void {
+    switch (ing.kind) {
+      case 'crop':
+        this.produce[ing.id] -= qty;
+        break;
+      case 'product':
+        this.products[ing.id] -= qty;
+        break;
+      case 'fruit':
+        this.fruit[ing.id] -= qty;
+        break;
+      case 'good':
+        this.goods[ing.id] -= qty;
+        break;
+    }
+  }
+
+  /** True when the barn holds everything `batches` batches of the recipe need. */
+  canBake(id: GoodId, batches: number): boolean {
+    return GOODS[id].inputs.every((ing) => this.have(ing) >= ing.qty * batches);
+  }
+
+  /** Puts a recipe in the ovens: takes the ingredients now, gives the goods when collected after the time has passed. */
+  bake(id: GoodId, batches: number, now: number): ActionResult {
+    if (!this.bakery) return fail('no-bakery');
+    const def = GOODS[id];
+    if (!def || !Number.isInteger(batches) || batches < 1 || batches > MAX_BATCHES) return fail('bad-qty');
+    if (this.level < def.unlockLevel) return fail('recipe-locked');
+    if (this.bakery.jobs.length >= bakeryTier(this.bakery.level).slots) return fail('no-slot');
+    if (!this.canBake(id, batches)) return fail('no-ingredients');
+    for (const ing of def.inputs) this.take(ing, ing.qty * batches);
+    this.bakery.jobs.push({ good: id, batches, startedAt: now, readyAt: now + bakeMs(id, this.bakery.level, batches) });
+    return this.done(0, 0);
+  }
+
+  /** How many jobs are done and waiting. */
+  bakeryReady(now: number): number {
+    return this.bakery ? this.bakery.jobs.filter((j) => j.readyAt <= now).length : 0;
+  }
+
+  /** Takes every finished job out of the ovens into the barn, with its XP. */
+  collectBakery(now: number): ActionResult {
+    if (!this.bakery) return fail('no-bakery');
+    const ready = this.bakery.jobs.filter((j) => j.readyAt <= now);
+    if (ready.length === 0) return fail('not-ready');
+    let xp = 0;
+    for (const job of ready) {
+      const made = GOODS[job.good].yield * job.batches;
+      this.goods[job.good] += made;
+      this.stats.baked += made;
+      this.stats.bakedBy[job.good] += made;
+      if (job.good === 'bolofuba' || job.good === 'bolocenoura' || job.good === 'tortamanga') this.stats.bakedCakes += made;
+      xp += GOODS[job.good].xp * job.batches;
+    }
+    this.bakery.jobs = this.bakery.jobs.filter((j) => j.readyAt > now);
+    return this.done(0, xp);
   }
 
   private sold(coins: number): ActionResult {
@@ -1222,6 +1353,8 @@ export class Farm {
       saplings: { ...this.saplings },
       fruit: { ...this.fruit },
       autoPlant: cloneAutoPlant(this.autoPlant),
+      bakery: this.bakery ? { level: this.bakery.level, jobs: this.bakery.jobs.map((j) => ({ ...j })) } : null,
+      goods: { ...this.goods },
       trees: Object.fromEntries([...this.trees].map(([k, t]) => [k, { ...t }])),
       tiles,
     };
@@ -1257,6 +1390,13 @@ export class Farm {
     if (snapshot.version === 8) {
       farm.barn = Math.min(Math.max(Math.floor(snapshot.barn) || 1, 1), MAX_BARN_LEVEL);
       farm.autoPlant = normalizeAutoPlant(snapshot.autoPlant);
+      farm.bakery = normalizeBakery(snapshot.bakery);
+      if (typeof snapshot.goods === 'object' && snapshot.goods !== null) {
+        for (const id of GOOD_ORDER) {
+          const n = (snapshot.goods as Record<string, unknown>)[id];
+          if (typeof n === 'number' && Number.isFinite(n) && n > 0) farm.goods[id] = Math.floor(n);
+        }
+      }
     }
     farm.coins = snapshot.coins;
     farm.xp = snapshot.xp;

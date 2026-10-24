@@ -2,6 +2,7 @@ import { SPECIES_ORDER, penCapacity } from './animals';
 import { CROP_ORDER, CropId } from './crops';
 import { DECOR_ORDER } from './decor';
 import { Farm, MAX_LAND } from './farm';
+import { GOOD_ORDER } from './goods';
 import { HELPERS, HELPER_ORDER } from './helpers';
 import { totalCollected, totalFruit, totalHarvested } from './stats';
 import { TREE_ORDER, TreeId } from './trees';
@@ -23,7 +24,7 @@ export interface Goal {
   readonly value: (farm: Farm) => number;
   readonly target: number;
   /** Which tool button or building the chip should point at. */
-  readonly point?: 'arar' | 'semear' | 'regar' | 'colher' | 'cuidar' | 'loja' | 'celeiro' | 'galinheiro';
+  readonly point?: 'arar' | 'semear' | 'regar' | 'colher' | 'cuidar' | 'loja' | 'celeiro' | 'galinheiro' | 'confeitaria';
 }
 
 export const CHAPTERS: readonly { readonly name: string; readonly intro: string }[] = [
@@ -33,6 +34,7 @@ export const CHAPTERS: readonly { readonly name: string; readonly intro: string 
   { name: 'Ajudantes', intro: 'Contrate quem trabalha por você, mas lembre do salário e do custo dos bichos.' },
   { name: 'Mestre', intro: 'O que falta para ser dono de uma fazenda de verdade.' },
   { name: 'Pomar', intro: 'Árvores demoram para crescer, mas depois dão frutas para sempre.' },
+  { name: 'Confeitaria', intro: 'Dona Zefa transforma a colheita em pães, doces e sucos que valem bem mais.' },
 ];
 
 const pensBuilt = (f: Farm): number => SPECIES_ORDER.filter((s) => f.pens[s]).length;
@@ -68,6 +70,9 @@ export const GOALS: readonly Goal[] = [
   { id: 25, chapter: 5, text: 'Plantar sua primeira árvore', hint: 'No nível 10, compre o Pomar na Loja (aba Árvores), depois uma muda e plante lá.', reward: 400, value: (f) => f.stats.treesPlanted, target: 1, point: 'loja' },
   { id: 26, chapter: 5, text: 'Colher a primeira fruta', hint: 'Regue a muda uma vez. Quando a moeda dourada brilhar na copa, é só colher.', reward: 500, value: (f) => totalFruit(f.stats), target: 1, point: 'colher' },
   { id: 27, chapter: 5, text: 'Ter 5 árvores no Pomar', hint: 'Cada árvore dá frutas para sempre, sem precisar replantar.', reward: 1500, value: (f) => f.treeCount(), target: 5, point: 'loja' },
+  { id: 28, chapter: 6, text: 'Abrir a Confeitaria', hint: 'No nível 8, aba Fazenda da Loja. Plante cana-de-açúcar para o açúcar.', reward: 600, value: (f) => (f.bakery ? 1 : 0), target: 1, point: 'loja' },
+  { id: 29, chapter: 6, text: 'Fazer 10 quitutes', hint: 'Toque na confeitaria, escolha uma receita e depois pegue a fornada pronta.', reward: 500, value: (f) => f.stats.baked, target: 10, point: 'confeitaria' },
+  { id: 30, chapter: 6, text: 'Fazer um bolo', hint: 'Bolo de fubá (nível 11) ou de cenoura (nível 12): farinha, açúcar, ovos e muito carinho.', reward: 900, value: (f) => f.stats.bakedCakes, target: 1, point: 'confeitaria' },
 ];
 
 export const goalKey = (id: number): string => `g${id}`;
@@ -157,6 +162,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   tiered('frutas', 'Pomar', 'Pomareiro', (n) => `Colher ${n.toLocaleString('pt-BR')} frutas`, (f) => totalFruit(f.stats), [50, 500, 5000], [200, 2000, 10_000]),
   tiered('bosque', 'Pomar', 'Bosque', (n) => `Ter ${n} árvores no Pomar`, (f) => f.treeCount(), [3, 8, 18], [200, 1500, 8000]),
   tiered('pomarvar', 'Pomar', 'Variedade de pomar', (n) => `Colher ${n} tipos de fruta`, speciesPicked, [2, 4, 5], [300, 1500, 6000]),
+  tiered('quitutes', 'Confeitaria', 'Mão na massa', (n) => `Fazer ${n.toLocaleString('pt-BR')} quitutes`, (f) => f.stats.baked, [20, 250, 2500], [300, 2500, 12_000]),
+  tiered('sabores', 'Confeitaria', 'Cardápio completo', (n) => `Fazer ${n} receitas diferentes`, (f) => GOOD_ORDER.filter((g) => f.stats.bakedBy[g] > 0).length, [5, 12, GOOD_ORDER.length], [300, 2500, 10_000]),
+  tiered('doceria', 'Confeitaria', 'Doceria dos sonhos', (n) => `Ter a confeitaria no nível ${n}`, (f) => f.bakery?.level ?? 0, [1, 2, 3], [300, 1500, 8000]),
   single('ouro', 'Especiais', 'Fruta de ouro', 'Colher uma fruta dourada', (f) => f.stats.goldenFruit, 1, 600),
   single('resgate', 'Especiais', 'Resgate', 'Plantar uma semente com a carteira vazia', (f) => f.stats.rescues, 1, 100),
   single('mingau', 'Especiais', 'Mingau no comando', 'O gato cuidar de 25 pragas', (f) => f.stats.catCares, 25, 500),

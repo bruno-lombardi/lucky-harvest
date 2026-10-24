@@ -6,6 +6,7 @@ import { achievementKey, findAchievement, findGoal, goalDone, goalKey, stepDone 
 import { DecorId } from './decor';
 import { TruckUpgradeId } from './delivery';
 import { HelperId } from './helpers';
+import { GoodId } from './goods';
 import { AutoPlant } from './autoplant';
 import { ActionResult, Farm } from './farm';
 
@@ -42,7 +43,12 @@ export type Command =
   | { type: 'hireHelper'; helper: HelperId }
   | { type: 'upgradeHelper'; helper: HelperId }
   | { type: 'payHelper'; helper: HelperId }
-  | { type: 'setAutoPlant'; settings: AutoPlant };
+  | { type: 'setAutoPlant'; settings: AutoPlant }
+  | { type: 'buyBakery' }
+  | { type: 'upgradeBakery' }
+  | { type: 'bake'; good: GoodId; batches: number }
+  | { type: 'collectBakery' }
+  | { type: 'sellGood'; good: GoodId; qty: number };
 
 /** A command that succeeded, with the time it was applied: the unit of replay and sync. */
 export interface LoggedCommand {
@@ -116,6 +122,16 @@ export function applyCommand(farm: Farm, command: Command, now: number): ActionR
       return farm.payHelper(command.helper, now);
     case 'setAutoPlant':
       return farm.setAutoPlant(command.settings);
+    case 'buyBakery':
+      return farm.buyBakery();
+    case 'upgradeBakery':
+      return farm.upgradeBakery();
+    case 'bake':
+      return farm.bake(command.good, command.batches, now);
+    case 'collectBakery':
+      return farm.collectBakery(now);
+    case 'sellGood':
+      return farm.sellGood(command.good, command.qty);
   }
 }
 

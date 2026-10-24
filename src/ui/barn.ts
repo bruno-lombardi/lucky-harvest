@@ -5,6 +5,8 @@ import { Farm } from '../core/farm';
 import { TREES, TREE_ORDER, TreeId } from '../core/trees';
 import { BARN_ICON } from './icons';
 import { FEED_ICONS, PRODUCT_ICONS } from './item-icons';
+import { GOODS, GOOD_ORDER } from '../core/goods';
+import { GOOD_ICONS } from './good-icons';
 import { Dispatch, empty, heading, img, row } from './kit';
 import { Modal } from './modal';
 
@@ -61,6 +63,7 @@ export class BarnDialog extends Modal<BarnTab> {
     const feed = SPECIES_ORDER.filter((id) => farm.feed[id] > 0);
     const saplings = TREE_ORDER.filter((id) => farm.saplings[id] > 0);
     const fruits = TREE_ORDER.filter((id) => farm.fruit[id] > 0);
+    const goods = GOOD_ORDER.filter((id) => farm.goods[id] > 0);
     const count = (n: number): string => `<span class="count">×${n}</span>`;
     let html = '';
     if (seeds.length) {
@@ -79,6 +82,10 @@ export class BarnDialog extends Modal<BarnTab> {
       html += heading('Frutas');
       html += fruits.map((id) => row(img(this.treeIcons[id]), `<b>${TREES[id].fruitName} ${count(farm.fruit[id])}</b>`, '', false, `tree:${id}`)).join('');
     }
+    if (goods.length) {
+      html += heading('Da confeitaria');
+      html += goods.map((id) => row(GOOD_ICONS[id], `<b>${GOODS[id].name} ${count(farm.goods[id])}</b>`, '', false, `good:${id}`)).join('');
+    }
     if (products.length) {
       html += heading('Produtos');
       html += products.map((id) => row(PRODUCT_ICONS[id], `<b>${PRODUCTS[id].name} ${count(farm.products[id])}</b>`, '', false, `product:${id}`)).join('');
@@ -96,7 +103,7 @@ export class BarnDialog extends Modal<BarnTab> {
     const upgrade = nextBarnTier(this.farm.barn)
       ? `<button type="button" class="big-action alt" data-act="shop" data-tab="land">Melhorar o celeiro</button>`
       : '';
-    const sellable = crops.length + products.length + fruits.length > 0;
+    const sellable = crops.length + products.length + fruits.length + goods.length > 0;
     return `${html}<button type="button" class="big-action" data-act="shop" data-tab="${sellable ? 'sell' : 'seeds'}">${
       sellable ? 'Vender na loja' : 'Ir à loja'
     }</button>${upgrade}`;

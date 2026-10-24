@@ -11,6 +11,8 @@ import { HELPERS, HELPER_ORDER, HOME, HelperId, payWord, walkerPose } from './co
 import { PEN_LAYOUT } from './render/pens';
 import { BarnDialog } from './ui/barn';
 import { levelThreshold } from './core/levels';
+import { BAKERY_SPOT } from './render/bakery-view';
+import { BakeryDialog } from './ui/bakery';
 import { TonicoDialog } from './ui/tonico';
 import { MenuDialog } from './ui/menu';
 import { PenDialog } from './ui/pen';
@@ -100,6 +102,7 @@ let shop: Shop;
 let book: BookDialog;
 let barn: BarnDialog;
 let tonico: TonicoDialog;
+let bakeryDialog: BakeryDialog;
 let pen: PenDialog;
 let lastLevelShown = 1;
 let cropIcons: Record<CropId, string>;
@@ -250,6 +253,7 @@ function refreshUi(now: number): void {
   book.refresh();
   barn.refresh();
   tonico.refresh();
+  bakeryDialog.refresh();
   pen.refresh();
   const pests = countPests(now);
   if (pests > lastPests) toast.show('Praga na plantação! Use a luva (Cuidar)', 2600);
@@ -315,6 +319,22 @@ function commandEffects(command: Command): void {
     case 'upgradeBarn':
     case 'buyDecor':
       audio.play('build');
+      break;
+    case 'buyBakery':
+    case 'upgradeBakery':
+      audio.play('expand');
+      game.burstAt('expand', BAKERY_SPOT.x, BAKERY_SPOT.z);
+      break;
+    case 'bake':
+      audio.play('plant');
+      game.burstAt('plant', BAKERY_SPOT.x, BAKERY_SPOT.z);
+      break;
+    case 'collectBakery':
+      audio.play('collect');
+      game.burstAt('harvest', BAKERY_SPOT.x, BAKERY_SPOT.z);
+      break;
+    case 'sellGood':
+      audio.play('sell');
       break;
     case 'hireHelper': {
       audio.play('build');
@@ -408,7 +428,7 @@ function handleTap(tile: TileCoord | null): void {
 }
 
 const tip = required('tip');
-const OBJECT_NAMES: Record<string, string> = { barn: 'Celeiro: toque para abrir' };
+const OBJECT_NAMES: Record<string, string> = { barn: 'Celeiro: toque para abrir', bakery: 'Confeitaria da Dona Zefa: toque para abrir' };
 
 /** In look mode, a small label follows the pointer and says what is underneath. */
 function handleHover(hit: { tile: TileCoord | null; object: string | null; x: number; y: number } | null): void {
@@ -462,6 +482,8 @@ function handleObjectTap(id: string): void {
   audio.play('click');
   if (id === 'barn') {
     barn.open();
+  } else if (id === 'bakery') {
+    bakeryDialog.open();
   } else if (id === 'helper:ajudante' && farm.helpers.ajudante) {
     tonico.open();
   } else if (id.startsWith('helper:')) {
@@ -522,6 +544,7 @@ shop = new Shop(required('shop'), farm, cropIcons, treeIcons, (command) => {
 barn = new BarnDialog(required('barn'), farm, cropIcons, treeIcons, dispatch, {
   openShop: (tab) => shop.open(tab),
 });
+bakeryDialog = new BakeryDialog(required('bakery'), farm, dispatch, { openShop: (tab) => shop.open(tab) });
 tonico = new TonicoDialog(required('tonico'), farm, cropIcons, dispatch);
 shop.onConfigure = () => tonico.open();
 pen = new PenDialog(required('pen'), farm, dispatch, {
@@ -595,6 +618,14 @@ if (params.has('tonico')) {
   farm.helpers.ajudante!.level = 4;
   tonico.open();
 }
+if (params.has('bakery')) {
+  // debug: a built Confeitaria (?bakery=1..3, add &busy or &ready, &baker opens the dialog)
+  const now = Date.now();
+  const level = Math.min(3, Math.max(1, Number(params.get('bakery')) || 1));
+  const job = { good: 'pao' as const, batches: 1, startedAt: now, readyAt: params.has('ready') ? now - 1 : now + 3_600_000 };
+  farm.bakery = { level, jobs: params.has('busy') || params.has('ready') ? [job] : [] };
+}
+if (params.has('baker')) bakeryDialog.open(params.get('baker') === 'receitas' ? 'receitas' : 'forno');
 if (params.has('spray')) game.forceSpray(true);
 if (params.has('tier')) farm.barn = Math.min(4, Math.max(1, Number(params.get('tier')) || 1)); // debug: look at a barn tier
 

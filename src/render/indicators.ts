@@ -227,6 +227,39 @@ function bowlIcon(ctx: CanvasRenderingContext2D): void {
   ctx.stroke();
 }
 
+function cupcakeIcon(ctx: CanvasRenderingContext2D): void {
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 5;
+  ctx.lineJoin = 'round';
+  // Paper cup.
+  ctx.beginPath();
+  ctx.moveTo(-24, 4);
+  ctx.lineTo(24, 4);
+  ctx.lineTo(18, 34);
+  ctx.lineTo(-18, 34);
+  ctx.closePath();
+  ctx.fillStyle = '#e86f9a';
+  ctx.fill();
+  ctx.stroke();
+  // Frosting swirl.
+  ctx.beginPath();
+  ctx.moveTo(-28, 6);
+  ctx.quadraticCurveTo(-34, -14, -12, -12);
+  ctx.quadraticCurveTo(-14, -30, 4, -26);
+  ctx.quadraticCurveTo(24, -30, 22, -10);
+  ctx.quadraticCurveTo(36, -8, 28, 6);
+  ctx.closePath();
+  ctx.fillStyle = '#fff1d6';
+  ctx.fill();
+  ctx.stroke();
+  // Cherry.
+  ctx.beginPath();
+  ctx.arc(4, -32, 7, 0, Math.PI * 2);
+  ctx.fillStyle = '#d6322b';
+  ctx.fill();
+  ctx.stroke();
+}
+
 function unpaidIcon(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = '#ffc928';
   ctx.strokeStyle = ink;
@@ -360,6 +393,18 @@ export function createProductIndicator(product: string): Group {
   glow.renderOrder = 10;
   group.add(glow, bubbleSprite(`product:${product}`, '#c98300', productDraw[product] ?? eggIcon, 0.44));
   group.userData['kind'] = 'product';
+  return group;
+}
+
+/** A cupcake in a glowing bubble over the Confeitaria when something is ready. userData.kind = 'baked'. */
+export function createBakedIndicator(): Group {
+  glowMaterial = material(glowMaterial, glowTexture, 0xffe066, true);
+  const group = new Group();
+  const glow = new Sprite(glowMaterial);
+  glow.scale.set(1.05, 1.05, 1);
+  glow.renderOrder = 10;
+  group.add(glow, bubbleSprite('baked', '#c2557c', cupcakeIcon, 0.5));
+  group.userData['kind'] = 'baked';
   return group;
 }
 

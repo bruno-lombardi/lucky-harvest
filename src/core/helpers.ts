@@ -22,6 +22,8 @@ export interface HelperDef {
   readonly name: string;
   /** The chore, in a few words. */
   readonly job: string;
+  /** Flavour text shown before hiring. */
+  readonly lore: string;
   readonly unlockLevel: number;
   readonly hireCost: number;
   /** Cost to reach each level above 1 (index 0 = level 2). */
@@ -37,6 +39,7 @@ export const HELPERS: Readonly<Record<HelperId, HelperDef>> = {
     id: 'regador',
     name: 'Regador do moinho',
     job: 'rega as plantações sozinho',
+    lore: 'O moinho bombeia água do poço até aspersores de latão espalhados pela horta. Gira, gira, rega.',
     unlockLevel: 3,
     hireCost: 400,
     upgradeCost: [700, 1500],
@@ -47,6 +50,7 @@ export const HELPERS: Readonly<Record<HelperId, HelperDef>> = {
     id: 'ajudante',
     name: 'Tonico, o ajudante',
     job: 'colhe as plantas maduras',
+    lore: 'Seu Tonico cuida de hortas desde antes de você nascer. Chapéu de palha, bigode e muita paciência.',
     unlockLevel: 5,
     hireCost: 900,
     upgradeCost: [1400, 3000],
@@ -57,6 +61,7 @@ export const HELPERS: Readonly<Record<HelperId, HelperDef>> = {
     id: 'gato',
     name: 'Mingau, o gato',
     job: 'espanta pragas e ervas daninhas',
+    lore: 'Mingau chegou de mansinho e ficou. Não se sabe se gosta de você, mas pragas ele detesta.',
     unlockLevel: 7,
     hireCost: 600,
     upgradeCost: [1000, 2200],

@@ -36,6 +36,7 @@ export class Toolbar {
     for (const tool of MODES) {
       const button = this.makeButton('tool', `<span class="pic">${tool === 'olhar' ? LOOK_ICON : TOOL_ICONS[tool]}</span><span class="name">${TOOL_LABEL[tool]}</span>`);
       button.setAttribute('aria-label', TOOL_LABEL[tool]);
+      button.dataset['info'] = `tool:${tool}`;
       button.addEventListener('click', () => this.selectTool(tool));
       this.toolButtons.set(tool, button);
       this.bar.appendChild(button);
@@ -47,6 +48,7 @@ export class Toolbar {
         'seed',
         `<span class="pic"><img alt="" draggable="false" src="${cropIcons[id]}" /></span><span class="name">${crop.name}</span><span class="cost"></span>`,
       );
+      button.dataset['info'] = `crop:${id}`;
       button.addEventListener('click', () => this.selectCrop(id));
       this.cropButtons.set(id, button);
       this.tray.appendChild(button);

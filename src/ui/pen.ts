@@ -107,7 +107,7 @@ export class PenDialog extends Modal {
           info = `<b>${def.name} ${n + 1}</b><small class="ok">Pronto!</small>`;
           button = `<button type="button" class="sell wide" data-act="collect" data-id="${animal.id}">Coletar</button>`;
         }
-        return row(SPECIES_ICONS[species], info, button);
+        return row(SPECIES_ICONS[species], info, button, false, `species:${species}`);
       })
       .join('');
 
@@ -119,6 +119,8 @@ export class PenDialog extends Modal {
       FEED_ICONS[species],
       `<b>${def.feedName} <span class="count">×${farm.feed[species]}</span></b><small>${feedInfo} → ${def.recipe.yield} sacos</small>`,
       `<button type="button" class="buy wide" data-act="make-feed">Fazer</button><button type="button" class="buy wide" data-act="get-feed">Loja</button>`,
+      false,
+      `feed:${species}`,
     );
 
     const full = pen.animals.length >= cap;
@@ -128,6 +130,8 @@ export class PenDialog extends Modal {
       `<button type="button" class="buy wide" data-act="animal" ${full || farm.coins < def.animalCost ? 'disabled' : ''}>${
         full ? 'Cheio' : 'Comprar'
       }</button>`,
+      false,
+      `species:${species}`,
     );
 
     const next = nextPenUpgrade(species, pen.level);

@@ -9,6 +9,7 @@ export abstract class Modal<T extends string = string> {
   protected readonly titleEl: HTMLElement;
   private readonly tabButtons = new Map<T, HTMLButtonElement>();
   private lastHtml = '';
+  private pressed = false;
   protected tab: T;
 
   constructor(
@@ -50,6 +51,14 @@ export abstract class Modal<T extends string = string> {
     window.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && this.isOpen) this.close();
     });
+    // Never swap the buttons out from under a finger or mouse button that is still down.
+    const release = (): void => {
+      window.setTimeout(() => (this.pressed = false), 60);
+    };
+    root.addEventListener('pointerdown', () => (this.pressed = true));
+    root.addEventListener('pointerup', release);
+    root.addEventListener('pointercancel', release);
+    root.addEventListener('pointerleave', release);
     this.body.addEventListener('click', (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-act]');
       if (button && !button.disabled) this.onAction(button.dataset['act']!, button.dataset);
@@ -71,7 +80,7 @@ export abstract class Modal<T extends string = string> {
 
   /** Re-renders while open; skipped when nothing changed, so buttons are not swapped under a finger. */
   refresh(): void {
-    if (this.isOpen) this.paint(false);
+    if (this.isOpen && !this.pressed) this.paint(false);
   }
 
   protected show(tab: T): void {
@@ -87,6 +96,7 @@ export abstract class Modal<T extends string = string> {
     const scroll = this.body.scrollTop;
     this.body.innerHTML = html;
     this.body.scrollTop = reset ? 0 : scroll;
+    document.dispatchEvent(new CustomEvent('ui-repainted'));
     this.titleEl.innerHTML = this.title();
   }
 

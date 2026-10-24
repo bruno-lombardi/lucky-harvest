@@ -60,19 +60,19 @@ export class BarnDialog extends Modal<BarnTab> {
     let html = '';
     if (seeds.length) {
       html += heading('Sementes');
-      html += seeds.map((id) => row(img(this.cropIcons[id]), `<b>${CROPS[id].name} ${count(farm.seeds[id])}</b>`)).join('');
+      html += seeds.map((id) => row(img(this.cropIcons[id]), `<b>${CROPS[id].name} ${count(farm.seeds[id])}</b>`, '', false, `crop:${id}`)).join('');
     }
     if (crops.length) {
       html += heading('Colheitas');
-      html += crops.map((id) => row(img(this.cropIcons[id]), `<b>${CROPS[id].name} ${count(farm.produce[id])}</b>`)).join('');
+      html += crops.map((id) => row(img(this.cropIcons[id]), `<b>${CROPS[id].name} ${count(farm.produce[id])}</b>`, '', false, `crop:${id}`)).join('');
     }
     if (products.length) {
       html += heading('Produtos');
-      html += products.map((id) => row(PRODUCT_ICONS[id], `<b>${PRODUCTS[id].name} ${count(farm.products[id])}</b>`)).join('');
+      html += products.map((id) => row(PRODUCT_ICONS[id], `<b>${PRODUCTS[id].name} ${count(farm.products[id])}</b>`, '', false, `product:${id}`)).join('');
     }
     if (feed.length) {
       html += heading('Ração');
-      html += feed.map((id) => row(FEED_ICONS[id], `<b>${SPECIES[id].feedName} ${count(farm.feed[id])}</b>`)).join('');
+      html += feed.map((id) => row(FEED_ICONS[id], `<b>${SPECIES[id].feedName} ${count(farm.feed[id])}</b>`, '', false, `feed:${id}`)).join('');
     }
     if (!html) {
       return (
@@ -102,7 +102,7 @@ export class BarnDialog extends Modal<BarnTab> {
       const buttons =
         `<button type="button" class="buy wide" data-act="craft" data-species="${id}" data-qty="1" ${max < 1 ? 'disabled' : ''}>Fazer</button>` +
         (max > 1 ? `<button type="button" class="buy" data-act="craft" data-species="${id}" data-qty="${max}">×${max}</button>` : '');
-      return row(FEED_ICONS[id], info, buttons);
+      return row(FEED_ICONS[id], info, buttons, false, `feed:${id}`);
     }).join('');
     return `${rows}<p class="tip">Cada animal come um saco de ração do seu tipo. Sem ração, ele não produz.</p>
       <button type="button" class="big-action alt" data-act="shop" data-tab="feed">Comprar ração pronta</button>`;

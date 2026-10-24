@@ -8,9 +8,9 @@ export const coin = (amount: number): string =>
   `<span class="price"><i class="ico">${COIN_ICON}</i>${amount.toLocaleString('pt-BR')}</span>`;
 
 /** A list row: icon (inline svg or img markup), text, buttons. */
-export function row(pic: string, info: string, buttons = '', locked = false): string {
+export function row(pic: string, info: string, buttons = '', locked = false, infoKey = ''): string {
   return `
-    <div class="shop-row${locked ? ' locked' : ''}">
+    <div class="shop-row${locked ? ' locked' : ''}"${infoKey ? ` data-info="${infoKey}"` : ''}>
       <span class="pic">${pic}</span>
       <span class="info">${info}</span>
       <span class="buttons">${buttons}</span>

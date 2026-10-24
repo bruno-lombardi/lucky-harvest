@@ -24,6 +24,8 @@ import { COIN_ICON, MOON_ICON, SOUND_OFF_ICON, SOUND_ON_ICON, SUN_ICON, hydrateI
 import { Shop, ShopTab } from './ui/shop';
 import { Toolbar } from './ui/toolbar';
 import { cursorFor } from './ui/cursors';
+import { InfoCard } from './ui/info-card';
+import { infoCard } from './ui/info';
 
 function required(id: string): HTMLElement {
   const found = document.getElementById(id);
@@ -385,6 +387,7 @@ cropIcons = game.renderCropIcons();
 game.setToolCursor(cursorFor('olhar'));
 lastLevelShown = farm.level;
 toolbar = new Toolbar(required('toolbar'), required('seed-tray'), (m) => toast.show(m), cropIcons);
+new InfoCard((key) => infoCard(key, farm));
 toolbar.onToolChange = (mode) => {
   game.setToolCursor(cursorFor(mode));
   tip.hidden = true;

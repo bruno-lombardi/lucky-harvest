@@ -12,6 +12,7 @@ const MIN = 60_000;
 export interface ProductDef {
   readonly id: ProductId;
   readonly name: string;
+  readonly lore: string;
   readonly sellPrice: number;
 }
 
@@ -26,6 +27,10 @@ export interface SpeciesDef {
   readonly id: SpeciesId;
   readonly name: string;
   readonly penName: string;
+  /** Flavour text for the animal and its pen. */
+  readonly lore: string;
+  /** Flavour text for the feed. */
+  readonly feedLore: string;
   readonly feedName: string;
   readonly product: ProductId;
   readonly unlockLevel: number;
@@ -44,9 +49,9 @@ export interface SpeciesDef {
 }
 
 export const PRODUCTS: Readonly<Record<ProductId, ProductDef>> = {
-  ovo: { id: 'ovo', name: 'Ovo', sellPrice: 40 },
-  leite: { id: 'leite', name: 'Leite', sellPrice: 120 },
-  trufa: { id: 'trufa', name: 'Trufa', sellPrice: 260 },
+  ovo: { id: 'ovo', name: 'Ovo', lore: 'Fresquinho, ainda morno do ninho. Serve para o café da manhã de toda a vila.', sellPrice: 40 },
+  leite: { id: 'leite', name: 'Leite', lore: 'Tirado de manhã cedo, cremoso e docinho. A vila inteira vem buscar.', sellPrice: 120 },
+  trufa: { id: 'trufa', name: 'Trufa', lore: 'Um tesouro escondido na lama que só o focinho de um porco encontra. Os cozinheiros pagam caro.', sellPrice: 260 },
 };
 
 export const SPECIES: Readonly<Record<SpeciesId, SpeciesDef>> = {
@@ -54,6 +59,8 @@ export const SPECIES: Readonly<Record<SpeciesId, SpeciesDef>> = {
     id: 'galinha',
     name: 'Galinha',
     penName: 'Galinheiro',
+    lore: 'Cacarejam desde o nascer do sol e põem ovos sem reclamar. A primeira moradora de toda fazenda.',
+    feedLore: 'Grãos de trigo moídos, do jeito que as galinhas gostam.',
     feedName: 'Ração de galinha',
     product: 'ovo',
     unlockLevel: 2,
@@ -70,6 +77,8 @@ export const SPECIES: Readonly<Record<SpeciesId, SpeciesDef>> = {
     id: 'vaca',
     name: 'Vaca',
     penName: 'Curral',
+    lore: 'Mansas e pacientes, comem sem pressa e dão leite fresco. Gostam de companhia e de um capim fofo.',
+    feedLore: 'Milho moído e misturado, gostoso e cheio de força.',
     feedName: 'Ração de vaca',
     product: 'leite',
     unlockLevel: 4,
@@ -86,6 +95,8 @@ export const SPECIES: Readonly<Record<SpeciesId, SpeciesDef>> = {
     id: 'porco',
     name: 'Porco',
     penName: 'Chiqueiro',
+    lore: 'Fuçadores e gulosos. Passam o dia na lama atrás de trufas: dão pouco, mas valem muito.',
+    feedLore: 'Tomate amassado e bem temperado. Porco que come bem, fareja melhor.',
     feedName: 'Ração de porco',
     product: 'trufa',
     unlockLevel: 6,

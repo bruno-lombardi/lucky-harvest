@@ -6,6 +6,8 @@ export type CropShape = 'root' | 'grain' | 'tall' | 'bush' | 'berry' | 'gourd';
 export interface CropDef {
   readonly id: CropId;
   readonly name: string;
+  /** A line of flavour text shown before buying. */
+  readonly lore: string;
   readonly emoji: string;
   readonly shape: CropShape;
   readonly unlockLevel: number;
@@ -25,6 +27,7 @@ export const CROPS: Readonly<Record<CropId, CropDef>> = {
   cenoura: {
     id: 'cenoura',
     name: 'Cenoura',
+    lore: 'Crocante e apressada: a primeira amiga de toda horta. Ótima para quem está começando.',
     emoji: '🥕',
     shape: 'root',
     unlockLevel: 1,
@@ -38,6 +41,7 @@ export const CROPS: Readonly<Record<CropId, CropDef>> = {
   trigo: {
     id: 'trigo',
     name: 'Trigo',
+    lore: 'Dourado ao sol, vira ração de galinha e pão de domingo. Quem planta trigo nunca fica sem serviço.',
     emoji: '🌾',
     shape: 'grain',
     unlockLevel: 1,
@@ -51,6 +55,7 @@ export const CROPS: Readonly<Record<CropId, CropDef>> = {
   milho: {
     id: 'milho',
     name: 'Milho',
+    lore: 'Alto e orgulhoso, adora sol. Vaca nenhuma resiste a uma ração de milho bem moído.',
     emoji: '🌽',
     shape: 'tall',
     unlockLevel: 2,
@@ -64,6 +69,7 @@ export const CROPS: Readonly<Record<CropId, CropDef>> = {
   tomate: {
     id: 'tomate',
     name: 'Tomate',
+    lore: 'Vermelho e suculento. Os porcos são loucos por ele, mas a planta pede rega e atenção.',
     emoji: '🍅',
     shape: 'bush',
     unlockLevel: 3,
@@ -77,6 +83,7 @@ export const CROPS: Readonly<Record<CropId, CropDef>> = {
   morango: {
     id: 'morango',
     name: 'Morango',
+    lore: 'Docinho e delicado. Dá bom lucro, mas não perdoa quem esquece de cuidar.',
     emoji: '🍓',
     shape: 'berry',
     unlockLevel: 5,
@@ -90,6 +97,7 @@ export const CROPS: Readonly<Record<CropId, CropDef>> = {
   abobora: {
     id: 'abobora',
     name: 'Abóbora',
+    lore: 'A rainha da horta! Demora para crescer, mas cada uma vale muitas moedas.',
     emoji: '🎃',
     shape: 'gourd',
     unlockLevel: 8,

@@ -37,7 +37,8 @@ You start with 100 coins, a few seeds and a 6×6 plot.
     - **Tonico, o ajudante** (Nv 5): a farmhand who walks to the nearest ripe crop, pulls it and tosses it in his basket.
     - **Mingau, o gato** (Nv 7): stalks and pounces on weeds and bugs.
     Each can be upgraded to level 3. Away from the game they work for at most 30 minutes.
-13. **Menu (gear):** the game saves itself every few seconds on this device. Export or import the save file, or start over.
+13. **Detalhes:** hover (or long-press on touch) any seed, tool, feed, animal, pen, helper or land item for a card with its story, how long it takes, what it costs and what it earns.
+14. **Menu (gear):** the game saves itself every few seconds on this device. Export or import the save file, or start over.
 
 Level up to unlock more valuable crops: 🥕 🌾 → 🌽 (Nv 2) → 🍅 (Nv 3) → 🍓 (Nv 5) → 🎃 (Nv 8).
 Growth times are short for now (45 s to 25 min); tune them in `src/core/crops.ts`.

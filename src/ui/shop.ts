@@ -39,6 +39,11 @@ export class Shop extends Modal<ShopTab> {
   }
 
   protected html(): string {
+    const hint = '<p class="tip hint">Passe o mouse (ou segure o dedo) sobre um item para ver os detalhes.</p>';
+    return this.tab === 'land' ? this.tabHtml() : this.tabHtml() + hint;
+  }
+
+  private tabHtml(): string {
     switch (this.tab) {
       case 'seeds':
         return this.seedsHtml();
@@ -109,7 +114,7 @@ export class Shop extends Modal<ShopTab> {
         `<button type="button" class="buy" data-act="buy" data-crop="${id}" data-qty="${qty}" ${
           locked || farm.coins < crop.seedCost * qty ? 'disabled' : ''
         }>×${qty}</button>`;
-      return row(img(this.cropIcons[id]), info, locked ? '' : `${button(1)}${button(5)}${button(10)}`, locked);
+      return row(img(this.cropIcons[id]), info, locked ? '' : `${button(1)}${button(5)}${button(10)}`, locked, `crop:${id}`);
     }).join('');
   }
 
@@ -123,7 +128,7 @@ export class Shop extends Modal<ShopTab> {
         `<button type="button" class="buy" data-act="buy-feed" data-species="${id}" data-qty="${qty}" ${
           farm.coins < def.feedPrice * qty ? 'disabled' : ''
         }>×${qty}</button>`;
-      return row(FEED_ICONS[id], info, `${button(1)}${button(5)}`, !hasPen && farm.level < def.unlockLevel);
+      return row(FEED_ICONS[id], info, `${button(1)}${button(5)}`, !hasPen && farm.level < def.unlockLevel, `feed:${id}`);
     }).join('');
     return `${rows}<p class="tip">Dica: no celeiro você transforma suas colheitas em ração, de graça.</p>`;
   }
@@ -150,6 +155,8 @@ export class Shop extends Modal<ShopTab> {
             img(this.cropIcons[id]),
             `<b>${CROPS[id].name} <span class="count">×${farm.produce[id]}</span></b><small>${coin(CROPS[id].sellPrice)} cada</small>`,
             sellButtons('sell', 'crop', id, farm.produce[id]),
+            false,
+            `crop:${id}`,
           ),
         )
         .join('');
@@ -162,6 +169,8 @@ export class Shop extends Modal<ShopTab> {
             PRODUCT_ICONS[id],
             `<b>${PRODUCTS[id].name} <span class="count">×${farm.products[id]}</span></b><small>${coin(PRODUCTS[id].sellPrice)} cada</small>`,
             sellButtons('sell-product', 'product', id, farm.products[id]),
+            false,
+            `product:${id}`,
           ),
         )
         .join('');
@@ -184,7 +193,7 @@ export class Shop extends Modal<ShopTab> {
           : `<button type="button" class="buy wide" data-act="build" data-species="${id}" ${
               farm.coins < def.penCost ? 'disabled' : ''
             }>Construir</button>`;
-        return row(SPECIES_ICONS[id], info, button, locked);
+        return row(SPECIES_ICONS[id], info, button, locked, `species:${id}`);
       }
       const cap = penCapacity(id, pen.level);
       const full = pen.animals.length >= cap;
@@ -192,7 +201,7 @@ export class Shop extends Modal<ShopTab> {
       const button = `<button type="button" class="buy wide" data-act="animal" data-species="${id}" ${
         full || farm.coins < def.animalCost ? 'disabled' : ''
       }>${full ? 'Cheio' : 'Comprar'}</button>`;
-      return row(SPECIES_ICONS[id], info, button);
+      return row(SPECIES_ICONS[id], info, button, false, `species:${id}`);
     }).join('');
   }
 
@@ -211,7 +220,7 @@ export class Shop extends Modal<ShopTab> {
         const button = locked
           ? ''
           : `<button type="button" class="buy wide" data-act="hire" data-helper="${id}" ${farm.coins < def.hireCost ? 'disabled' : ''}>Contratar</button>`;
-        return row(HELPER_ICONS[id], info, button, locked);
+        return row(HELPER_ICONS[id], info, button, locked, `helper:${id}`);
       }
       const wage = helperWage(id, state.level);
       const next = nextHelperUpgrade(id, state.level);
@@ -228,6 +237,8 @@ export class Shop extends Modal<ShopTab> {
         HELPER_ICONS[id],
         `<b>${def.name} <span class="count">${stars}</span></b>${status}<small>${def.perks[state.level - 1]}</small>`,
         buttons,
+        false,
+        `helper:${id}`,
       );
     }).join('');
     return `${intro}${rows}`;
@@ -243,7 +254,7 @@ export class Shop extends Modal<ShopTab> {
     const levelOk = farm.level >= next.level;
     const coinsOk = farm.coins >= next.cost;
     return `
-      <div class="land-card">
+      <div class="land-card" data-info="land:next">
         <i class="ico big">${LAND_ICON}</i>
         <h3>Terreno ${next.size}×${next.size}</h3>
         <p>Hoje você cultiva ${now}. Mais espaço, mais plantações!</p>

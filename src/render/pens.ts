@@ -415,6 +415,8 @@ export class Pens {
       else if (species === 'vaca') head.rotation.x = 0.35 + Math.sin(t * 1.5) * 0.12;
       else head.rotation.x = Math.sin(t * 5) * 0.1;
       body.rotation.z = 0;
+      for (const leg of a.model.legs) leg.rotation.x *= 0.8;
+      if (a.model.tail) a.model.tail.rotation.z = Math.sin(t * (species === 'porco' ? 3 : 1.8)) * 0.25;
       if (a.pause <= 0) {
         a.target = { x: MathUtils.lerp(b.minX, b.maxX, a.rand()), z: MathUtils.lerp(b.minZ, b.maxZ, a.rand()) };
       }
@@ -439,6 +441,9 @@ export class Pens {
         body.position.y = Math.abs(Math.sin(t * gait)) * (species === 'vaca' ? 0.015 : 0.03);
         body.rotation.z = Math.sin(t * gait) * 0.05;
         head.rotation.x = species === 'galinha' ? Math.sin(t * gait * 2) * 0.15 : 0;
+        // Diagonal pairs of legs swing together.
+        const swing = species === 'vaca' ? 0.5 : 0.65;
+        a.model.legs.forEach((leg, n) => (leg.rotation.x = Math.sin(t * gait + (n === 0 || n === 3 ? 0 : Math.PI)) * swing));
       }
     }
     root.rotation.y = a.heading;

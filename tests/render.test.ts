@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CROPS, CROP_ORDER } from '../src/core/crops';
-import { CropStage, Farm, LAND } from '../src/core/farm';
+import { CropStage, Farm, START_LAND, landBounds } from '../src/core/farm';
 import { levelThreshold } from '../src/core/levels';
 import { CropKit, buildCropModel } from '../src/render/crop-models';
 import { FarmView } from '../src/render/farm-view';
@@ -10,8 +10,8 @@ import { createToonGradient } from '../src/render/toon';
 // three.js builds geometry and scene graphs fine without a GL context, so these
 // are cheap smoke tests that catch runtime errors in the procedural models.
 
-const I = LAND.min;
-const J = LAND.min;
+const I = landBounds(START_LAND).min;
+const J = I;
 
 describe('procedural crop models', () => {
   const kit = new CropKit(createToonGradient());
@@ -48,9 +48,35 @@ describe('terrain', () => {
   });
 });
 
+describe('pest visuals', () => {
+  it('shows weeds or bugs on infested crops and drops them once cared for', () => {
+    for (const rng of [() => 0.1, () => 0.9]) {
+      // rng 0.1 -> infested, first draw picks "weed"; the second run (0.9 -> no pest) must stay clean.
+      const farm = new Farm(rng);
+      const view = new FarmView(farm, 24, createToonGradient());
+      farm.plow(I, J);
+      farm.plant(I, J, 'cenoura', 0);
+      const crop = farm.tile(I, J).crop!;
+      farm.water(I, J, 0);
+      const at = crop.pestAt === null ? 1000 : crop.pestAt + 1000;
+      view.update(0.016, at);
+      const cropGroup = view.group.children[1] as { children: Array<{ userData: Record<string, unknown> }> };
+      const pests = cropGroup.children.filter((c) => c.userData['kind'] === 'weeds' || c.userData['kind'] === 'bugs');
+      expect(pests).toHaveLength(crop.pestAt === null ? 0 : 1);
+      view.update(0.5, at); // animates bugs without throwing
+
+      if (crop.pestAt !== null) {
+        expect(farm.care(I, J, at).ok).toBe(true);
+        view.update(0.016, at);
+        expect(cropGroup.children.some((c) => c.userData['kind'] === 'weeds' || c.userData['kind'] === 'bugs')).toBe(false);
+      }
+    }
+  });
+});
+
 describe('FarmView', () => {
   it('follows the farm through plow, plant, grow, harvest and clear', () => {
-    const farm = new Farm();
+    const farm = new Farm(() => 0.99); // no pests
     const view = new FarmView(farm, 24, createToonGradient());
     const carrot = CROPS.cenoura;
     let now = 0;
@@ -84,7 +110,9 @@ describe('FarmView', () => {
 
   it('handles thirsty and withered crops', () => {
     // Abóbora unlocks at level 8, so start with enough XP and coins.
-    const farm = Farm.fromSnapshot({ version: 1, coins: 1000, xp: levelThreshold(8), tiles: {} });
+    const farm = new Farm(() => 0.99);
+    farm.xp = levelThreshold(8);
+    farm.seeds.abobora = 1;
     const view = new FarmView(farm, 24, createToonGradient());
     expect(farm.plow(I, J).ok).toBe(true);
     expect(farm.plant(I, J, 'abobora', 0).ok).toBe(true);

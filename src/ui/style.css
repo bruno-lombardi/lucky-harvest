@@ -169,7 +169,7 @@ button .cost .ico {
 
 .hud-hint {
   position: absolute;
-  top: max(14px, env(safe-area-inset-top));
+  bottom: max(14px, env(safe-area-inset-bottom));
   right: max(14px, env(safe-area-inset-right));
   max-width: 46vw;
   padding: 5px 12px;
@@ -309,7 +309,7 @@ button.seed {
 }
 
 button.tool {
-  width: 62px;
+  width: 60px;
   height: 62px;
 }
 
@@ -432,8 +432,15 @@ button.poor .cost {
 
 @media (max-width: 520px) {
   button.tool {
-    width: 56px;
-    height: 58px;
+    width: 50px;
+    height: 56px;
+  }
+  button.tool .name {
+    font-size: 10px;
+  }
+  #toolbar {
+    gap: 4px;
+    padding: 6px;
   }
   button.seed {
     width: 68px;
@@ -449,5 +456,405 @@ button.poor .cost {
   }
   .badge.level {
     min-width: 104px;
+  }
+}
+
+/* ---------- Shop button in the top bar ---------- */
+.hud-top .shop-btn {
+  margin-left: auto;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  width: 66px;
+  padding: 4px 4px 5px;
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: 13px;
+  color: #fff3d6;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  border-radius: 16px;
+  border: 2px solid #5b3517;
+  background: linear-gradient(to bottom, #c98a4a, var(--wood-2));
+  box-shadow:
+    inset 0 2px 0 rgba(255, 220, 160, 0.5),
+    0 4px 0 rgba(60, 30, 10, 0.55),
+    0 8px 14px rgba(0, 0, 0, 0.22);
+}
+
+.shop-btn .shop-pic {
+  display: flex;
+  width: 34px;
+  height: 34px;
+}
+
+.shop-btn .shop-pic svg {
+  width: 100%;
+  height: 100%;
+}
+
+.shop-btn.nudge {
+  animation: nudge 0.9s ease-in-out 3;
+}
+
+@keyframes nudge {
+  20%,
+  60% {
+    transform: rotate(-7deg) scale(1.08);
+  }
+  40%,
+  80% {
+    transform: rotate(7deg) scale(1.08);
+  }
+}
+
+/* ---------- Shop dialog ---------- */
+#shop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+}
+
+#shop[hidden] {
+  display: none;
+}
+
+.shop-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(24, 40, 60, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.shop-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(480px, 100%);
+  max-height: min(640px, 100%);
+  border-radius: 22px;
+  border: 3px solid #5b3517;
+  background: linear-gradient(to bottom, #fff7de, #f3dfae);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.9),
+    0 6px 0 rgba(60, 30, 10, 0.6),
+    0 20px 40px rgba(0, 0, 0, 0.35);
+  animation: shop-in 0.22s ease-out;
+}
+
+@keyframes shop-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+}
+
+.shop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 10px 16px;
+  border-radius: 18px 18px 0 0;
+  background: linear-gradient(to bottom, #c98a4a, var(--wood-2));
+  box-shadow: inset 0 2px 0 rgba(255, 220, 160, 0.5), 0 3px 0 rgba(60, 30, 10, 0.45);
+}
+
+.shop-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff3d6;
+  text-shadow: 0 2px 0 rgba(60, 30, 10, 0.7);
+}
+
+.shop-title .ico {
+  width: 30px;
+  height: 30px;
+  margin: 0;
+}
+
+.shop-close {
+  width: 36px;
+  height: 36px;
+  font: 700 26px/1 var(--font);
+  color: #fff;
+  cursor: pointer;
+  border-radius: 50%;
+  border: 2px solid #7a1f17;
+  background: linear-gradient(to bottom, #ff7a63, #d6372b);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 3px 0 rgba(90, 20, 10, 0.6);
+}
+
+.shop-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 12px 12px 0;
+}
+
+.shop-tab {
+  flex: 1;
+  padding: 8px 4px;
+  font: 600 15px var(--font);
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 12px 12px 0 0;
+  border: 2px solid #a9772f;
+  border-bottom: 0;
+  background: #ecd5a0;
+  opacity: 0.85;
+}
+
+.shop-tab.active {
+  opacity: 1;
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(120, 70, 10, 0.7);
+  border-color: var(--gold-3);
+  background: linear-gradient(to bottom, var(--gold-1), var(--gold-2));
+}
+
+.shop-body {
+  flex: 1;
+  min-height: 140px;
+  overflow-y: auto;
+  padding: 10px 12px 14px;
+  margin: 0 12px 12px;
+  border-radius: 0 0 14px 14px;
+  border: 2px solid #a9772f;
+  background: rgba(255, 255, 255, 0.45);
+  -webkit-overflow-scrolling: touch;
+}
+
+.shop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  margin-bottom: 8px;
+  border-radius: 14px;
+  border: 2px solid #d9bd85;
+  background: linear-gradient(to bottom, #fffaf0, #f7e7bf);
+}
+
+.shop-row.locked {
+  filter: grayscale(0.85);
+  opacity: 0.6;
+}
+
+.shop-row .pic {
+  display: flex;
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+}
+
+.shop-row .pic img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.shop-row .info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shop-row .info b {
+  font-size: 17px;
+}
+
+.shop-row .info small {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.shop-row .count {
+  color: #2f7d1e;
+}
+
+.shop .ico,
+.shop-panel .ico {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  margin: 0 0.2em 0 0;
+  vertical-align: -0.2em;
+}
+
+.price {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+}
+
+.shop-row .buttons {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.buy,
+.sell,
+.big-action {
+  font: 600 15px var(--font);
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(20, 70, 10, 0.6);
+  cursor: pointer;
+  border-radius: 11px;
+  border: 2px solid #2f7d1e;
+  background: linear-gradient(to bottom, #9be860, #4fc23a 55%, #3aa02a);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.6), 0 3px 0 rgba(30, 80, 15, 0.7);
+  touch-action: manipulation;
+}
+
+.buy {
+  min-width: 40px;
+  padding: 7px 6px;
+}
+
+.sell {
+  padding: 7px 9px;
+  border-color: var(--gold-3);
+  background: linear-gradient(to bottom, var(--gold-1), var(--gold-2) 55%, #e59a14);
+  text-shadow: 0 1px 0 rgba(120, 70, 10, 0.7);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.7), 0 3px 0 rgba(120, 70, 10, 0.7);
+}
+
+.buy:active,
+.sell:active,
+.big-action:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 1px 0 rgba(30, 60, 10, 0.6);
+}
+
+.buy:disabled,
+.sell:disabled,
+.big-action:disabled {
+  cursor: default;
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.big-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 11px;
+  font-size: 18px;
+}
+
+.big-action .price {
+  color: #fff;
+}
+
+.shop-empty,
+.land-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 10px 8px;
+  text-align: center;
+}
+
+.shop-empty p,
+.land-card p {
+  margin: 0;
+  font-size: 16px;
+}
+
+.shop-empty small {
+  opacity: 0.8;
+}
+
+.ico.big {
+  width: 76px !important;
+  height: 76px !important;
+  margin: 0 0 4px !important;
+}
+
+.ico.big svg {
+  width: 100%;
+  height: 100%;
+}
+
+.land-card h3 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.needs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.needs li {
+  padding: 5px 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 2px solid #a9772f;
+  background: #fff;
+}
+
+.needs li.ok {
+  border-color: #2f7d1e;
+  background: #e2f8d0;
+}
+
+.needs li.miss {
+  border-color: #b3261e;
+  background: #fde1dd;
+  color: #8e1a14;
+}
+
+.floater .ico img,
+.floater img {
+  width: 1.3em;
+  height: 1.3em;
+  vertical-align: -0.35em;
+  margin-left: 2px;
+}
+
+@media (max-width: 520px) {
+  .hud-top {
+    gap: 6px;
+  }
+  .hud-top .shop-btn {
+    width: 56px;
+  }
+  .shop-btn .shop-pic {
+    width: 28px;
+    height: 28px;
+  }
+  .shop-btn .shop-label {
+    font-size: 11px;
+  }
+  .shop-row .pic {
+    width: 44px;
+    height: 44px;
+  }
+  .shop-row .info b {
+    font-size: 15px;
+  }
+  .shop-row .info small {
+    font-size: 12px;
   }
 }

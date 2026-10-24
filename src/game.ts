@@ -8,7 +8,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import { CropId } from './core/crops';
-import { Farm, isUnlocked } from './core/farm';
+import { Farm } from './core/farm';
 import { GRID_SIZE, TileCoord, tileToWorld } from './core/grid';
 import { Clouds } from './render/clouds';
 import { renderCropIcons } from './render/icons';
@@ -41,6 +41,7 @@ export class Game {
   private readonly farmView: FarmView;
   private readonly gradient = createToonGradient(4);
   private elapsed = 0;
+  private shownLand: number;
   private readonly resizeObserver: ResizeObserver;
   private readonly projected = new Vector3();
 
@@ -49,7 +50,7 @@ export class Game {
 
   constructor(
     private readonly container: HTMLElement,
-    farm: Farm,
+    private readonly farm: Farm,
     private readonly events: GameEvents = {},
   ) {
     // Transparent canvas: the CSS sky gradient shows through behind the island.
@@ -60,11 +61,12 @@ export class Game {
     this.renderer.setClearColor(0x000000, 0);
     container.appendChild(this.renderer.domElement);
 
+    this.shownLand = farm.landSize;
     const gradient = this.gradient;
-    this.terrain = new Terrain(GRID_SIZE, gradient, 1337, isUnlocked);
+    this.terrain = new Terrain(GRID_SIZE, gradient, 1337, (i, j) => farm.isUnlocked(i, j));
     this.scene.add(this.terrain.group);
     this.farmView = new FarmView(farm, GRID_SIZE, gradient);
-    this.props = new Props(gradient);
+    this.props = new Props(gradient, farm.landSize);
     this.clouds = new Clouds();
     this.scene.add(this.props.group, this.farmView.group, this.clouds.group, this.highlight.group);
     this.addLights();
@@ -165,6 +167,11 @@ export class Game {
     this.elapsed += dt;
     this.cameraController.update(dt);
     this.terrain.update(this.elapsed);
+    if (this.shownLand !== this.farm.landSize) {
+      this.shownLand = this.farm.landSize;
+      this.props.setLandSize(this.shownLand);
+      this.terrain.refreshLand();
+    }
     this.farmView.update(dt, now);
     this.props.update(dt);
     this.clouds.update(dt);

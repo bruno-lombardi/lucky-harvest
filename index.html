@@ -19,6 +19,9 @@
           <div class="xptext" id="hud-xp-text">0/50 XP</div>
         </div>
         <div class="badge coins"><span class="coin" data-icon="coin"></span><span id="hud-coins" class="num">0</span></div>
+        <button type="button" id="shop-btn" class="shop-btn" aria-label="Abrir a loja">
+          <span class="shop-pic" data-icon="shop"></span><span class="shop-label">Loja</span>
+        </button>
       </div>
       <div id="toast" role="status" aria-live="polite"></div>
       <div class="hud-bottom">
@@ -29,6 +32,7 @@
       <div class="hud-hint">Arraste: mover · Pinça ou rolagem: zoom</div>
     </div>
     <div id="floaters"></div>
+    <div id="shop" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

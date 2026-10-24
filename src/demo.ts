@@ -1,5 +1,5 @@
 import { CROPS, CROP_ORDER, CropId } from './core/crops';
-import { CropState, Farm, FarmSnapshot, LAND, TileState } from './core/farm';
+import { CropState, Farm, FarmSnapshot, LAND, MAX_LAND, TileState } from './core/farm';
 import { tileKey } from './core/grid';
 import { levelThreshold } from './core/levels';
 import { mulberry32 } from './core/noise';
@@ -12,24 +12,29 @@ export function createDemoFarm(now: number): Farm {
   const tiles: Record<string, TileState> = {};
   const rand = mulberry32(2024);
 
-  const grown = (cropId: CropId, progress: number): CropState => ({
-    cropId,
-    plantedAt: now - progress * CROPS[cropId].growthMs,
-    watered: true,
-    pausedMs: 0,
-  });
-  const thirsty = (cropId: CropId): CropState => ({
-    cropId,
-    plantedAt: now - 0.6 * CROPS[cropId].growthMs,
-    watered: false,
-    pausedMs: 0,
-  });
-  const withered = (cropId: CropId): CropState => ({
-    cropId,
-    plantedAt: now - (CROPS[cropId].growthMs + CROPS[cropId].witherMs + 5000),
-    watered: true,
-    pausedMs: 0,
-  });
+  const make = (cropId: CropId, progress: number, over: Partial<CropState> = {}): CropState => {
+    const plantedAt = now - progress * CROPS[cropId].growthMs;
+    return {
+      cropId,
+      plantedAt,
+      watered: true,
+      anchorAt: plantedAt,
+      anchorGrowth: 0,
+      pestAt: null,
+      pestKind: null,
+      ...over,
+    };
+  };
+  const grown = (cropId: CropId, progress: number): CropState => make(cropId, progress);
+  const thirsty = (cropId: CropId): CropState => make(cropId, 0.6, { watered: false });
+  const withered = (cropId: CropId): CropState =>
+    make(cropId, 1 + (CROPS[cropId].witherMs + 5000) / CROPS[cropId].growthMs);
+  /** Growth froze 20 s into the infestation; the crop keeps its progress until it is cleaned. */
+  const infested = (cropId: CropId, kind: 'weed' | 'bug'): CropState => {
+    const def = CROPS[cropId];
+    const pestAt = now - 20_000;
+    return make(cropId, 0.55, { anchorAt: pestAt, anchorGrowth: 0.35 * def.growthMs, pestAt, pestKind: kind });
+  };
 
   const put = (i: number, j: number, crop: CropState | null): void => {
     tiles[tileKey(i, j)] = { kind: 'soil', crop };
@@ -44,7 +49,7 @@ export function createDemoFarm(now: number): Farm {
       thirsty(id),
       grown(id, 1),
       withered(id),
-      null,
+      row % 2 === 0 ? infested(id, 'weed') : infested(id, 'bug'),
     ];
     states.forEach((crop, col) => put(LAND.min + col, j, crop));
   });
@@ -57,6 +62,14 @@ export function createDemoFarm(now: number): Farm {
     }
   }
 
-  const snapshot: FarmSnapshot = { version: 1, coins: 1250, xp: levelThreshold(8) + 120, tiles };
+  const snapshot: FarmSnapshot = {
+    version: 2,
+    coins: 1250,
+    xp: levelThreshold(8) + 120,
+    landSize: MAX_LAND,
+    seeds: Object.fromEntries(CROP_ORDER.map((id) => [id, 12])) as FarmSnapshot['seeds'],
+    produce: Object.fromEntries(CROP_ORDER.map((id, n) => [id, 3 + n * 2])) as FarmSnapshot['produce'],
+    tiles,
+  };
   return Farm.fromSnapshot(snapshot);
 }

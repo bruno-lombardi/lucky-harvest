@@ -1,9 +1,9 @@
 import { CropId } from './crops';
 import { ActionResult, Farm } from './farm';
 
-export type Tool = 'colher' | 'arar' | 'semear' | 'regar' | 'limpar';
+export type Tool = 'colher' | 'arar' | 'semear' | 'regar' | 'cuidar' | 'limpar';
 
-export const TOOLS: readonly Tool[] = ['colher', 'arar', 'semear', 'regar', 'limpar'];
+export const TOOLS: readonly Tool[] = ['colher', 'arar', 'semear', 'regar', 'cuidar', 'limpar'];
 
 /** Applies the active tool to a tile. This is the single entry point for player actions. */
 export function applyTool(
@@ -23,6 +23,8 @@ export function applyTool(
       return farm.plant(i, j, cropId, now);
     case 'regar':
       return farm.water(i, j, now);
+    case 'cuidar':
+      return farm.care(i, j, now);
     case 'limpar':
       return farm.clear(i, j);
   }

@@ -31,7 +31,8 @@ import { addHullOutline, addInstancedHullOutline } from './outline';
  * World axes: the camera looks from +x,+z, so -x,-z is "behind" the plot.
  */
 
-const FENCE_HALF = 5.45;
+/** The fence stands this far outside the plot's edge tiles. */
+const FENCE_MARGIN = 0.45;
 const GATE_Z = 1.0;
 
 const BARN = { x: -8.4, z: 1.0 };
@@ -115,7 +116,7 @@ function instanced(
 // Fence and gate
 // ---------------------------------------------------------------------------
 
-function buildFence(palette: Palette): Group {
+function buildFence(palette: Palette, FENCE_HALF: number): Group {
   const group = new Group();
   const corners: ReadonlyArray<readonly [number, number]> = [
     [-FENCE_HALF, -FENCE_HALF],
@@ -123,7 +124,7 @@ function buildFence(palette: Palette): Group {
     [FENCE_HALF, FENCE_HALF],
     [-FENCE_HALF, FENCE_HALF],
   ];
-  const segments = 11;
+  const segments = Math.round(FENCE_HALF * 2);
   const postMatrices: Matrix4[] = [];
   const capMatrices: Matrix4[] = [];
   const railMatrices: Matrix4[] = [];
@@ -184,17 +185,14 @@ function buildFence(palette: Palette): Group {
   return group;
 }
 
-function buildPath(palette: Palette): Group {
+function buildPath(palette: Palette, fenceHalf: number): Group {
   const rand = mulberry32(77);
-  const spots: Array<[number, number]> = [
-    [-6.85, GATE_Z + 0.05],
-    [-6.2, GATE_Z - 0.1],
-    [-5.75, GATE_Z + 0.12],
-    [-6.7, 3.3],
-    [-6.45, 4.1],
-    [-6.3, 5.0],
-    [-6.4, 5.9],
-  ];
+  // Stepping stones run from the gate to the barn, then branch off toward the pond.
+  const spots: Array<[number, number]> = [];
+  for (let x = -(fenceHalf + 0.35), n = 0; x > -7.1; x -= 0.6, n++) {
+    spots.push([x, GATE_Z + (n % 2 === 0 ? 0.08 : -0.1)]);
+  }
+  spots.push([-6.7, 3.3], [-6.45, 4.1], [-6.3, 5.0], [-6.4, 5.9]);
   const matrices = spots.map(([x, z]) => matrix(x, 0.035, z, 0.34 + rand() * 0.1, 1, 0.3 + rand() * 0.1, rand() * 3));
   const colors = spots.map(() => new Color().setHSL(0.1, 0.12, 0.7 + rand() * 0.1));
   const stones = instanced(new CylinderGeometry(1, 1.06, 0.07, 9), palette.toon(0xffffff), matrices, colors);
@@ -680,11 +678,13 @@ function buildForest(palette: Palette): Group {
 export class Props {
   readonly group = new Group();
   private readonly blades: Group;
+  private readonly land = new Group();
+  private readonly scarecrow: Group;
+  private landSize = 0;
 
-  constructor(gradientMap: DataTexture) {
+  constructor(private readonly gradientMap: DataTexture, landSize: number) {
     const palette = new Palette(gradientMap);
-
-    this.group.add(buildFence(palette), buildPath(palette), buildHay(palette), buildForest(palette));
+    this.group.add(this.land, buildHay(palette), buildForest(palette));
 
     const pond = buildPond(palette);
     pond.position.set(POND.x, 0, POND.z);
@@ -700,15 +700,34 @@ export class Props {
     this.blades = mill.blades;
     this.group.add(mill.group);
 
-    const scarecrow = buildScarecrow(palette);
-    scarecrow.position.set(SCARECROW.x, 0, SCARECROW.z);
-    scarecrow.rotation.y = Math.PI / 4 + 0.2;
-    this.group.add(scarecrow);
+    this.scarecrow = buildScarecrow(palette);
+    this.scarecrow.rotation.y = Math.PI / 4 + 0.2;
+    this.group.add(this.scarecrow);
 
     const sign = buildSign(palette);
     sign.position.set(-6.3, 0, -2.3);
     sign.rotation.y = Math.PI / 4;
     this.group.add(sign);
+
+    this.setLandSize(landSize);
+  }
+
+  /** Moves the fence, gate path and scarecrow to match the owned plot (tiles per side). */
+  setLandSize(size: number): void {
+    if (size === this.landSize) return;
+    this.landSize = size;
+    const half = size / 2 + FENCE_MARGIN;
+
+    for (const child of [...this.land.children]) {
+      this.land.remove(child);
+      child.traverse((o) => {
+        const mesh = o as Mesh;
+        if (mesh.isMesh) mesh.geometry.dispose();
+      });
+    }
+    const palette = new Palette(this.gradientMap);
+    this.land.add(buildFence(palette, half), buildPath(palette, half));
+    this.scarecrow.position.set(half + 1.05, 0, 1.6);
   }
 
   update(dt: number): void {

@@ -1,5 +1,5 @@
 import { getCrop } from '../core/crops';
-import { FailReason, Farm, isUnlocked } from '../core/farm';
+import { FailReason, Farm } from '../core/farm';
 
 export function reasonMessage(reason: FailReason): string {
   switch (reason) {
@@ -25,6 +25,16 @@ export function reasonMessage(reason: FailReason): string {
       return 'Está murcha: limpe com a vassoura';
     case 'nothing-to-clear':
       return 'Nada para limpar aqui';
+    case 'no-seeds':
+      return 'Sem sementes: compre na loja';
+    case 'no-pest':
+      return 'Nada para cuidar aqui';
+    case 'level-too-low':
+      return 'Nível insuficiente';
+    case 'max-land':
+      return 'Seu terreno já está no máximo';
+    case 'nothing-to-sell':
+      return 'Nada para vender';
   }
 }
 
@@ -40,7 +50,7 @@ export function formatDuration(ms: number): string {
 /** One-line description of a tile for the HUD. */
 export function describeTile(farm: Farm, i: number, j: number, now: number): string {
   const label = `(${i + 1}, ${j + 1})`;
-  if (!isUnlocked(i, j)) return `Terreno bloqueado ${label}`;
+  if (!farm.isUnlocked(i, j)) return `Terreno bloqueado ${label}`;
 
   const tile = farm.tile(i, j);
   if (tile.kind === 'grass') return `Grama ${label}`;
@@ -50,6 +60,7 @@ export function describeTile(farm: Farm, i: number, j: number, now: number): str
 
   const name = getCrop(status.cropId).name;
   if (status.withered) return `${name} murcha`;
+  if (status.pest) return `${name}: ${status.pest === 'weed' ? 'cheia de ervas daninhas' : 'com insetos'}!`;
   if (status.ripe) return `${name}: pronta para colher!`;
   if (status.thirsty) return `${name} com sede`;
 

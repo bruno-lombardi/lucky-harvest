@@ -3,7 +3,8 @@ import { getCrop } from '../core/crops';
 import { CropStatus, Farm } from '../core/farm';
 import { tileKey, tileToWorld } from '../core/grid';
 import { CropKit, buildCropModel } from './crop-models';
-import { createCoinIndicator, createDropIndicator } from './indicators';
+import { createCoinIndicator, createDropIndicator, createPestIndicator } from './indicators';
+import { PestKit, animateBugs } from './pests';
 
 const SOIL_DRY = 0x7a4a26;
 const SOIL_WET = 0x4a2d17;
@@ -24,6 +25,7 @@ interface CropEntry {
   group: Group;
   model: Group | null;
   indicator: Group | null;
+  pest: Group | null;
   signature: string;
   stage: number;
   grow: number; // 0.8..1 within-stage growth, so plants swell gradually instead of snapping
@@ -44,6 +46,7 @@ export class FarmView {
   readonly group = new Group();
 
   private readonly kit: CropKit;
+  private readonly pests: PestKit;
   private readonly soil = new Map<string, SoilEntry>();
   private readonly crops = new Map<string, CropEntry>();
   private time = 0;
@@ -63,6 +66,7 @@ export class FarmView {
     gradientMap: DataTexture,
   ) {
     this.kit = new CropKit(gradientMap);
+    this.pests = new PestKit(gradientMap);
     for (const m of Object.values(this.materials)) m.gradientMap = gradientMap;
   }
 
@@ -125,7 +129,7 @@ export class FarmView {
   private syncCrop(key: string, i: number, j: number, status: CropStatus | null): void {
     if (!status) return;
     const def = getCrop(status.cropId);
-    const signature = `${status.cropId}|${status.stage}|${status.thirsty}|${status.withered}`;
+    const signature = `${status.cropId}|${status.stage}|${status.thirsty}|${status.withered}|${status.pest ?? ''}`;
 
     let entry = this.crops.get(key);
     if (!entry) {
@@ -137,6 +141,7 @@ export class FarmView {
         group,
         model: null,
         indicator: null,
+        pest: null,
         signature: '',
         stage: -1,
         grow: 1,
@@ -156,14 +161,23 @@ export class FarmView {
     entry.indicator = this.buildIndicator(status);
     if (entry.indicator) entry.group.add(entry.indicator);
 
+    if (entry.pest) entry.group.remove(entry.pest);
+    entry.pest = null;
+    if (status.pest) {
+      const seed = i * 31 + j * 17;
+      entry.pest = status.pest === 'weed' ? this.pests.weeds(seed) : this.pests.bugs(seed);
+      entry.group.add(entry.pest);
+    }
+
     if (status.stage !== entry.stage || entry.signature === '') entry.age = 0; // pop
     entry.stage = status.stage;
     entry.signature = signature;
   }
 
-  /** Blue drop above thirsty crops, glowing gold coin above ripe ones. */
+  /** Red alert above infested crops, blue drop above thirsty ones, glowing gold coin above ripe ones. */
   private buildIndicator(status: CropStatus): Group | null {
     if (status.withered) return null;
+    if (status.pest) return createPestIndicator();
     if (status.thirsty) return createDropIndicator();
     if (status.ripe) return createCoinIndicator();
     return null;
@@ -182,6 +196,7 @@ export class FarmView {
         model.rotation.z = Math.sin(this.time * 1.6 + entry.phase) * 0.025;
         model.rotation.x = Math.cos(this.time * 1.3 + entry.phase) * 0.015;
       }
+      if (entry.pest?.userData['kind'] === 'bugs') animateBugs(entry.pest, this.time);
       const indicator = entry.indicator;
       if (indicator) {
         const bob = Math.sin(this.time * 3 + entry.phase);

@@ -64,11 +64,19 @@ const broom = `${open}>
   </g>
 </svg>`;
 
+const glove = `${open}>
+  <path d="M12 30 C9 26 9 21 12.5 20.5 C15.5 20 17 22.5 18 25 V12.5 C18 9.5 22.5 9.5 22.5 12.5 V21 V9 C22.5 6 27 6 27 9 V21 V11 C27 8 31.5 8 31.5 11 V22 V15 C31.5 12.2 36 12.2 36 15 V29 C36 36 32 40 25 40 H22 C17 40 14.5 36 12 30Z" fill="#fff4dc" ${line}/>
+  <path d="M22.5 21 V14 M27 21 V13 M31.5 22 V18" stroke="#d9b98a" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+  <path d="M13.5 38.5 H35.5 V44 Q35.5 45.5 34 45.5 H15 Q13.5 45.5 13.5 44 Z" fill="#5cbc3f" ${line}/>
+  <path d="M38 5 L39.2 8.2 L42.5 9.4 L39.2 10.6 L38 14 L36.8 10.6 L33.5 9.4 L36.8 8.2Z" fill="#ffe14d" stroke="#c98300" stroke-width="1.4" stroke-linejoin="round"/>
+</svg>`;
+
 export const TOOL_ICONS: Record<Tool, string> = {
   colher: basket,
   arar: hoe,
   semear: seedBag,
   regar: wateringCan,
+  cuidar: glove,
   limpar: broom,
 };
 
@@ -91,9 +99,36 @@ export const LOCK_ICON = `${open}>
   <path d="M24 32 V37" stroke="${INK}" stroke-width="3" stroke-linecap="round"/>
 </svg>`;
 
+export const SHOP_ICON = `${open}>
+  <path d="M7 20 H41 V41 Q41 44 38 44 H10 Q7 44 7 41 Z" fill="#e8c28a" ${line}/>
+  <rect x="11.5" y="26" width="25" height="18" rx="2" fill="#7a4a26" ${line}/>
+  <rect x="15" y="29.5" width="18" height="9" rx="1.5" fill="#ffe9b0" stroke="${INK}" stroke-width="2"/>
+  <circle cx="21" cy="34" r="2.6" fill="#e5372b"/><circle cx="27.5" cy="34" r="2.6" fill="#5cbc3f"/>
+  <path d="M5 20 L9 6 H39 L43 20 Z" fill="#fff" ${line}/>
+  <path d="M9 6 H15.5 L14 20 H5 Z M22.5 6 H29 L28 20 H20 Z M35 6 H39 L43 20 H34 Z" fill="#e5372b" ${line}/>
+  <path d="M5 20 Q9.5 25 14 20 Q19 25 24 20 Q29 25 34 20 Q38.5 25 43 20" fill="#fff" ${line}/>
+</svg>`;
+
+export const BARN_ICON = `${open}>
+  <path d="M6 22 L24 6 L42 22 V42 Q42 44 40 44 H8 Q6 44 6 42 Z" fill="#d6372b" ${line}/>
+  <path d="M3.5 23.5 L24 5 L44.5 23.5" fill="none" stroke="#6b4423" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="15" y="26" width="18" height="18" rx="1.5" fill="#b02a20" ${line}/>
+  <path d="M15 26 L33 44 M33 26 L15 44" stroke="#fff4dc" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="24" cy="16" r="3" fill="#ffe9b0" stroke="${INK}" stroke-width="2"/>
+</svg>`;
+
+export const LAND_ICON = `${open}>
+  <path d="M24 9 L43 20 L24 31 L5 20 Z" fill="#7fd04e" ${line}/>
+  <path d="M5 20 V26 L24 37 V31 Z" fill="#8a5a2a" ${line}/>
+  <path d="M43 20 V26 L24 37 V31 Z" fill="#6b4423" ${line}/>
+  <path d="M24 3 V14 M19.5 8 L24 3 L28.5 8" stroke="${INK}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M24 3 V14 M19.5 8 L24 3 L28.5 8" stroke="#fff4dc" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M9 40 H39" stroke="${INK}" stroke-width="2.6" stroke-linecap="round" opacity=".0"/>
+</svg>`;
+
 /** Fills every `[data-icon]` placeholder in the page with its SVG. */
 export function hydrateIcons(root: ParentNode = document): void {
-  const icons: Record<string, string> = { coin: COIN_ICON, star: STAR_ICON };
+  const icons: Record<string, string> = { coin: COIN_ICON, star: STAR_ICON, shop: SHOP_ICON };
   root.querySelectorAll<HTMLElement>('[data-icon]').forEach((el) => {
     const svg = icons[el.dataset['icon'] ?? ''];
     if (svg) el.innerHTML = svg;

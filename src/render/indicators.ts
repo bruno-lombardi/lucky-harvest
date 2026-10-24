@@ -93,6 +93,38 @@ const dropTexture = (): CanvasTexture | null =>
     ctx.fill();
   });
 
+const pestTexture = (): CanvasTexture | null =>
+  paint((ctx) => {
+    ctx.beginPath();
+    ctx.arc(0, 0, 54, 0, Math.PI * 2);
+    ctx.fillStyle = '#5a130c';
+    ctx.fill();
+    const body = ctx.createRadialGradient(-14, -20, 4, 0, 0, 50);
+    body.addColorStop(0, '#ff9a86');
+    body.addColorStop(0.55, '#ee4630');
+    body.addColorStop(1, '#c42a18');
+    ctx.beginPath();
+    ctx.arc(0, 0, 47, 0, Math.PI * 2);
+    ctx.fillStyle = body;
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#5a130c';
+    ctx.lineWidth = 5;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-9, -34);
+    ctx.lineTo(9, -34);
+    ctx.lineTo(6, 8);
+    ctx.lineTo(-6, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 26, 8.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  });
+
 const glowTexture = (): CanvasTexture | null =>
   paint((ctx) => {
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 62);
@@ -106,6 +138,7 @@ const glowTexture = (): CanvasTexture | null =>
 let coinMaterial: SpriteMaterial | null = null;
 let dropMaterial: SpriteMaterial | null = null;
 let glowMaterial: SpriteMaterial | null = null;
+let pestMaterial: SpriteMaterial | null = null;
 
 function material(
   cache: SpriteMaterial | null,
@@ -150,5 +183,17 @@ export function createDropIndicator(): Group {
   drop.renderOrder = 11;
   group.add(drop);
   group.userData['kind'] = 'drop';
+  return group;
+}
+
+/** A red alert bubble for weeds and bugs. userData.kind = 'pest'. */
+export function createPestIndicator(): Group {
+  pestMaterial = material(pestMaterial, pestTexture, 0xe23c28);
+  const group = new Group();
+  const bubble = new Sprite(pestMaterial);
+  bubble.scale.set(0.32, 0.32, 1);
+  bubble.renderOrder = 11;
+  group.add(bubble);
+  group.userData['kind'] = 'pest';
   return group;
 }

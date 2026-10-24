@@ -66,6 +66,9 @@ export class Terrain {
     this.group.add(this.water.mesh);
   }
 
+  private grass: InstancedMesh | null = null;
+  private grassSeed = 0;
+
   update(time: number): void {
     this.water?.update(time);
   }
@@ -82,7 +85,6 @@ export class Terrain {
     const matrix = new Matrix4();
     const scale = new Vector3(0.985, 1, 0.985);
     const quat = new Quaternion();
-    const color = new Color();
     let n = 0;
 
     for (let i = 0; i < this.size; i++) {
@@ -90,8 +92,26 @@ export class Terrain {
         const { x, z } = tileToWorld(i, j, this.size);
         matrix.compose(new Vector3(x, -TILE_HEIGHT / 2, z), quat, scale);
         mesh.setMatrixAt(n, matrix);
+        n++;
+      }
+    }
+    this.grass = mesh;
+    this.grassSeed = seed;
+    this.recolor();
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    this.group.add(mesh);
+  }
 
-        const noise = fbm2D(i * 0.35, j * 0.35, seed);
+  /** Paints every tile: lush inside the owned plot, duller wild grass outside it. */
+  private recolor(): void {
+    const mesh = this.grass;
+    if (!mesh) return;
+    const color = new Color();
+    let n = 0;
+    for (let i = 0; i < this.size; i++) {
+      for (let j = 0; j < this.size; j++) {
+        const noise = fbm2D(i * 0.35, j * 0.35, this.grassSeed);
         const checker = (i + j) % 2 === 0 ? 0.018 : -0.012;
         const wild = this.isUnlocked(i, j) ? 0 : 1;
         color.setHSL(
@@ -103,9 +123,12 @@ export class Terrain {
         n++;
       }
     }
-    mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    this.group.add(mesh);
+  }
+
+  /** Call after the owned plot changes (land expansion). */
+  refreshLand(): void {
+    this.recolor();
   }
 
   private buildDetails(gradientMap: DataTexture, seed: number): void {

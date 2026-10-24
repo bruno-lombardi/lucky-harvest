@@ -1,13 +1,14 @@
 import { TOOLS, Tool } from '../core/actions';
 import { CROPS, CROP_ORDER, CropId } from '../core/crops';
 import { Farm } from '../core/farm';
-import { COIN_ICON, LOCK_ICON, TOOL_ICONS } from './icons';
+import { LOCK_ICON, TOOL_ICONS } from './icons';
 
 const TOOL_LABEL: Record<Tool, string> = {
   colher: 'Colher',
   arar: 'Arar',
   semear: 'Semear',
   regar: 'Regar',
+  cuidar: 'Cuidar',
   limpar: 'Limpar',
 };
 
@@ -50,7 +51,7 @@ export class Toolbar {
 
   /** Re-evaluates seed availability (level) and affordability (coins). Cheap to call often. */
   refresh(farm: Farm): void {
-    const signature = `${farm.level}|${farm.coins}`;
+    const signature = `${farm.level}|${CROP_ORDER.map((id) => farm.seeds[id]).join(',')}`;
     if (signature === this.lastSignature) return;
     this.lastSignature = signature;
 
@@ -59,14 +60,15 @@ export class Toolbar {
       const button = this.cropButtons.get(id);
       if (!button) continue;
       const locked = farm.level < crop.unlockLevel;
-      const poor = !locked && farm.coins < crop.seedCost;
+      const owned = farm.seeds[id];
+      const poor = !locked && owned < 1;
       button.classList.toggle('locked', locked);
       button.classList.toggle('poor', poor);
       const cost = button.querySelector('.cost');
       if (cost) {
         cost.innerHTML = locked
           ? `<i class="ico">${LOCK_ICON}</i>Nv ${crop.unlockLevel}`
-          : `<i class="ico">${COIN_ICON}</i>${crop.seedCost}`;
+          : `×${owned}`;
       }
     }
   }

@@ -8,14 +8,16 @@ import {
   WebGLRenderer,
 } from 'three';
 import { CropId } from './core/crops';
+import { TreeId } from './core/trees';
 import { Farm } from './core/farm';
 import { GRID_SIZE, TileCoord, tileToWorld } from './core/grid';
 import { Clouds } from './render/clouds';
-import { renderCropIcons } from './render/icons';
+import { renderCropIcons, renderTreeIcons } from './render/icons';
 import { Props } from './render/props';
 import { DayNight, atmosphereAt, createAtmosphere, lightPosition } from './render/daynight';
 import { BurstKind, Effects, Fireflies, Particles } from './render/particles';
 import { FarmView } from './render/farm-view';
+import { OrchardView } from './render/orchard-view';
 import { TileHighlight } from './render/highlight';
 import { IsoCameraController } from './render/iso-camera';
 import { TilePicker } from './render/picking';
@@ -60,6 +62,7 @@ export class Game {
   private readonly clouds: Clouds;
   private readonly props: Props;
   private readonly farmView: FarmView;
+  private readonly orchardView: OrchardView;
   private readonly gradient = createToonGradient(4);
   private readonly particles = new Particles();
   private readonly effects = new Effects(this.particles);
@@ -102,6 +105,7 @@ export class Game {
     this.terrain = new Terrain(GRID_SIZE, gradient, 1337, (i, j) => farm.isUnlocked(i, j));
     this.scene.add(this.terrain.group);
     this.farmView = new FarmView(farm, GRID_SIZE, gradient);
+    this.orchardView = new OrchardView(farm, gradient);
     this.props = new Props(gradient, farm.landSize);
     this.pens = new Pens(farm, gradient);
     this.helperView = new HelperView(farm, gradient);
@@ -119,6 +123,7 @@ export class Game {
       this.deliveryView.group,
       this.decorView.group,
       this.farmView.group,
+      this.orchardView.group,
       this.clouds.group,
       this.highlight.group,
       this.particles.object,
@@ -190,6 +195,11 @@ export class Game {
   /** Seed-tray icons rendered from the real 3D crop models. */
   renderCropIcons(): Record<CropId, string> {
     return renderCropIcons(this.renderer, this.gradient);
+  }
+
+  /** Shop and tray icons rendered from the real tree models. */
+  renderTreeIcons(): Record<TreeId, string> {
+    return renderTreeIcons(this.renderer, this.gradient);
   }
 
   /** Plays a particle burst on a tile (plow dirt, water splash, harvest sparkles...). */
@@ -338,6 +348,7 @@ export class Game {
     }
     this.farm.runHelpers(now);
     this.farmView.update(dt, now);
+    this.orchardView.update(dt, now);
     this.props.update(dt);
     this.pens.update(dt, now);
     this.helperView.update(dt, now);

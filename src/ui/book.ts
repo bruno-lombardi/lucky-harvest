@@ -6,6 +6,7 @@ import {
   CHAPTERS,
   GOALS,
   Goal,
+  BOOK_TITLE_GOAL,
   MEDALS,
   claimableCount,
   goalClaimed,
@@ -75,6 +76,7 @@ const STAGES: readonly Stage[] = [
     lines: [
       'Abrigos melhoram (mais bichos, ciclo mais rápido), o caminhão ganha upgrades e o terreno chega a 12×12.',
       'Sementes raras valem muito mais e podem render colheita dourada. Rex, o cão, recolhe os produtos dos abrigos.',
+      'No nível 10, compre o Pomar ao lado do moinho: árvores precisam de uma rega enquanto jovens e depois dão frutas para sempre.',
       'Enfeites a partir do nível 14: para gastar moedas com estilo.',
     ],
   },
@@ -192,7 +194,7 @@ export class BookDialog extends Modal<BookTab> {
         claimable > 0 ? `<button type="button" class="sell" data-act="claim-all">Resgatar tudo (${claimable})</button>` : ''
       }</div>`,
     );
-    if (goalClaimed(GOALS[GOALS.length - 1]!, farm)) parts.push(`<p class="tip ok">Título conquistado: <b>Fazendeiro</b></p>`);
+    if (goalClaimed(GOALS[BOOK_TITLE_GOAL - 1]!, farm)) parts.push(`<p class="tip ok">Título conquistado: <b>Fazendeiro</b></p>`);
     CHAPTERS.forEach((chapter, c) => {
       const list = GOALS.filter((g) => g.chapter === c);
       const done = list.filter((g) => goalClaimed(g, farm)).length;

@@ -3,7 +3,8 @@ import { CROP_ORDER, CropId } from './crops';
 import { DECOR_ORDER } from './decor';
 import { Farm, MAX_LAND } from './farm';
 import { HELPER_ORDER, MAX_HELPER_LEVEL } from './helpers';
-import { totalCollected, totalHarvested } from './stats';
+import { totalCollected, totalFruit, totalHarvested } from './stats';
+import { TREE_ORDER, TreeId } from './trees';
 
 /**
  * Goals (Metas) and achievements (Conquistas), as plain data. Whether something is done is a pure
@@ -31,10 +32,12 @@ export const CHAPTERS: readonly { readonly name: string; readonly intro: string 
   { name: 'Bichos', intro: 'Galinhas dão ovos, ovos dão moedas. E ração vem do celeiro.' },
   { name: 'Ajudantes', intro: 'Contrate quem trabalha por você, mas lembre do salário.' },
   { name: 'Mestre', intro: 'O que falta para ser dono de uma fazenda de verdade.' },
+  { name: 'Pomar', intro: 'Árvores demoram para crescer, mas depois dão frutas para sempre.' },
 ];
 
 const pensBuilt = (f: Farm): number => SPECIES_ORDER.filter((s) => f.pens[s]).length;
 const animalsOwned = (f: Farm): number => SPECIES_ORDER.reduce((n, s) => n + (f.pens[s]?.animals.length ?? 0), 0);
+const speciesPicked = (f: Farm): number => TREE_ORDER.filter((t: TreeId) => f.stats.fruitPicked[t] > 0).length;
 const bestHelperLevel = (f: Farm): number => Math.max(0, ...HELPER_ORDER.map((id) => f.helpers[id]?.level ?? 0));
 
 export const GOALS: readonly Goal[] = [
@@ -62,6 +65,9 @@ export const GOALS: readonly Goal[] = [
   { id: 22, chapter: 4, text: 'Terreno máximo', hint: 'O terreno de 12×12 chega no nível 12.', reward: 800, value: (f) => f.landSize, target: MAX_LAND, point: 'loja' },
   { id: 23, chapter: 4, text: 'Ganhar 10.000 moedas vendendo', hint: 'Culturas raras rendem bem mais por colheita.', reward: 60, value: (f) => f.stats.coinsEarned, target: 10_000 },
   { id: 24, chapter: 4, text: 'Completar o primeiro livro', hint: 'Resgate todas as metas e ganhe o título de Fazendeiro.', reward: 1000, value: (f) => GOALS.slice(0, 23).filter((g) => f.claimed.includes(goalKey(g.id))).length, target: 23 },
+  { id: 25, chapter: 5, text: 'Plantar sua primeira árvore', hint: 'No nível 10, compre o Pomar na Loja (aba Árvores), depois uma muda e plante lá.', reward: 400, value: (f) => f.stats.treesPlanted, target: 1, point: 'loja' },
+  { id: 26, chapter: 5, text: 'Colher a primeira fruta', hint: 'Regue a muda uma vez. Quando a moeda dourada brilhar na copa, é só colher.', reward: 500, value: (f) => totalFruit(f.stats), target: 1, point: 'colher' },
+  { id: 27, chapter: 5, text: 'Ter 5 árvores no Pomar', hint: 'Cada árvore dá frutas para sempre, sem precisar replantar.', reward: 1500, value: (f) => f.treeCount(), target: 5, point: 'loja' },
 ];
 
 export const goalKey = (id: number): string => `g${id}`;
@@ -147,6 +153,10 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   tiered('nivel', 'Fazendeiro', 'Subindo na vida', (n) => `Chegar ao nível ${n}`, (f) => f.level, [5, 15, 30], [150, 2000, 10_000]),
   tiered('terra', 'Fazendeiro', 'Dono da terra', (n) => `Ter um terreno de ${n}×${n}`, (f) => f.landSize, [8, 10, MAX_LAND], [300, 1500, 8000]),
   tiered('enfeites', 'Fazendeiro', 'Meu cantinho', (n) => `Ter ${n} ${n === 1 ? 'enfeite' : 'enfeites'}`, (f) => DECOR_ORDER.filter((d) => f.decor[d]).length, [1, 3, DECOR_ORDER.length], [100, 1000, 6000]),
+  tiered('frutas', 'Pomar', 'Pomareiro', (n) => `Colher ${n.toLocaleString('pt-BR')} frutas`, (f) => totalFruit(f.stats), [50, 500, 5000], [200, 2000, 10_000]),
+  tiered('bosque', 'Pomar', 'Bosque', (n) => `Ter ${n} árvores no Pomar`, (f) => f.treeCount(), [3, 8, 18], [200, 1500, 8000]),
+  tiered('pomarvar', 'Pomar', 'Variedade de pomar', (n) => `Colher ${n} tipos de fruta`, speciesPicked, [2, 4, 5], [300, 1500, 6000]),
+  single('ouro', 'Especiais', 'Fruta de ouro', 'Colher uma fruta dourada', (f) => f.stats.goldenFruit, 1, 600),
   single('resgate', 'Especiais', 'Resgate', 'Plantar uma semente com a carteira vazia', (f) => f.stats.rescues, 1, 100),
   single('mingau', 'Especiais', 'Mingau no comando', 'O gato cuidar de 25 pragas', (f) => f.stats.catCares, 25, 500),
   single('tonico', 'Especiais', 'Tonico trabalhador', 'O Tonico colher 100 culturas', (f) => f.stats.farmhandHarvests, 100, 800),

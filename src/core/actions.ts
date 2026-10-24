@@ -1,5 +1,6 @@
 import { CropId } from './crops';
 import { ActionResult, Farm } from './farm';
+import { TreeId, isOrchardTile } from './trees';
 
 export type Tool = 'colher' | 'arar' | 'semear' | 'regar' | 'cuidar' | 'limpar';
 
@@ -13,7 +14,9 @@ export function applyTool(
   j: number,
   now: number,
   cropId: CropId,
+  treeId?: TreeId,
 ): ActionResult {
+  if (isOrchardTile(i, j)) return applyTreeTool(farm, tool, i, j, now, treeId);
   switch (tool) {
     case 'colher':
       return farm.harvest(i, j, now);
@@ -27,5 +30,23 @@ export function applyTool(
       return farm.care(i, j, now);
     case 'limpar':
       return farm.clear(i, j);
+  }
+}
+
+/** The orchard answers to the same tools, but its tiles hold trees instead of crops. */
+function applyTreeTool(farm: Farm, tool: Tool, i: number, j: number, now: number, treeId?: TreeId): ActionResult {
+  switch (tool) {
+    case 'colher':
+      return farm.harvestTree(i, j, now);
+    case 'arar':
+      return { ok: false, reason: 'not-grass' };
+    case 'semear':
+      return treeId ? farm.plantTree(treeId, i, j, now) : { ok: false, reason: 'no-sapling' };
+    case 'regar':
+      return farm.waterTree(i, j, now);
+    case 'cuidar':
+      return farm.careTree(i, j, now);
+    case 'limpar':
+      return farm.clearTree(i, j);
   }
 }

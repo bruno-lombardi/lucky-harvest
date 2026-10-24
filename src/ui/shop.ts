@@ -3,17 +3,20 @@ import { CROPS, CROP_ORDER, CropId } from '../core/crops';
 import { DECOR, DECOR_ORDER, DECOR_UNLOCK_LEVEL, DecorId } from '../core/decor';
 import { TRUCK_UPGRADES, TRUCK_UPGRADE_ORDER, TruckUpgradeId } from '../core/delivery';
 import { Farm } from '../core/farm';
+import { POMAR, TREES, TREE_ORDER, TreeId } from '../core/trees';
 import { HELPERS, HELPER_ORDER, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage, nextHelperUpgrade } from '../core/helpers';
 import { formatDuration } from './messages';
+import { humanDuration } from './info';
 import { BARN_ICON, LAND_ICON, LOCK_ICON, SHOP_ICON, TRUCK_ICON } from './icons';
 import { FEED_ICONS, HELPER_ICONS, PRODUCT_ICONS, SPECIES_ICONS } from './item-icons';
 import { Dispatch, coin, empty, heading, img, rarityBadge, row } from './kit';
 import { Modal } from './modal';
 
-export type ShopTab = 'seeds' | 'feed' | 'sell' | 'animals' | 'helpers' | 'land';
+export type ShopTab = 'seeds' | 'trees' | 'feed' | 'sell' | 'animals' | 'helpers' | 'land';
 
 const TABS = [
   { id: 'seeds', label: 'Sementes' },
+  { id: 'trees', label: 'Árvores' },
   { id: 'feed', label: 'Ração' },
   { id: 'sell', label: 'Vender' },
   { id: 'animals', label: 'Animais' },
@@ -27,6 +30,7 @@ export class Shop extends Modal<ShopTab> {
     root: HTMLElement,
     private readonly farm: Farm,
     private readonly cropIcons: Record<CropId, string>,
+    private readonly treeIcons: Record<TreeId, string>,
     private readonly dispatch: Dispatch,
   ) {
     super(root, 'Loja', TABS, 'seeds');
@@ -49,6 +53,8 @@ export class Shop extends Modal<ShopTab> {
     switch (this.tab) {
       case 'seeds':
         return this.seedsHtml();
+      case 'trees':
+        return this.treesHtml();
       case 'feed':
         return this.feedHtml();
       case 'sell':
@@ -69,6 +75,15 @@ export class Shop extends Modal<ShopTab> {
     switch (action) {
       case 'buy':
         this.dispatch({ type: 'buySeeds', crop: crop!, qty });
+        break;
+      case 'sapling':
+        this.dispatch({ type: 'buySapling', tree: data['tree'] as TreeId, qty });
+        break;
+      case 'pomar':
+        this.dispatch({ type: 'buyPomar' });
+        break;
+      case 'sell-fruit':
+        this.dispatch({ type: 'sellFruit', tree: data['tree'] as TreeId, qty });
         break;
       case 'buy-feed':
         this.dispatch({ type: 'buyFeed', species: species!, qty });
@@ -127,6 +142,39 @@ export class Shop extends Modal<ShopTab> {
     }).join('');
   }
 
+  private treesHtml(): string {
+    const { farm } = this;
+    let html = '';
+    if (!farm.pomar) {
+      const levelOk = farm.level >= POMAR.level;
+      const coinsOk = farm.coins >= POMAR.cost;
+      html += `
+      <div class="land-card" data-info="pomar:">
+        <i class="ico big">${LAND_ICON}</i>
+        <h3>Pomar</h3>
+        <p>Um cantinho cercado ao lado do moinho, só para árvores frutíferas. Plantou, regou uma vez e ela dá frutos para sempre.</p>
+        <ul class="needs">
+          <li class="${levelOk ? 'ok' : 'miss'}">Nível ${POMAR.level}</li>
+          <li class="${coinsOk ? 'ok' : 'miss'}">${coin(POMAR.cost)}</li>
+        </ul>
+        <button type="button" class="big-action" data-act="pomar" ${levelOk && coinsOk ? '' : 'disabled'}>Comprar o Pomar</button>
+      </div>`;
+    }
+    html += TREE_ORDER.map((id) => {
+      const t = TREES[id];
+      const locked = farm.level < t.unlockLevel;
+      const info = locked
+        ? `<b>${t.name}${rarityBadge(t.rarity)}</b><small><i class="ico">${LOCK_ICON}</i>Libera no nível ${t.unlockLevel}</small>`
+        : `<b>${t.name}${rarityBadge(t.rarity)}</b><small>${coin(t.saplingCost)} a muda · ${t.fruits} frutos a cada ${humanDuration(t.cycleMs)} · você tem ${farm.saplings[id]}</small>`;
+      const button = (qty: number): string =>
+        `<button type="button" class="buy" data-act="sapling" data-tree="${id}" data-qty="${qty}" ${
+          !farm.pomar || farm.coins < t.saplingCost * qty ? 'disabled' : ''
+        }>×${qty}</button>`;
+      return row(img(this.treeIcons[id]), info, locked ? '' : `${button(1)}${button(3)}`, locked, `tree:${id}`, `rar-${t.rarity}`);
+    }).join('');
+    return `${html}<p class="tip">Árvores só crescem no Pomar. Elas precisam de uma rega enquanto jovens e depois cuidam de si mesmas.</p>`;
+  }
+
   private feedHtml(): string {
     const { farm } = this;
     const rows = SPECIES_ORDER.map((id) => {
@@ -146,12 +194,14 @@ export class Shop extends Modal<ShopTab> {
     const { farm } = this;
     const crops = CROP_ORDER.filter((id) => farm.produce[id] > 0);
     const products = PRODUCT_ORDER.filter((id) => farm.products[id] > 0);
-    if (crops.length + products.length === 0) {
+    const fruits = TREE_ORDER.filter((id) => farm.fruit[id] > 0);
+    if (crops.length + products.length + fruits.length === 0) {
       return empty(BARN_ICON, 'Você não tem nada para vender.', 'Colha plantas ou colete produtos dos animais.');
     }
     const total =
       crops.reduce((sum, id) => sum + farm.produce[id] * CROPS[id].sellPrice, 0) +
-      products.reduce((sum, id) => sum + farm.products[id] * PRODUCTS[id].sellPrice, 0);
+      products.reduce((sum, id) => sum + farm.products[id] * PRODUCTS[id].sellPrice, 0) +
+      fruits.reduce((sum, id) => sum + farm.fruit[id] * TREES[id].fruitPrice, 0);
     const sellButtons = (act: string, key: string, id: string, qty: number): string =>
       `<button type="button" class="sell" data-act="${act}" data-${key}="${id}" data-qty="1">Vender 1</button>` +
       (qty > 1 ? `<button type="button" class="sell" data-act="${act}" data-${key}="${id}" data-qty="${qty}">Tudo</button>` : '');
@@ -180,6 +230,20 @@ export class Shop extends Modal<ShopTab> {
             sellButtons('sell-product', 'product', id, farm.products[id]),
             false,
             `product:${id}`,
+          ),
+        )
+        .join('');
+    }
+    if (fruits.length) {
+      html += heading('Frutas');
+      html += fruits
+        .map((id) =>
+          row(
+            img(this.treeIcons[id]),
+            `<b>${TREES[id].fruitName} <span class="count">×${farm.fruit[id]}</span></b><small>${coin(TREES[id].fruitPrice)} cada</small>`,
+            sellButtons('sell-fruit', 'tree', id, farm.fruit[id]),
+            false,
+            `tree:${id}`,
           ),
         )
         .join('');

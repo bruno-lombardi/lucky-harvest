@@ -633,6 +633,7 @@ function buildFarmEdge(palette: Palette): Group {
     if (Math.hypot(x - BARN.x, z - BARN.z) < 3.6) return false;
     if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 3.0) return false;
     if (Math.hypot(x - POND.x, z - POND.z) < POND.radius + 1.3) return false;
+    if (x > -1.9 && x < 5.9 && z > -11.9 && z < -7.2) return false; // the Pomar
     if (Math.hypot(x - SCARECROW.x, z - SCARECROW.z) < 1.6) return false;
     if (x < -6 && x > -8.6 && z > 2.5 && z < 6.6) return false; // hay + path to the pond
     if (x > 7.0 && z > -5.6 && z < 7.8) return false; // animal pens
@@ -826,7 +827,7 @@ export class Props {
     this.sign.position.set(-6.3 - extra, 0, -2.3);
     this.hay.position.set(-extra, 0, extra * 0.6);
     // Beside the plot on the east normally; on the biggest plot that is where the pens are, so it moves north.
-    if (extra > 0) this.scarecrow.position.set(2.2, 0, -(half + 1.0));
+    if (extra > 0) this.scarecrow.position.set(-3.4, 0, -(half + 1.0));
     else this.scarecrow.position.set(half + 1.05, 0, 1.6);
   }
 

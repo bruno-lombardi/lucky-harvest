@@ -1,5 +1,7 @@
 import { getCrop } from '../core/crops';
 import { FailReason, Farm } from '../core/farm';
+import { TREES } from '../core/trees';
+import { isOrchardTile } from '../core/trees';
 
 export function reasonMessage(reason: FailReason): string {
   switch (reason) {
@@ -35,14 +37,23 @@ export function reasonMessage(reason: FailReason): string {
       return 'Seu terreno já está no máximo';
     case 'nothing-to-sell':
       return 'Nada para vender';
-    case 'pen-locked':
     case 'already-claimed':
       return 'Você já resgatou essa recompensa';
     case 'not-done':
       return 'Ainda falta um pouco para isso';
+    case 'pen-locked':
+    case 'tree-locked':
     case 'truck-locked':
     case 'decor-locked':
       return 'Suba de nível para liberar isto';
+    case 'pomar-locked':
+      return 'Compre o Pomar na loja primeiro';
+    case 'not-orchard':
+      return 'Árvores só crescem no Pomar';
+    case 'no-tree':
+      return 'Não há árvore aqui';
+    case 'no-sapling':
+      return 'Sem muda: compre na loja';
     case 'pen-exists':
       return 'Você já tem esse abrigo';
     case 'no-pen':
@@ -86,6 +97,18 @@ export function formatDuration(ms: number): string {
 /** One-line description of a tile for the HUD. */
 export function describeTile(farm: Farm, i: number, j: number, now: number): string {
   const label = `(${i + 1}, ${j + 1})`;
+  if (isOrchardTile(i, j)) {
+    if (!farm.pomar) return 'Terreno do Pomar: compre na loja';
+    const tree = farm.treeStatus(i, j, now);
+    if (!tree) return `Pomar: terreno livre ${label}`;
+    const name = TREES[tree.species].name;
+    if (tree.pest) return `${name}: ${tree.pest === 'weed' ? 'cheia de ervas daninhas' : 'com insetos'}!`;
+    if (tree.ripe) return `${name}: frutas prontas!`;
+    if (tree.thirsty) return `${name} jovem com sede`;
+    const left = tree.msToRipe !== null ? ` · ${formatDuration(tree.msToRipe)}` : '';
+    if (!tree.adult) return `${name} ${tree.stage === 0 ? 'muda' : 'jovem'}: ${Math.round(tree.progress * 100)}%${left}`;
+    return `${name} adulta: frutas ${Math.round(tree.progress * 100)}%${left}`;
+  }
   if (!farm.isUnlocked(i, j)) return `Terreno bloqueado ${label}`;
 
   const tile = farm.tile(i, j);

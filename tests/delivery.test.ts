@@ -92,7 +92,7 @@ describe('seed delivery', () => {
     const farm = new Farm({ seed: 5, now: START });
     farm.runHelpers(START + 2 * DELIVERY_INTERVAL_MS);
     const snapshot = farm.toSnapshot();
-    expect(snapshot.version).toBe(6);
+    expect(snapshot.version).toBe(7);
     expect(Farm.fromSnapshot(snapshot).toSnapshot()).toEqual(snapshot);
 
     const { version: _v, deliveredSlot: _d, truck: _t, ...rest } = snapshot;
@@ -100,7 +100,7 @@ describe('seed delivery', () => {
     const old = Farm.fromSnapshot(v4);
     expect(old.deliveredSlot).toBe(0);
     const { helpers: _h, ...v3rest } = v4;
-    expect(Farm.fromSnapshot({ ...v3rest, version: 3 }).toSnapshot().version).toBe(6);
+    expect(Farm.fromSnapshot({ ...v3rest, version: 3 }).toSnapshot().version).toBe(7);
   });
 
   it('migrates a v4 save file with a fresh sync history', () => {
@@ -123,7 +123,7 @@ describe('seed delivery', () => {
     const decoded = decodeSave(fixed);
     expect(decoded.ok).toBe(true);
     if (decoded.ok) {
-      expect(decoded.save.state.version).toBe(6);
+      expect(decoded.save.state.version).toBe(7);
       expect(decoded.save.sync.outbox).toEqual([]);
       expect(decoded.save.sync.baseline).toEqual(decoded.save.state);
     }

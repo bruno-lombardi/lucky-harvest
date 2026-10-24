@@ -99,7 +99,7 @@ describe('claiming', () => {
     farm.stats.plowed = 3;
     applyCommand(farm, { type: 'claimGoal', goal: 1 }, 0);
     const snap = farm.toSnapshot();
-    expect(snap.version).toBe(6);
+    expect(snap.version).toBe(7);
     expect(snap.claimed).toContain(goalKey(1));
     const text = encodeSave({ playerId: 'p', savedAt: 1, state: snap, sync: { baseline: snap, outbox: [] } });
     const out = decodeSave(text);
@@ -128,5 +128,16 @@ describe('no dead end', () => {
     for (let j = 10; j < 14; j++) applyCommand(farm, { type: 'tool', tool: 'colher', i: 10, j, crop: 'cenoura' }, now);
     applyCommand(farm, { type: 'sellAll' }, now);
     expect(farm.coins).toBeGreaterThan(0);
+  });
+});
+
+describe('orchard goals', () => {
+  it('follow the first book, and the title stays with goal 24', async () => {
+    const { BOOK_TITLE_GOAL } = await import('../src/core/progress');
+    expect(GOALS.length).toBeGreaterThan(BOOK_TITLE_GOAL);
+    expect(GOALS.slice(BOOK_TITLE_GOAL).every((g) => g.chapter === 5)).toBe(true);
+    const farm = new Farm({ seed: 2 });
+    expect(GOALS[24]!.value(farm)).toBe(0);
+    expect(ACHIEVEMENTS.some((a) => a.category === 'Pomar')).toBe(true);
   });
 });

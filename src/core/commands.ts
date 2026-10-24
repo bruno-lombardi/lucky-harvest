@@ -1,6 +1,7 @@
 import { applyTool, Tool } from './actions';
 import { ProductId, SpeciesId } from './animals';
 import { CropId } from './crops';
+import { TreeId } from './trees';
 import { achievementKey, findAchievement, findGoal, goalDone, goalKey, stepDone } from './progress';
 import { DecorId } from './decor';
 import { TruckUpgradeId } from './delivery';
@@ -14,10 +15,13 @@ import { ActionResult, Farm } from './farm';
  * command, the state and the `now` timestamp.
  */
 export type Command =
-  | { type: 'tool'; tool: Tool; i: number; j: number; crop: CropId }
+  | { type: 'tool'; tool: Tool; i: number; j: number; crop: CropId; tree?: TreeId }
   | { type: 'buySeeds'; crop: CropId; qty: number }
   | { type: 'sellCrop'; crop: CropId; qty: number }
   | { type: 'sellProduct'; product: ProductId; qty: number }
+  | { type: 'sellFruit'; tree: TreeId; qty: number }
+  | { type: 'buyPomar' }
+  | { type: 'buySapling'; tree: TreeId; qty: number }
   | { type: 'sellAll' }
   | { type: 'expandLand' }
   | { type: 'buildPen'; species: SpeciesId }
@@ -48,13 +52,19 @@ export function applyCommand(farm: Farm, command: Command, now: number): ActionR
   farm.runHelpers(now);
   switch (command.type) {
     case 'tool':
-      return applyTool(farm, command.tool, command.i, command.j, now, command.crop);
+      return applyTool(farm, command.tool, command.i, command.j, now, command.crop, command.tree);
     case 'buySeeds':
       return farm.buySeeds(command.crop, command.qty);
     case 'sellCrop':
       return farm.sell(command.crop, command.qty);
     case 'sellProduct':
       return farm.sellProduct(command.product, command.qty);
+    case 'sellFruit':
+      return farm.sellFruit(command.tree, command.qty);
+    case 'buyPomar':
+      return farm.buyPomar();
+    case 'buySapling':
+      return farm.buySapling(command.tree, command.qty);
     case 'sellAll':
       return farm.sellAll();
     case 'expandLand':

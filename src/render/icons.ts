@@ -14,7 +14,9 @@ import {
   WebGLRenderer,
 } from 'three';
 import { CROPS, CROP_ORDER, CropId } from '../core/crops';
+import { TREES, TREE_ORDER, TreeId } from '../core/trees';
 import { CropKit, buildCropModel } from './crop-models';
+import { buildTreeModel } from './tree-models';
 import { addHullOutline } from './outline';
 
 const ELEVATION = Math.atan(1 / Math.SQRT2);
@@ -30,6 +32,24 @@ export function renderCropIcons(
   size = 160,
 ): Record<CropId, string> {
   const kit = new CropKit(gradientMap);
+  const models = CROP_ORDER.map((id) => [id, () => buildCropModel(kit, CROPS[id], { stage: 3, thirsty: false, withered: false })] as const);
+  return renderModelIcons(renderer, gradientMap, models, { scale: 1.15, lookY: 0.3, ground: 0x7a4a26 }, size);
+}
+
+/** Shop and tray icons for the fruit trees: the adult tree with fruit, on a patch of grass. */
+export function renderTreeIcons(renderer: WebGLRenderer, gradientMap: DataTexture, size = 160): Record<TreeId, string> {
+  const kit = new CropKit(gradientMap);
+  const models = TREE_ORDER.map((id) => [id, () => buildTreeModel(kit, TREES[id], { stage: 3, progress: 1, thirsty: false })] as const);
+  return renderModelIcons(renderer, gradientMap, models, { scale: 0.68, lookY: 0.4, ground: 0x76b34f }, size);
+}
+
+function renderModelIcons<K extends string>(
+  renderer: WebGLRenderer,
+  gradientMap: DataTexture,
+  models: ReadonlyArray<readonly [K, () => Group]>,
+  look: { scale: number; lookY: number; ground: number },
+  size: number,
+): Record<K, string> {
   const scene = new Scene();
   scene.add(new HemisphereLight(0xdaf0ff, 0x8a7a50, 1.35));
   const sun = new DirectionalLight(0xfff3d8, 2.0);
@@ -44,10 +64,10 @@ export function renderCropIcons(
     Math.sin(ELEVATION) * distance + 0.35,
     Math.cos(AZIMUTH) * Math.cos(ELEVATION) * distance,
   );
-  camera.lookAt(0, 0.3, 0);
+  camera.lookAt(0, look.lookY, 0);
 
   // A little patch of tilled soil for the plant to stand on.
-  const patch = new Mesh(new CylinderGeometry(0.5, 0.56, 0.12, 24), new MeshToonMaterial({ color: 0x7a4a26, gradientMap }));
+  const patch = new Mesh(new CylinderGeometry(0.5, 0.56, 0.12, 24), new MeshToonMaterial({ color: look.ground, gradientMap }));
   patch.position.y = -0.04;
   addHullOutline(patch, 0.02);
   scene.add(patch);
@@ -65,13 +85,13 @@ export function renderCropIcons(
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
-  const icons = {} as Record<CropId, string>;
+  const icons = {} as Record<K, string>;
 
-  for (const id of CROP_ORDER) {
-    const model = buildCropModel(kit, CROPS[id], { stage: 3, thirsty: false, withered: false });
+  for (const [id, make] of models) {
+    const model = make();
     const holder = new Group();
     holder.position.y = 0.02;
-    holder.scale.setScalar(1.15);
+    holder.scale.setScalar(look.scale);
     holder.add(model);
     scene.add(holder);
 

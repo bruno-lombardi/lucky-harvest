@@ -2,6 +2,7 @@ import '@fontsource-variable/fredoka';
 import './ui/style.css';
 import { deliveryInterval, slotOf, slotTime } from './core/delivery';
 import { CROPS, CROP_ORDER, CropId } from './core/crops';
+import { TREES, TreeId } from './core/trees';
 import { SPECIES, SPECIES_ORDER, SpeciesId, animalStatus } from './core/animals';
 import { Command, applyCommand } from './core/commands';
 import { Farm, Gain } from './core/farm';
@@ -99,6 +100,7 @@ let barn: BarnDialog;
 let pen: PenDialog;
 let lastLevelShown = 1;
 let cropIcons: Record<CropId, string>;
+let treeIcons: Record<TreeId, string>;
 let lastPests = 0;
 let lastUiUpdate = 0;
 
@@ -135,6 +137,7 @@ function showHelperEvents(now: number): void {
       audio.play('harvest', QUIET_VOLUME);
       const at = game.screenPositionOf(tile);
       if (e.crop) floaters.spawn('+1', at.x, at.y, 'coins', `<img alt="" src="${cropIcons[e.crop]}" />`);
+      else if (farm.tree(e.i, e.j)) floaters.spawn('+', at.x, at.y, 'coins', `<img alt="" src="${treeIcons[farm.tree(e.i, e.j)!.species]}" />`);
     } else if (e.kind === 'care') {
       game.burst('care', tile);
       audio.play('meow', QUIET_VOLUME);
@@ -252,17 +255,23 @@ function commandEffects(command: Command): void {
   const at = (species: SpeciesId): { x: number; z: number } => PEN_LAYOUT[species];
   switch (command.type) {
     case 'buySeeds':
+    case 'buySapling':
     case 'buyFeed':
       audio.play('buy');
       break;
     case 'sellCrop':
     case 'sellProduct':
+    case 'sellFruit':
     case 'sellAll':
       audio.play('sell');
       break;
     case 'expandLand':
       audio.play('expand');
       game.burstAtCenter('expand');
+      break;
+    case 'buyPomar':
+      audio.play('expand');
+      game.burstAt('expand', 2.2, -9.5);
       break;
     case 'buildPen':
       audio.play('build');
@@ -344,6 +353,12 @@ function showGain(gain: Gain, at: { x: number; y: number }): void {
     toast.show(`Colheita dourada: ${CROPS[gain.item.cropId].name} em dobro!`, 2600);
     audio.play('levelup', 0.6);
   }
+  if (gain.fruit) emit(`+${gain.fruit.qty}`, 'coins', `<img alt="" src="${treeIcons[gain.fruit.tree]}" />`);
+  if (gain.fruit?.golden) {
+    emit('Colheita dourada!', 'level');
+    toast.show(`Frutas douradas: ${TREES[gain.fruit.tree].fruitName} em dobro!`, 2600);
+    audio.play('levelup', 0.6);
+  }
   if (gain.product) emit(`+${gain.product.qty}`, 'coins', PRODUCT_ICONS[gain.product.productId]);
   if (gain.coins > 0) emit(`+${gain.coins}`, 'coins', COIN_ICON);
   if (gain.coins < 0) emit(`${gain.coins}`, 'spend', COIN_ICON);
@@ -362,7 +377,7 @@ function handleTap(tile: TileCoord | null): void {
     refreshUi(Date.now());
     return;
   }
-  const command: Command = { type: 'tool', tool: toolbar.tool, i: tile.i, j: tile.j, crop: toolbar.crop };
+  const command: Command = { type: 'tool', tool: toolbar.tool, i: tile.i, j: tile.j, crop: toolbar.crop, tree: toolbar.tree };
   const ok = dispatch(command, game.screenPositionOf(tile));
   if (ok) {
     const fx = TOOL_EFFECTS[toolbar.tool];
@@ -472,19 +487,20 @@ const game = new Game(container, farm, {
 }, startHour, params.has('freeze'));
 
 cropIcons = game.renderCropIcons();
+treeIcons = game.renderTreeIcons();
 game.setToolCursor(cursorFor('olhar'));
 lastLevelShown = farm.level;
-toolbar = new Toolbar(required('toolbar'), required('seed-tray'), (m) => toast.show(m), cropIcons);
+toolbar = new Toolbar(required('toolbar'), required('seed-tray'), (m) => toast.show(m), cropIcons, treeIcons);
 new InfoCard((key) => infoCard(key, farm));
 toolbar.onToolChange = (mode) => {
   game.setToolCursor(cursorFor(mode));
   tip.hidden = true;
 };
-shop = new Shop(required('shop'), farm, cropIcons, (command) => {
+shop = new Shop(required('shop'), farm, cropIcons, treeIcons, (command) => {
   const ok = dispatch(command);
   return ok;
 });
-barn = new BarnDialog(required('barn'), farm, cropIcons, dispatch, {
+barn = new BarnDialog(required('barn'), farm, cropIcons, treeIcons, dispatch, {
   openShop: (tab) => shop.open(tab),
 });
 pen = new PenDialog(required('pen'), farm, dispatch, {
@@ -543,7 +559,7 @@ shopButton.addEventListener('click', () => {
 });
 
 // Debug / screenshot helpers: ?shop=seeds|feed|sell|animals|land  ?barn  ?pen=galinha  ?menu
-const SHOP_TABS: readonly ShopTab[] = ['seeds', 'feed', 'sell', 'animals', 'helpers', 'land'];
+const SHOP_TABS: readonly ShopTab[] = ['seeds', 'trees', 'feed', 'sell', 'animals', 'helpers', 'land'];
 const openShop = params.get('shop');
 if (openShop !== null) shop.open(SHOP_TABS.find((t) => t === openShop) ?? 'seeds');
 if (params.has('barn')) barn.open(params.get('barn') === 'feed' ? 'feed' : 'stock');
@@ -552,6 +568,9 @@ if (openPen && SPECIES_ORDER.includes(openPen)) pen.open(openPen);
 if (params.has('menu')) menu.open();
 
 if (params.has('spray')) game.forceSpray(true);
+
+// Debug hook for the end-to-end checks (only with ?demo).
+if (isDemo) (window as unknown as Record<string, unknown>)['__lh'] = { farm, tileAt: (i: number, j: number) => game.screenPositionOf({ i, j }) };
 
 const view = params.get('view')?.split(',').map(Number);
 if (view && view.length === 3 && view.every(Number.isFinite)) {

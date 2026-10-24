@@ -1,6 +1,7 @@
 import { applyCommand } from '../../src/core/commands';
 import { CROPS, CROP_ORDER, CropId } from '../../src/core/crops';
 import { Farm, landBounds } from '../../src/core/farm';
+import { POMAR, TREES, TREE_ORDER, coinsPerMinute, orchardTiles } from '../../src/core/trees';
 
 export interface PaceOptions {
   /** Seconds between the bot's visits to the farm. */
@@ -11,6 +12,8 @@ export interface PaceOptions {
   coverage?: number;
   /** Stop when this level is reached. */
   stopLevel?: number;
+  /** Also buy the Pomar and keep it planted with the best tree it can afford. */
+  orchard?: boolean;
 }
 
 export interface PaceResult {
@@ -25,7 +28,7 @@ export interface PaceResult {
  * crop it can afford everywhere, waters, and buys land when it can. It ignores animals and helpers, so it
  * measures the crop economy alone.
  */
-export function playCrops({ visitSec = 45, maxHours = 12, seed = 1, coverage = 1, stopLevel = 21 }: PaceOptions = {}): PaceResult {
+export function playCrops({ visitSec = 45, maxHours = 12, seed = 1, coverage = 1, stopLevel = 21, orchard = false }: PaceOptions = {}): PaceResult {
   const T0 = 1_800_000_000_000;
   const farm = new Farm({ seed, now: T0 });
   const levelAt: Record<number, number> = { 1: 0 };
@@ -62,6 +65,8 @@ export function playCrops({ visitSec = 45, maxHours = 12, seed = 1, coverage = 1
     const step = farm.nextExpansion();
     if (step && farm.level >= step.level && farm.coins >= step.cost) cmd({ type: 'expandLand' }, now);
 
+    if (orchard) tendOrchard(farm, now, cmd);
+
     const unlocked = CROP_ORDER.filter((id) => CROPS[id].unlockLevel <= farm.level).sort((a, b) => score(b) - score(a));
     for (const [i, j] of free) {
       let pick: CropId | undefined = unlocked.find((id) => farm.seeds[id] > 0);
@@ -81,4 +86,27 @@ export function playCrops({ visitSec = 45, maxHours = 12, seed = 1, coverage = 1
     if (farm.level >= stopLevel) break;
   }
   return { levelAt, farm, coinsEarned: farm.stats.coinsEarned };
+}
+
+/** Buys the Pomar when it can, then harvests, cares, waters and replants every tree spot. */
+function tendOrchard(farm: Farm, now: number, cmd: (c: Parameters<typeof applyCommand>[1], now: number) => boolean): void {
+  if (!farm.pomar) {
+    if (farm.level >= POMAR.level && farm.coins >= POMAR.cost) cmd({ type: 'buyPomar' }, now);
+    return;
+  }
+  const species = TREE_ORDER.filter((id) => TREES[id].unlockLevel <= farm.level).sort((a, b) => coinsPerMinute(b) - coinsPerMinute(a));
+  for (const { i, j } of orchardTiles()) {
+    const status = farm.treeStatus(i, j, now);
+    if (status) {
+      if (status.pest) cmd({ type: 'tool', tool: 'cuidar', i, j, crop: 'cenoura' }, now);
+      else if (status.ripe) cmd({ type: 'tool', tool: 'colher', i, j, crop: 'cenoura' }, now);
+      else if (status.thirsty) cmd({ type: 'tool', tool: 'regar', i, j, crop: 'cenoura' }, now);
+      continue;
+    }
+    const pick = species.find((id) => farm.saplings[id] > 0) ?? species.find((id) => farm.coins >= TREES[id].saplingCost);
+    if (!pick) continue;
+    if (farm.saplings[pick] < 1 && !cmd({ type: 'buySapling', tree: pick, qty: 1 }, now)) continue;
+    if (cmd({ type: 'tool', tool: 'semear', i, j, crop: 'cenoura', tree: pick }, now)) cmd({ type: 'tool', tool: 'regar', i, j, crop: 'cenoura' }, now);
+  }
+  cmd({ type: 'sellAll' }, now);
 }

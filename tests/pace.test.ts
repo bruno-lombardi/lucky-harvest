@@ -30,4 +30,14 @@ describe('pace', () => {
       claimableSteps(early.farm).reduce((n, c) => n + c.achievement.rewards[c.step]!, 0);
     expect(rewards / early.farm.stats.coinsEarned).toBeLessThan(0.15);
   });
+
+  it('an orchard speeds things up only a little: the level targets still hold', () => {
+    const withOrchard = playCrops({ ...CASUAL, orchard: true });
+    for (const [level, minutes] of Object.entries(TARGETS)) {
+      const at = withOrchard.levelAt[Number(level)]!;
+      expect(at, `level ${level}`).toBeGreaterThan(minutes * (1 - TOLERANCE));
+      expect(at, `level ${level}`).toBeLessThan(minutes * (1 + TOLERANCE));
+    }
+    expect(withOrchard.farm.stats.treesPlanted).toBeGreaterThan(0);
+  });
 });

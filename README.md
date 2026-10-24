@@ -44,7 +44,8 @@ You start with 100 coins, a few seeds and a 6×6 plot.
 16. **Raridade:** every seed is comum, incomum, rara or épica. Rarer seeds cost far more, come on the truck less often, wear a coloured badge and sometimes ripen *golden* (rara: 1 in 10, épica: 1 in 6) for a double harvest. Pitaya (Nv 15) and Uva (Nv 18) are rare, Flor-da-lua (Nv 25) is epic.
 17. **Livro da Fazenda (book button):** a short guide, 24 *Metas* in five chapters that teach the game (the first ten are also shown as a chip under the HUD, pointing at the tool to use) and *Conquistas* with bronze, prata and ouro medals. Everything is claimed whenever you like and pays coins.
 18. **Caminhão e enfeites:** *Entrega maior* (Nv 10) brings 10 seeds instead of 6, *Entrega rápida* (Nv 20) makes the truck come every 4 minutes. Enfeites (Nv 14) are six decorations to buy for the farm.
-19. **Menu (gear):** the game saves itself every few seconds on this device. Export or import the save file, or start over.
+19. **Pomar e árvores frutíferas:** at Nv 10 buy the **Pomar** (3.000 moedas, Loja → Árvores), a fenced orchard beside the windmill with 18 plots. Trees can only be planted there. Pick a *muda* in the seed tray (Semear), plant it and water it **once** while it is young; adults never need water again. Every cycle the tree ripens a harvest (a gold coin spins on the crown), **Colher** takes all the fruit and a new cycle starts. One harvest waits on the tree while you are away. Pests (low chance) freeze the fruit until **Cuidar**; trees never wither; **Limpar** removes a tree with no refund. Five species: Laranjeira (Nv 11), Goiabeira (13), Mangueira (16, rara), Jabuticabeira (20, rara), Coqueiro (26, épica); rare and epic trees give golden harvests. Fruit goes to the barn and sells in **Vender**. The sprinklers water young trees, Tonico picks ripe fruit and Mingau handles tree pests.
+20. **Menu (gear):** the game saves itself every few seconds on this device. Export or import the save file, or start over.
 
 Level up to unlock more valuable crops: 🥕 🌾 → 🌽 (Nv 2) → 🍅 (Nv 3) → 🍓 (Nv 5) → 🎃 (Nv 8) → 🌻 (Nv 10) → 🍉 (Nv 14) → pitaya (Nv 15) → 🍇 (Nv 18) → flor-da-lua (Nv 25).
 Profit per tile-minute climbs with level; prices live in `src/core/crops.ts` and the pace is checked by `tests/pace.test.ts` (a simulated casual player must reach level 8, 12 and 20 in about 45 minutes, 2 hours and 8 hours).
@@ -81,10 +82,11 @@ tests/        Vitest suites for src/core plus render smoke tests and the pace si
 - [x] **6. Animals and saves:** a pen per species (chickens, cows, pigs), species-specific feed (milled from crops or bought), clickable barn, versioned save game with backup, determinism for server sync
 - [x] **7. Helpers:** neutral look tool and tool cursors, sprinklers, Tonico the farmhand, Mingau the cat, wages, upgrades (all deterministic, offline-capped)
 - [x] **7b. Countryside and seed truck:** rural scenery with a road around the farm, a truck that delivers 6 random seeds every 5 minutes (deterministic, offline-capped)
-- [x] **8. Progression and guide:** rarity, five new crops, rebalanced prices, 12×12 plot, pen tiers, Rex, truck upgrades, decorations, lifetime stats, Livro da Fazenda (24 goals, 27 achievements), pace simulator
+- [x] **8. Progression and guide:** rarity, five new crops, rebalanced prices, 12×12 plot, pen tiers, Rex, truck upgrades, decorations, lifetime stats, Livro da Fazenda, pace simulator
+- [x] **8b. Fruit trees:** the Pomar, five species with growth, thirst, fruit cycle, pests, golden fruit (snapshot v7), helpers, goals and achievements (27 goals, 32 achievements)
 - [ ] **9. PWA:** install to home screen, offline cache
 - [ ] **10. Server and social:** neighbors, visiting, stealing, gifts
-- [ ] Later: fruit trees, cosmetics as medal rewards
+- [ ] Later: cosmetics as medal rewards
 
 ## Determinism and server sync
 

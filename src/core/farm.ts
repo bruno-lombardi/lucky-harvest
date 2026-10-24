@@ -49,6 +49,7 @@ import {
   walkerStats,
 } from './helpers';
 import { inBounds, tileKey } from './grid';
+import { POMAR, TREE_ORDER, TREE_PEST_CHANCE, TREES, TreeId, TreeState, TreeStatus, isOrchardTile, treeGrowth, treeStatus } from './trees';
 import { levelFromXp } from './levels';
 import { hashUnit } from './noise';
 
@@ -147,6 +148,11 @@ export type FailReason =
   | 'already-claimed'
   | 'not-done'
   | 'decor-locked'
+  | 'pomar-locked'
+  | 'not-orchard'
+  | 'no-tree'
+  | 'tree-locked'
+  | 'no-sapling'
   | 'pen-exists'
   | 'no-pen'
   | 'pen-full'
@@ -171,10 +177,13 @@ export interface Gain {
   item?: { cropId: CropId; qty: number; golden?: boolean };
   /** Animal product added to the barn (collect). */
   product?: { productId: ProductId; qty: number };
+  /** Fruit added to the barn (tree harvest). */
+  fruit?: { tree: TreeId; qty: number; golden?: boolean };
 }
 
 export type Stock = Record<CropId, number>;
 export type ProductStock = Record<ProductId, number>;
+export type FruitStock = Record<TreeId, number>;
 export type FeedStock = Record<SpeciesId, number>;
 export type Pens = Partial<Record<SpeciesId, PenState>>;
 export type Helpers = Partial<Record<HelperId, HelperState>>;
@@ -202,6 +211,7 @@ export interface HelperEvent {
 
 const emptyStock = (): Stock => Object.fromEntries(CROP_ORDER.map((id) => [id, 0])) as Stock;
 const emptyProducts = (): ProductStock => Object.fromEntries(PRODUCT_ORDER.map((id) => [id, 0])) as ProductStock;
+const emptyFruit = (): FruitStock => Object.fromEntries(TREE_ORDER.map((id) => [id, 0])) as FruitStock;
 const emptyFeed = (): FeedStock => Object.fromEntries(SPECIES_ORDER.map((id) => [id, 0])) as FeedStock;
 const clonePens = (pens: Pens): Pens => {
   const out: Pens = {};
@@ -224,7 +234,7 @@ const cloneHelpers = (helpers: Helpers): Helpers => {
 export type ActionResult = { ok: true; gain: Gain } | { ok: false; reason: FailReason };
 
 export interface FarmSnapshot {
-  version: 6;
+  version: 7;
   /** Per-player constant that seeds every random outcome (pests). */
   seed: number;
   /** Counts successful mutations; part of the random stream and handy for sync ordering. */
@@ -247,14 +257,23 @@ export interface FarmSnapshot {
   stats: Stats;
   /** Ids of goals and achievement steps whose reward was taken (see progress.ts). */
   claimed: string[];
+  /** The Pomar (orchard) has been bought. */
+  pomar: boolean;
+  saplings: FruitStock;
+  fruit: FruitStock;
+  /** Orchard trees by tile key. */
+  trees: Record<string, TreeState>;
   tiles: Record<string, TileState>;
 }
 
 /** Saves from before helpers (v3) and before the seed truck (v4). */
 export type LegacySnapshot =
-  | (Omit<FarmSnapshot, 'version' | 'helpers' | 'deliveredSlot' | 'truck' | 'decor' | 'stats' | 'claimed'> & { version: 3 })
-  | (Omit<FarmSnapshot, 'version' | 'deliveredSlot' | 'truck' | 'decor' | 'stats' | 'claimed'> & { version: 4 })
-  | (Omit<FarmSnapshot, 'version' | 'truck' | 'decor' | 'stats' | 'claimed'> & { version: 5 });
+  | (Omit<FarmSnapshot, 'version' | 'helpers' | 'deliveredSlot' | 'truck' | 'decor' | 'stats' | 'claimed' | OrchardKeys> & { version: 3 })
+  | (Omit<FarmSnapshot, 'version' | 'deliveredSlot' | 'truck' | 'decor' | 'stats' | 'claimed' | OrchardKeys> & { version: 4 })
+  | (Omit<FarmSnapshot, 'version' | 'truck' | 'decor' | 'stats' | 'claimed' | OrchardKeys> & { version: 5 })
+  | (Omit<FarmSnapshot, 'version' | OrchardKeys> & { version: 6 });
+
+type OrchardKeys = 'pomar' | 'saplings' | 'fruit' | 'trees';
 
 export interface FarmOptions {
   seed?: number;
@@ -289,16 +308,22 @@ export class Farm {
   decor: Decorations = {};
   stats: Stats = emptyStats();
   claimed: string[] = [];
+  pomar = false;
+  saplings: FruitStock = emptyFruit();
+  fruit: FruitStock = emptyFruit();
+  private readonly trees = new Map<string, TreeState>();
   seed: number;
   revision = 0;
   nextAnimalId = 1;
   private readonly pestChance: number;
+  private readonly treePestChance: number;
   private readonly tiles = new Map<string, TileState>();
 
   /** Every random outcome comes from `seed`, so a server can replay the same commands to the same result. */
   constructor(options: FarmOptions = {}) {
     this.seed = (options.seed ?? Math.floor(Math.random() * 0xffffffff)) >>> 0;
     this.pestChance = options.pestChance ?? PEST_CHANCE;
+    this.treePestChance = options.pestChance ?? TREE_PEST_CHANCE;
     if (options.now !== undefined) this.deliveredSlot = slotOf(options.now);
   }
 
@@ -457,6 +482,128 @@ export class Farm {
     return this.done(0, 0);
   }
 
+  // ---- Orchard ------------------------------------------------------------
+
+  /** The tree standing on an orchard tile, if any. */
+  tree(i: number, j: number): TreeState | null {
+    return this.trees.get(tileKey(i, j)) ?? null;
+  }
+
+  treeStatus(i: number, j: number, now: number): TreeStatus | null {
+    const tree = this.tree(i, j);
+    return tree ? treeStatus(tree, now) : null;
+  }
+
+  /** Every planted tree. */
+  *treeEntries(): IterableIterator<{ i: number; j: number; tree: TreeState }> {
+    for (const [key, tree] of this.trees) {
+      const [i, j] = key.split(',').map(Number) as [number, number];
+      yield { i, j, tree };
+    }
+  }
+
+  treeCount(): number {
+    return this.trees.size;
+  }
+
+  /** Buys the Pomar: a fenced orchard beside the windmill where trees can be planted. */
+  buyPomar(): ActionResult {
+    if (this.pomar) return fail('max-level');
+    if (this.level < POMAR.level) return fail('level-too-low');
+    if (this.coins < POMAR.cost) return fail('no-coins');
+    this.pomar = true;
+    return this.done(-POMAR.cost, 20);
+  }
+
+  buySapling(id: TreeId, qty: number): ActionResult {
+    const def = TREES[id];
+    if (!this.pomar) return fail('pomar-locked');
+    if (this.level < def.unlockLevel) return fail('tree-locked');
+    if (qty < 1 || this.coins < def.saplingCost * qty) return fail('no-coins');
+    this.saplings[id] += qty;
+    return this.done(-def.saplingCost * qty, 0);
+  }
+
+  private pestRoll(tree: TreeState, i: number, j: number, now: number, span: number): void {
+    const roll = (salt: number): number => hashUnit(this.seed, this.revision, i, j, 0x7ee0 + salt);
+    const infested = roll(1) < this.treePestChance;
+    tree.pestAt = infested ? now + span * (0.2 + 0.6 * roll(2)) : null;
+    tree.pestKind = infested ? (roll(3) < 0.5 ? 'weed' : 'bug') : null;
+  }
+
+  plantTree(id: TreeId, i: number, j: number, now: number): ActionResult {
+    if (!this.pomar) return fail('pomar-locked');
+    if (!isOrchardTile(i, j)) return fail('not-orchard');
+    if (this.trees.has(tileKey(i, j))) return fail('occupied');
+    const def = TREES[id];
+    if (this.level < def.unlockLevel) return fail('tree-locked');
+    if (this.saplings[id] < 1) return fail('no-sapling');
+    this.saplings[id] -= 1;
+    this.stats.treesPlanted++;
+    if (this.coins === 0) this.stats.rescues++;
+    const tree: TreeState = { species: id, plantedAt: now, watered: false, anchorAt: now, anchorGrowth: 0, pestAt: null, pestKind: null };
+    this.pestRoll(tree, i, j, now, def.growMs);
+    this.trees.set(tileKey(i, j), tree);
+    return this.done(0, 3);
+  }
+
+  private reanchorTree(tree: TreeState, now: number): void {
+    tree.anchorGrowth = treeGrowth(tree, now);
+    tree.anchorAt = now;
+  }
+
+  waterTree(i: number, j: number, now: number): ActionResult {
+    const tree = this.tree(i, j);
+    if (!tree) return fail('no-tree');
+    if (tree.watered) return fail('already-watered');
+    this.reanchorTree(tree, now);
+    tree.watered = true;
+    this.stats.watered++;
+    return this.done(0, 1);
+  }
+
+  careTree(i: number, j: number, now: number): ActionResult {
+    const tree = this.tree(i, j);
+    if (!tree) return fail('no-tree');
+    if (!treeStatus(tree, now).pest) return fail('no-pest');
+    this.reanchorTree(tree, now);
+    tree.pestAt = null;
+    tree.pestKind = null;
+    this.stats.cared++;
+    return this.done(0, 2);
+  }
+
+  /** Picks every ripe fruit: they go to the barn, and the tree starts a new cycle. */
+  harvestTree(i: number, j: number, now: number): ActionResult {
+    const tree = this.tree(i, j);
+    if (!tree) return fail('no-tree');
+    const status = treeStatus(tree, now);
+    if (!status.ripe) return fail('not-ripe');
+    const def = TREES[tree.species];
+    const golden = hashUnit(this.seed, this.revision, 0x601d, i, j) < RARITIES[def.rarity].goldenChance;
+    const qty = def.fruits * (golden ? 2 : 1);
+    this.fruit[tree.species] += qty;
+    this.stats.fruitPicked[tree.species] += qty;
+    if (golden) this.stats.goldenFruit++;
+    tree.anchorAt = now;
+    tree.anchorGrowth = def.growMs;
+    this.pestRoll(tree, i, j, now, def.cycleMs);
+    return this.done(0, def.xp * qty, undefined, undefined, { tree: tree.species, qty, ...(golden ? { golden: true } : {}) });
+  }
+
+  /** Shovel on a tree removes it. No refund. */
+  clearTree(i: number, j: number): ActionResult {
+    if (!this.trees.delete(tileKey(i, j))) return fail('nothing-to-clear');
+    return this.done(0, 0);
+  }
+
+  sellFruit(id: TreeId, qty: number): ActionResult {
+    const count = Math.min(Number.isFinite(qty) ? qty : this.fruit[id], this.fruit[id]);
+    if (count < 1) return fail('nothing-to-sell');
+    this.fruit[id] -= count;
+    return this.sold(count * TREES[id].fruitPrice);
+  }
+
   // ---- Shop ---------------------------------------------------------------
 
   buySeeds(cropId: CropId, qty: number): ActionResult {
@@ -494,6 +641,10 @@ export class Farm {
     for (const id of PRODUCT_ORDER) {
       coins += this.products[id] * PRODUCTS[id].sellPrice;
       this.products[id] = 0;
+    }
+    for (const id of TREE_ORDER) {
+      coins += this.fruit[id] * TREES[id].fruitPrice;
+      this.fruit[id] = 0;
     }
     if (coins === 0) return fail('nothing-to-sell');
     return this.sold(coins);
@@ -831,6 +982,12 @@ export class Farm {
         }
       }
     }
+    for (const { i, j } of [...this.treeEntries()]) {
+      if (this.waterTree(i, j, at).ok) {
+        count++;
+        this.helperEvents.push({ helper: 'regador', kind: 'water', at, i, j });
+      }
+    }
     this.revision++;
     h.lastAt = at;
     h.nextAt = at + (SPRINKLER_INTERVAL_MS[h.level - 1] ?? SPRINKLER_INTERVAL_MS[0]!);
@@ -848,6 +1005,17 @@ export class Farm {
         if (species && pen) {
           const ready = pen.animals.filter((a) => animalStatus(species, a, at, pen.level).phase === 'ready').length;
           if (this.collectAll(species, at).ok) this.helperEvents.push({ helper: id, kind: 'collect', at, species, count: ready });
+        }
+      } else if (isOrchardTile(i, j)) {
+        if (id === 'ajudante') {
+          const result = this.harvestTree(i, j, at);
+          if (result.ok) {
+            this.stats.farmhandHarvests += result.gain.fruit?.qty ?? 1;
+            this.helperEvents.push({ helper: id, kind: 'harvest', at, i, j });
+          }
+        } else if (this.careTree(i, j, at).ok) {
+          this.stats.catCares++;
+          this.helperEvents.push({ helper: id, kind: 'care', at, i, j });
         }
       } else if (id === 'ajudante') {
         const result = this.harvest(i, j, at);
@@ -887,6 +1055,16 @@ export class Farm {
           bestDistance = d;
         }
       }
+      for (const { i, j, tree } of this.treeEntries()) {
+        const status = treeStatus(tree, at);
+        const wanted = id === 'ajudante' ? status.ripe : !!status.pest;
+        if (!wanted) continue;
+        const d = Math.hypot(i + 0.5 - here.u, j + 0.5 - here.v);
+        if (d < bestDistance - 1e-9 || (Math.abs(d - bestDistance) <= 1e-9 && best && (j < best.j || (j === best.j && i < best.i)))) {
+          best = { i, j };
+          bestDistance = d;
+        }
+      }
       if (best) bestSpot = { u: best.i + 0.5, v: best.j + 0.5 };
     }
 
@@ -914,7 +1092,7 @@ export class Farm {
       tiles[key] = { kind: tile.kind, crop: tile.crop ? { ...tile.crop } : null };
     }
     return {
-      version: 6,
+      version: 7,
       seed: this.seed,
       revision: this.revision,
       nextAnimalId: this.nextAnimalId,
@@ -932,6 +1110,10 @@ export class Farm {
       decor: { ...this.decor },
       stats: cloneStats(this.stats),
       claimed: [...this.claimed],
+      pomar: this.pomar,
+      saplings: { ...this.saplings },
+      fruit: { ...this.fruit },
+      trees: Object.fromEntries([...this.trees].map(([k, t]) => [k, { ...t }])),
       tiles,
     };
   }
@@ -946,11 +1128,21 @@ export class Farm {
     farm.helpers = cloneHelpers(snapshot.version >= 4 ? (snapshot as { helpers: Helpers }).helpers : {});
     // Older saves have no truck record: they catch up on a few deliveries, like returning from a trip.
     farm.deliveredSlot = snapshot.version >= 5 ? (snapshot as { deliveredSlot: number }).deliveredSlot : 0;
-    if (snapshot.version === 6) {
-      farm.truck = { ...snapshot.truck };
-      for (const id of DECOR_ORDER) if (snapshot.decor[id]) farm.decor[id] = true;
-      farm.stats = normalizeStats(snapshot.stats);
-      farm.claimed = [...new Set(snapshot.claimed.filter((c) => typeof c === 'string'))];
+    if (snapshot.version >= 6) {
+      const v6 = snapshot as FarmSnapshot | Extract<LegacySnapshot, { version: 6 }>;
+      farm.truck = { ...v6.truck };
+      for (const id of DECOR_ORDER) if (v6.decor[id]) farm.decor[id] = true;
+      farm.stats = normalizeStats(v6.stats);
+      farm.claimed = [...new Set(v6.claimed.filter((c) => typeof c === 'string'))];
+    }
+    if (snapshot.version === 7) {
+      farm.pomar = snapshot.pomar === true;
+      farm.saplings = { ...emptyFruit(), ...snapshot.saplings };
+      farm.fruit = { ...emptyFruit(), ...snapshot.fruit };
+      for (const [key, t] of Object.entries(snapshot.trees)) {
+        const [ti, tj] = key.split(',').map(Number) as [number, number];
+        if (t.species in TREES && isOrchardTile(ti, tj)) farm.trees.set(key, { ...t });
+      }
     }
     farm.coins = snapshot.coins;
     farm.xp = snapshot.xp;
@@ -974,6 +1166,7 @@ export class Farm {
     xp: number,
     item?: { cropId: CropId; qty: number; golden?: boolean },
     product?: { productId: ProductId; qty: number },
+    fruit?: { tree: TreeId; qty: number; golden?: boolean },
   ): ActionResult {
     this.revision++;
     const before = this.level;
@@ -983,6 +1176,7 @@ export class Farm {
     const gain: Gain = { coins, xp, levelUp: after > before ? after : null };
     if (item) gain.item = item;
     if (product) gain.product = product;
+    if (fruit) gain.fruit = fruit;
     return { ok: true, gain };
   }
 }

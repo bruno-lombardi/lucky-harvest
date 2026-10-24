@@ -2,6 +2,7 @@ import { SPECIES_ORDER } from './animals';
 import { LoggedCommand } from './commands';
 import { CROPS } from './crops';
 import { HELPER_ORDER } from './helpers';
+import { TREES } from './trees';
 import { Farm, FarmSnapshot, LegacySnapshot } from './farm';
 
 /**
@@ -61,7 +62,7 @@ const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.is
  * (new crops, new species) and drops anything unknown. Returns null if it is not a farm at all.
  */
 export function normalizeSnapshot(raw: unknown): FarmSnapshot | null {
-  if (!isObject(raw) || (raw['version'] !== 3 && raw['version'] !== 4 && raw['version'] !== 5 && raw['version'] !== 6)) return null;
+  if (!isObject(raw) || (raw['version'] !== 3 && raw['version'] !== 4 && raw['version'] !== 5 && raw['version'] !== 6 && raw['version'] !== 7)) return null;
   const { coins, xp, landSize, seed, revision, nextAnimalId, tiles } = raw;
   if (![coins, xp, landSize, seed, revision, nextAnimalId].every(isNumber) || !isObject(tiles)) return null;
   if ((coins as number) < 0 || (xp as number) < 0) return null;
@@ -103,13 +104,24 @@ export function normalizeSnapshot(raw: unknown): FarmSnapshot | null {
   const slot = raw['deliveredSlot'];
   if (raw['version'] !== 3 && raw['version'] !== 4 && (!isNumber(slot) || slot < 0)) return null;
   const truck = raw['truck'];
-  if (raw['version'] === 6 && !(isObject(truck) && typeof truck['big'] === 'boolean' && typeof truck['fast'] === 'boolean')) return null;
-  if (raw['version'] === 6 && (!isObject(raw['decor']) || !isObject(raw['stats']) || !Array.isArray(raw['claimed']))) return null;
+  if (raw['version'] >= 6 && !(isObject(truck) && typeof truck['big'] === 'boolean' && typeof truck['fast'] === 'boolean')) return null;
+  if (raw['version'] >= 6 && (!isObject(raw['decor']) || !isObject(raw['stats']) || !Array.isArray(raw['claimed']))) return null;
+
+  const trees: FarmSnapshot['trees'] = {};
+  if (raw['version'] === 7) {
+    if (typeof raw['pomar'] !== 'boolean' || !isObject(raw['saplings']) || !isObject(raw['fruit']) || !isObject(raw['trees'])) return null;
+    for (const [key, t] of Object.entries(raw['trees'])) {
+      if (!/^\d+,\d+$/.test(key) || !isObject(t) || !(String(t['species']) in TREES)) return null;
+      if (![t['plantedAt'], t['anchorAt'], t['anchorGrowth']].every(isNumber) || typeof t['watered'] !== 'boolean') return null;
+      if (t['pestAt'] !== null && !isNumber(t['pestAt'])) return null;
+      trees[key] = t as unknown as FarmSnapshot['trees'][string];
+    }
+  }
 
   try {
-    const rebuilt = { ...clean, tiles: safeTiles, pens, helpers };
+    const rebuilt = { ...clean, tiles: safeTiles, pens, helpers, ...(raw['version'] === 7 ? { trees } : {}) };
     return Farm.fromSnapshot(
-      raw['version'] === 6 ? ({ ...rebuilt, version: 6 } as FarmSnapshot) : ({ ...rebuilt, version: raw['version'] } as LegacySnapshot),
+      raw['version'] === 7 ? ({ ...rebuilt, version: 7 } as FarmSnapshot) : ({ ...rebuilt, version: raw['version'] } as LegacySnapshot),
     ).toSnapshot();
   } catch {
     return null;
@@ -138,7 +150,7 @@ export function decodeSave(text: string): DecodeResult {
   if (!state || !baseline || !isCommandLog(outbox)) return { ok: false, error: 'O jogo salvo está corrompido.' };
 
   // A save from before the current rules starts a fresh sync history: its old log cannot be replayed on the new rules.
-  const legacy = !isObject(raw['state']) || raw['state']['version'] !== 6;
+  const legacy = !isObject(raw['state']) || raw['state']['version'] !== 7;
   const sync = legacy ? { baseline: state, outbox: [] } : { baseline, outbox };
   const data: SaveData = { playerId: raw['playerId'], savedAt: raw['savedAt'], state, sync };
   // Checksum is over the file as written; normalising may add defaults, so compare against the original payload.

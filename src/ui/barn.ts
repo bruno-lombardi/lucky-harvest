@@ -1,6 +1,7 @@
 import { PRODUCTS, PRODUCT_ORDER, SPECIES, SPECIES_ORDER, SpeciesId } from '../core/animals';
 import { CROPS, CROP_ORDER, CropId } from '../core/crops';
 import { Farm } from '../core/farm';
+import { TREES, TREE_ORDER, TreeId } from '../core/trees';
 import { BARN_ICON } from './icons';
 import { FEED_ICONS, PRODUCT_ICONS } from './item-icons';
 import { Dispatch, empty, heading, img, row } from './kit';
@@ -18,6 +19,7 @@ export class BarnDialog extends Modal<BarnTab> {
     root: HTMLElement,
     private readonly farm: Farm,
     private readonly cropIcons: Record<CropId, string>,
+    private readonly treeIcons: Record<TreeId, string>,
     private readonly dispatch: Dispatch,
     private readonly events: BarnEvents,
   ) {
@@ -56,6 +58,8 @@ export class BarnDialog extends Modal<BarnTab> {
     const crops = CROP_ORDER.filter((id) => farm.produce[id] > 0);
     const products = PRODUCT_ORDER.filter((id) => farm.products[id] > 0);
     const feed = SPECIES_ORDER.filter((id) => farm.feed[id] > 0);
+    const saplings = TREE_ORDER.filter((id) => farm.saplings[id] > 0);
+    const fruits = TREE_ORDER.filter((id) => farm.fruit[id] > 0);
     const count = (n: number): string => `<span class="count">×${n}</span>`;
     let html = '';
     if (seeds.length) {
@@ -65,6 +69,14 @@ export class BarnDialog extends Modal<BarnTab> {
     if (crops.length) {
       html += heading('Colheitas');
       html += crops.map((id) => row(img(this.cropIcons[id]), `<b>${CROPS[id].name} ${count(farm.produce[id])}</b>`, '', false, `crop:${id}`)).join('');
+    }
+    if (saplings.length) {
+      html += heading('Mudas');
+      html += saplings.map((id) => row(img(this.treeIcons[id]), `<b>Muda de ${TREES[id].name.toLowerCase()} ${count(farm.saplings[id])}</b>`, '', false, `tree:${id}`)).join('');
+    }
+    if (fruits.length) {
+      html += heading('Frutas');
+      html += fruits.map((id) => row(img(this.treeIcons[id]), `<b>${TREES[id].fruitName} ${count(farm.fruit[id])}</b>`, '', false, `tree:${id}`)).join('');
     }
     if (products.length) {
       html += heading('Produtos');
@@ -80,7 +92,7 @@ export class BarnDialog extends Modal<BarnTab> {
         `<button type="button" class="big-action" data-act="shop" data-tab="seeds">Ir à loja</button>`
       );
     }
-    const sellable = crops.length + products.length > 0;
+    const sellable = crops.length + products.length + fruits.length > 0;
     return `${html}<button type="button" class="big-action" data-act="shop" data-tab="${sellable ? 'sell' : 'seeds'}">${
       sellable ? 'Vender na loja' : 'Ir à loja'
     }</button>`;

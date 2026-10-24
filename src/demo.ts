@@ -3,10 +3,32 @@ import { CROPS, CROP_ORDER, CropId } from './core/crops';
 import { HOME, HelperState } from './core/helpers';
 import { CropState, Farm, FarmSnapshot, LAND, MAX_LAND, TileState } from './core/farm';
 import { emptyStats } from './core/stats';
+import { TreeId, TreeState } from './core/trees';
 import { slotOf } from './core/delivery';
 import { tileKey } from './core/grid';
 import { levelThreshold } from './core/levels';
 import { mulberry32 } from './core/noise';
+
+const MIN = 60_000;
+
+/** One tree of each species at a different stage, so every model can be looked at. */
+function demoTrees(now: number): FarmSnapshot['trees'] {
+  const tree = (species: TreeId, ageMin: number, over: Partial<TreeState> = {}): TreeState => ({
+    species, plantedAt: now - ageMin * MIN, watered: true, anchorAt: now - ageMin * MIN, anchorGrowth: 0, pestAt: null, pestKind: null, ...over,
+  });
+  return {
+    [tileKey(11, 3)]: tree('laranjeira', 1),
+    [tileKey(12, 3)]: tree('laranjeira', 12),
+    [tileKey(13, 3)]: tree('goiabeira', 20, { watered: false }),
+    [tileKey(14, 3)]: tree('mangueira', 80),
+    [tileKey(15, 3)]: tree('jabuticabeira', 10_000),
+    [tileKey(16, 3)]: tree('coqueiro', 10_000),
+    [tileKey(11, 2)]: tree('laranjeira', 10_000),
+    [tileKey(13, 2)]: tree('mangueira', 10_000),
+    [tileKey(15, 2)]: tree('coqueiro', 40, { pestAt: now - 5 * MIN, pestKind: 'bug' }),
+    [tileKey(16, 2)]: tree('jabuticabeira', 3),
+  };
+}
 
 /**
  * A pre-populated farm for previews and screenshots (open the game with `?demo`).
@@ -93,7 +115,11 @@ export function createDemoFarm(now: number): Farm {
   });
 
   const snapshot: FarmSnapshot = {
-    version: 6,
+    version: 7,
+    pomar: true,
+    saplings: { laranjeira: 2, goiabeira: 1, mangueira: 1, jabuticabeira: 0, coqueiro: 0 },
+    fruit: { laranjeira: 8, goiabeira: 4, mangueira: 0, jabuticabeira: 6, coqueiro: 0 },
+    trees: demoTrees(now),
     deliveredSlot: slotOf(now),
     truck: { big: false, fast: false },
     stats: emptyStats(),

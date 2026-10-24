@@ -146,3 +146,35 @@ describe('Rex and the decorations', () => {
     expect(view.group.children.length).toBe(6);
   });
 });
+
+describe('fruit trees', () => {
+  it('builds every species, stage and condition, and the orchard view follows the farm', async () => {
+    const { TREES, TREE_ORDER } = await import('../src/core/trees');
+    const { buildTreeModel } = await import('../src/render/tree-models');
+    const { OrchardView } = await import('../src/render/orchard-view');
+    const kit = new CropKit(createToonGradient());
+    for (const id of TREE_ORDER) {
+      for (const stage of [0, 1, 2, 3] as const) {
+        for (const thirsty of [false, true]) {
+          const model = buildTreeModel(kit, TREES[id], { stage, progress: 0.5, thirsty });
+          expect(model.children.length, `${id} ${stage}`).toBeGreaterThan(0);
+        }
+      }
+    }
+    const farm = new Farm({ seed: 1, pestChance: 1 });
+    farm.xp = levelThreshold(30);
+    farm.coins = 100_000;
+    const view = new OrchardView(farm, createToonGradient());
+    view.update(0.016, 0);
+    const stakes = view.group.children[0]!.children.length;
+    farm.buyPomar();
+    farm.buySapling('mangueira', 1);
+    farm.plantTree('mangueira', 12, 2, 0);
+    view.update(0.016, 0);
+    expect(view.group.children[0]!.children.length).toBeGreaterThan(stakes);
+    expect(view.group.children.length).toBe(2); // ground + the tree
+    farm.clearTree(12, 2);
+    view.update(0.016, 1);
+    expect(view.group.children.length).toBe(1);
+  });
+});

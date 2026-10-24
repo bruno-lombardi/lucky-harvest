@@ -1,5 +1,6 @@
 import { CROP_ORDER, CropId } from './crops';
 import { PRODUCT_ORDER, ProductId } from './animals';
+import { TREE_ORDER, TreeId } from './trees';
 
 /** Lifetime counters. The farm bumps them inside the actions that change state, so replaying commands reproduces them. */
 export interface Stats {
@@ -34,6 +35,10 @@ export interface Stats {
   rareSeedsReceived: number;
   /** Seeds planted with an empty purse. */
   rescues: number;
+  treesPlanted: number;
+  /** Fruit picked by species, a golden harvest counting double. */
+  fruitPicked: Record<TreeId, number>;
+  goldenFruit: number;
 }
 
 export function emptyStats(): Stats {
@@ -59,6 +64,9 @@ export function emptyStats(): Stats {
     seedsReceived: 0,
     rareSeedsReceived: 0,
     rescues: 0,
+    treesPlanted: 0,
+    fruitPicked: Object.fromEntries(TREE_ORDER.map((id) => [id, 0])) as Record<TreeId, number>,
+    goldenFruit: 0,
   };
 }
 
@@ -70,11 +78,13 @@ export function normalizeStats(raw: unknown): Stats {
   if (typeof raw !== 'object' || raw === null) return out;
   const r = raw as Record<string, unknown>;
   for (const key of Object.keys(out) as Array<keyof Stats>) {
-    if (key === 'harvested' || key === 'collected') continue;
+    if (key === 'harvested' || key === 'collected' || key === 'fruitPicked') continue;
     (out[key] as number) = num(r[key]);
   }
   const harvested = (r['harvested'] ?? {}) as Record<string, unknown>;
   for (const id of CROP_ORDER) out.harvested[id] = num(harvested[id]);
+  const picked = (r['fruitPicked'] ?? {}) as Record<string, unknown>;
+  for (const id of TREE_ORDER) out.fruitPicked[id] = num(picked[id]);
   const collected = (r['collected'] ?? {}) as Record<string, unknown>;
   for (const id of PRODUCT_ORDER) out.collected[id] = num(collected[id]);
   return out;
@@ -84,3 +94,4 @@ export const cloneStats = (s: Stats): Stats => normalizeStats(s);
 
 export const totalHarvested = (s: Stats): number => Object.values(s.harvested).reduce((a, b) => a + b, 0);
 export const totalCollected = (s: Stats): number => Object.values(s.collected).reduce((a, b) => a + b, 0);
+export const totalFruit = (s: Stats): number => Object.values(s.fruitPicked).reduce((a, b) => a + b, 0);

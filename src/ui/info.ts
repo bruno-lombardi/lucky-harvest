@@ -3,6 +3,7 @@ import { CROPS, CropId, RARITIES } from '../core/crops';
 import { Farm, LAND_STEPS } from '../core/farm';
 import { HELPERS, HelperId, MAX_HELPER_LEVEL, WAGE_PERIOD_MS, helperWage } from '../core/helpers';
 import { DECOR, DecorId } from '../core/decor';
+import { POMAR, TREES, TreeId, coinsPerMinute } from '../core/trees';
 import { TRUCK_UPGRADES, TruckUpgradeId } from '../core/delivery';
 import { LOCK_ICON } from './icons';
 import { coin } from './kit';
@@ -62,6 +63,41 @@ function cropCard(id: CropId, farm: Farm): Card {
       ['Experiência', `${c.xp} XP`],
     ],
     note: `Precisa de rega: sem ela, para na metade do caminho. Passado o ponto, murcha em ${humanDuration(c.witherMs)} se for esquecida.`,
+  };
+}
+
+function treeCard(id: TreeId, farm: Farm): Card {
+  const t = TREES[id];
+  const rarity = RARITIES[t.rarity];
+  return {
+    title: t.name,
+    tag: lockTag(t.unlockLevel, farm.level) ?? (t.rarity === 'comum' ? undefined : `<span class="rar rar-${t.rarity}">${rarity.name}</span>`),
+    lore: t.lore,
+    stats: [
+      ['Raridade', rarity.name],
+      ...(rarity.goldenChance > 0 ? ([['Colheita dourada', `1 em ${Math.round(1 / rarity.goldenChance)}: rende o dobro`]] as Array<[string, string]>) : []),
+      ['Preço da muda', coin(t.saplingCost)],
+      ['Fica adulta em', humanDuration(t.growMs)],
+      ['Frutos a cada', humanDuration(t.cycleMs)],
+      ['Por colheita', `${t.fruits} ${t.fruitName.toLowerCase()}s`],
+      [`Cada ${t.fruitName.toLowerCase()} vale`, coin(t.fruitPrice)],
+      ['Rende por minuto', coin(Math.round(coinsPerMinute(id) * 10) / 10)],
+      ['Experiência', `${t.xp} XP por fruta`],
+    ],
+    note: 'Só precisa de água uma vez, enquanto é jovem. Depois dá frutos para sempre: o Pomar guarda uma colheita esperando por você.',
+  };
+}
+
+function pomarCard(farm: Farm): Card {
+  return {
+    title: 'Pomar',
+    tag: farm.pomar ? 'Comprado' : lockTag(POMAR.level, farm.level),
+    lore: 'Um cantinho cercado ao lado do moinho, só para árvores frutíferas.',
+    stats: [
+      ['Preço', coin(POMAR.cost)],
+      ['Cabem', '18 árvores'],
+    ],
+    note: 'Árvores só podem ser plantadas no Pomar. Remover uma árvore com a vassoura não devolve moedas.',
   };
 }
 
@@ -168,10 +204,10 @@ function truckCard(id: TruckUpgradeId, farm: Farm): Card {
 
 const TOOL_INFO: Record<string, [string, string]> = {
   olhar: ['Olhar', 'Só espiar: toque numa planta, num animal ou num prédio para saber como estão, sem mexer em nada.'],
-  colher: ['Colher', 'Colhe plantas maduras (a moeda dourada brilhando). A colheita vai para o celeiro.'],
+  colher: ['Colher', 'Colhe plantas e frutas maduras (a moeda dourada brilhando). A colheita vai para o celeiro.'],
   arar: ['Arar', 'Transforma grama em terra preparada para plantar. Só dentro do terreno cercado.'],
-  semear: ['Semear', 'Planta a semente escolhida na terra arada. Toque de novo para trocar de semente.'],
-  regar: ['Regar', 'Planta sem água para na metade do caminho. Regue para ela terminar de crescer.'],
+  semear: ['Semear', 'Planta a semente escolhida na terra arada, ou a muda escolhida no Pomar. Toque de novo para trocar.'],
+  regar: ['Regar', 'Planta sem água para na metade do caminho. Regue para ela terminar de crescer. Árvores só precisam de uma rega.'],
   cuidar: ['Cuidar', 'Tira ervas daninhas e espanta bichos que travam o crescimento. Plantas esquecidas murcham.'],
   limpar: ['Limpar', 'Tira plantas murchas, ou devolve a terra arada para grama.'],
 };
@@ -182,6 +218,10 @@ export function infoCard(key: string, farm: Farm): string | null {
   switch (kind) {
     case 'crop':
       return id in CROPS ? render(cropCard(id as CropId, farm)) : null;
+    case 'tree':
+      return id in TREES ? render(treeCard(id as TreeId, farm)) : null;
+    case 'pomar':
+      return render(pomarCard(farm));
     case 'species':
       return id in SPECIES ? render(speciesCard(id as SpeciesId, farm)) : null;
     case 'product':

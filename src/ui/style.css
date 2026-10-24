@@ -1786,3 +1786,16 @@ h4.section small {
     font-size: 12.5px;
   }
 }
+
+.tray-divider {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 3px;
+  margin: 4px 4px;
+  border-radius: 2px;
+  background: rgba(60, 30, 10, 0.35);
+}
+
+.tray-divider[hidden] {
+  display: none;
+}

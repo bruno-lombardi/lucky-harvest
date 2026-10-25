@@ -7,13 +7,13 @@ const SIZE = 36;
 
 /** Where the "click" lands inside each 48-unit icon (the working end of the tool), as a fraction. */
 const HOTSPOT: Record<ToolMode, [number, number]> = {
-  olhar: [0.27, 0.12],
+  olhar: [0.22, 0.1],
   colher: [0.5, 0.55],
-  arar: [0.22, 0.88],
+  arar: [0.34, 0.74],
   semear: [0.5, 0.6],
-  regar: [0.12, 0.45],
+  regar: [0.1, 0.55],
   cuidar: [0.5, 0.45],
-  limpar: [0.2, 0.85],
+  limpar: [0.3, 0.88],
 };
 
 const cache = new Map<ToolMode, string>();

@@ -77,6 +77,12 @@ src/game.ts   Renderer, scene and main loop.
 tests/        Vitest suites for src/core plus render smoke tests and the pace simulator (tests/support/pace-bot.ts).
 ```
 
+## Performance and loading
+
+- A splash screen lives in `index.html`, so it paints before any script runs. `src/ui/splash.ts` moves its progress bar between startup stages and fades it out after the first frames render (shaders are precompiled with `compileAsync` first).
+- Static models (crops, soil) are merged to one mesh per material (`src/render/merge.ts`) and shared between tiles; flat countryside ground uses single-quad tiles; distant woods and hedges use coarser meshes and do not cast shadows.
+- The renderer lowers its pixel ratio on its own when a device cannot hold a steady frame rate. three.js ships as a separate chunk.
+
 ## Roadmap
 
 - [x] **1. Foundation:** Vite + TS + Three.js, isometric camera (mouse + touch), 24×24 grid, tile picking

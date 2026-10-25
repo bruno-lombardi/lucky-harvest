@@ -1,4 +1,6 @@
-import { BoxGeometry, DataTexture, Group, Mesh, MeshToonMaterial } from 'three';
+import { BoxGeometry, BufferGeometry, Color, DataTexture, Float32BufferAttribute, Group, Mesh, MeshToonMaterial, Object3D } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { mergeStatic } from './merge';
 import { getCrop } from '../core/crops';
 import { CropStatus, Farm } from '../core/farm';
 import { tileKey, tileToWorld } from '../core/grid';
@@ -15,10 +17,24 @@ const RIDGE_WET = 0x5a3820;
 const BASE_SCALE = 1.3;
 
 interface SoilEntry {
-  group: Group;
-  base: Mesh;
-  ridges: Mesh[];
+  mesh: Mesh;
   wet: boolean;
+}
+
+/** One tile of plowed soil (slab + three ridges) as a single vertex-coloured geometry. */
+function soilGeometry(base: number, ridge: number): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+  const paint = (g: BufferGeometry, hex: number): BufferGeometry => {
+    const c = new Color(hex);
+    const n = g.attributes['position']!.count;
+    const colors = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) colors.set([c.r, c.g, c.b], i * 3);
+    g.setAttribute('color', new Float32BufferAttribute(colors, 3));
+    return g;
+  };
+  parts.push(paint(new BoxGeometry(0.94, 0.07, 0.94).translate(0, 0.035, 0), base));
+  for (const rz of [-0.27, 0, 0.27]) parts.push(paint(new BoxGeometry(0.84, 0.045, 0.11).translate(0, 0.08, rz), ridge));
+  return mergeGeometries(parts)!;
 }
 
 interface CropEntry {
@@ -51,14 +67,11 @@ export class FarmView {
   private readonly crops = new Map<string, CropEntry>();
   private time = 0;
 
-  private readonly soilGeometry = new BoxGeometry(0.94, 0.07, 0.94);
-  private readonly ridgeGeometry = new BoxGeometry(0.84, 0.045, 0.11);
-  private readonly materials = {
-    soilDry: new MeshToonMaterial({ color: SOIL_DRY }),
-    soilWet: new MeshToonMaterial({ color: SOIL_WET }),
-    ridgeDry: new MeshToonMaterial({ color: RIDGE_DRY }),
-    ridgeWet: new MeshToonMaterial({ color: RIDGE_WET }),
-  };
+  private readonly dryGeometry = soilGeometry(SOIL_DRY, RIDGE_DRY);
+  private readonly wetGeometry = soilGeometry(SOIL_WET, RIDGE_WET);
+  private readonly soilMaterial = new MeshToonMaterial({ color: 0xffffff, vertexColors: true });
+  /** Finished crop models, shared by every tile that looks the same (one draw call per material). */
+  private readonly templates = new Map<string, Object3D>();
 
   constructor(
     private readonly farm: Farm,
@@ -67,7 +80,7 @@ export class FarmView {
   ) {
     this.kit = new CropKit(gradientMap);
     this.pests = new PestKit(gradientMap);
-    for (const m of Object.values(this.materials)) m.gradientMap = gradientMap;
+    this.soilMaterial.gradientMap = gradientMap;
   }
 
   update(dt: number, now: number): void {
@@ -96,33 +109,19 @@ export class FarmView {
   private syncSoil(key: string, i: number, j: number, status: CropStatus | null): void {
     let entry = this.soil.get(key);
     if (!entry) {
-      const group = new Group();
+      const mesh = new Mesh(this.dryGeometry, this.soilMaterial);
       const { x, z } = tileToWorld(i, j, this.gridSize);
-      group.position.set(x, 0, z);
-
-      const base = new Mesh(this.soilGeometry, this.materials.soilDry);
-      base.position.y = 0.035;
-      base.receiveShadow = true;
-      group.add(base);
-
-      const ridges: Mesh[] = [];
-      for (const rz of [-0.27, 0, 0.27]) {
-        const ridge = new Mesh(this.ridgeGeometry, this.materials.ridgeDry);
-        ridge.position.set(0, 0.08, rz);
-        ridge.receiveShadow = true;
-        group.add(ridge);
-        ridges.push(ridge);
-      }
-      this.group.add(group);
-      entry = { group, base, ridges, wet: false };
+      mesh.position.set(x, 0, z);
+      mesh.receiveShadow = true;
+      this.group.add(mesh);
+      entry = { mesh, wet: false };
       this.soil.set(key, entry);
     }
 
     const wet = !!status && this.farm.tile(i, j).crop!.watered && !status.ripe && !status.withered;
     if (wet !== entry.wet) {
       entry.wet = wet;
-      entry.base.material = wet ? this.materials.soilWet : this.materials.soilDry;
-      for (const r of entry.ridges) r.material = wet ? this.materials.ridgeWet : this.materials.ridgeDry;
+      entry.mesh.geometry = wet ? this.wetGeometry : this.dryGeometry;
     }
   }
 
@@ -154,7 +153,7 @@ export class FarmView {
     if (entry.signature === signature) return;
 
     if (entry.model) entry.group.remove(entry.model);
-    entry.model = buildCropModel(this.kit, def, status);
+    entry.model = this.modelFor(def, status);
     entry.group.add(entry.model);
 
     if (entry.indicator) entry.group.remove(entry.indicator);
@@ -172,6 +171,16 @@ export class FarmView {
     if (status.stage !== entry.stage || entry.signature === '') entry.age = 0; // pop
     entry.stage = status.stage;
     entry.signature = signature;
+  }
+
+  private modelFor(def: ReturnType<typeof getCrop>, status: CropStatus): Group {
+    const key = `${status.cropId}|${status.stage}|${status.thirsty}|${status.withered}`;
+    let template = this.templates.get(key);
+    if (!template) {
+      template = mergeStatic(buildCropModel(this.kit, def, status));
+      this.templates.set(key, template);
+    }
+    return template.clone() as Group;
   }
 
   /** Red alert above infested crops, blue drop above thirsty ones, glowing gold coin above ripe ones. */
@@ -209,7 +218,7 @@ export class FarmView {
 
   private removeSoil(key: string): void {
     const entry = this.soil.get(key);
-    if (entry) this.group.remove(entry.group);
+    if (entry) this.group.remove(entry.mesh);
     this.soil.delete(key);
   }
 

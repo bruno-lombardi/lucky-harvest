@@ -6,6 +6,7 @@ import {
   Raycaster,
   Scene,
   Vector3,
+  Mesh,
   WebGLRenderer,
 } from 'three';
 import { CropId } from './core/crops';
@@ -176,6 +177,15 @@ export class Game {
     this.resize();
   }
 
+  /** Compiles every shader before the first frame, so the game does not freeze the first time things appear. */
+  async warmUp(): Promise<void> {
+    try {
+      await this.renderer.compileAsync(this.scene, this.cameraController.camera);
+    } catch {
+      // Not fatal: the shaders then compile on first use.
+    }
+  }
+
   start(): void {
     if (this.running) return;
     this.running = true;
@@ -231,6 +241,46 @@ export class Game {
   burst(kind: BurstKind, tile: TileCoord): void {
     const { x, z } = tileToWorld(tile.i, tile.j, GRID_SIZE);
     this.effects.burst(kind, x, z);
+  }
+
+  /** Debug: renderer counters for profiling. */
+  stats(): { calls: number; triangles: number; geometries: number; textures: number; frame: number; update: number } {
+    const { render, memory } = this.renderer.info;
+    return { calls: render.calls, triangles: render.triangles, geometries: memory.geometries, textures: memory.textures, frame: this.lastFrameMs, update: this.lastUpdateMs };
+  }
+
+  /** Debug: visible meshes and triangles per top-level group of the scene. */
+  breakdown(): Array<{ group: string; meshes: number; instanced: number; triangles: number; shadowCasters: number }> {
+    const out: Array<{ group: string; meshes: number; instanced: number; triangles: number; shadowCasters: number }> = [];
+    this.scene.children.forEach((child, n) => {
+      const row = { group: `${n}:${child.type}:${child.children.length}`, meshes: 0, instanced: 0, triangles: 0, shadowCasters: 0 };
+      child.traverseVisible((o) => {
+        const m = o as Mesh & { isInstancedMesh?: boolean; count?: number };
+        if (!m.isMesh) return;
+        const index = m.geometry.index;
+        const tris = (index ? index.count : m.geometry.attributes['position']!.count) / 3;
+        row.meshes++;
+        if (m.isInstancedMesh) row.instanced++;
+        row.triangles += tris * (m.isInstancedMesh ? (m.count ?? 1) : 1);
+        if (m.castShadow) row.shadowCasters++;
+      });
+      out.push(row);
+    });
+    return out;
+  }
+
+  /** Debug: triangles per mesh inside one top-level group. */
+  detail(n: number): Array<{ name: string; count: number; tris: number }> {
+    const out: Array<{ name: string; count: number; tris: number }> = [];
+    this.scene.children[n]?.traverseVisible((o) => {
+      const m = o as Mesh & { isInstancedMesh?: boolean; count?: number };
+      if (!m.isMesh) return;
+      const g = m.geometry;
+      const tris = (g.index ? g.index.count : g.attributes['position']!.count) / 3;
+      const count = m.isInstancedMesh ? (m.count ?? 1) : 1;
+      out.push({ name: o.parent?.type + '>' + g.type, count, tris: tris * count });
+    });
+    return out.sort((a, b) => b.tris - a.tris).slice(0, 12);
   }
 
   /** Debug: keep the sprinklers spraying (for screenshots). */
@@ -359,7 +409,42 @@ export class Game {
     this.cameraController.resize(w, h);
   }
 
+  private lastFrameMs = 0;
+  private lastUpdateMs = 0;
+
+  // Adaptive resolution: if the device cannot keep up, trade pixels for smoothness (never back up, to avoid flapping).
+  private pixelRatio = Math.min(window.devicePixelRatio, 2);
+  private lastStamp = 0;
+  private slowMs = 0;
+  private slowFrames = 0;
+  private warmup = 90;
+
+  private adaptResolution(): void {
+    const stamp = performance.now();
+    const gap = stamp - this.lastStamp;
+    this.lastStamp = stamp;
+    if (this.warmup > 0) {
+      this.warmup--;
+      return;
+    }
+    if (gap > 250 || document.hidden) return; // a pause, not slowness
+    this.slowMs += gap;
+    this.slowFrames++;
+    if (this.slowFrames < 45) return;
+    const average = this.slowMs / this.slowFrames;
+    this.slowMs = 0;
+    this.slowFrames = 0;
+    if (average > 26 && this.pixelRatio > 1) {
+      this.pixelRatio = Math.max(1, this.pixelRatio - 0.25);
+      this.renderer.setPixelRatio(this.pixelRatio);
+      this.resize();
+      this.warmup = 30;
+    }
+  }
+
   private frame(): void {
+    const t0 = performance.now();
+    this.adaptResolution();
     const dt = Math.min(this.clock.getDelta(), 0.1);
     const now = this.frozenAt ?? Date.now() + this.clockOffset;
     this.elapsed += dt;
@@ -385,6 +470,9 @@ export class Game {
     this.updateParticles(dt);
     this.highlight.update(dt);
     this.events.onFrame?.(now);
+    const t1 = performance.now();
     this.renderer.render(this.scene, this.cameraController.camera);
+    this.lastUpdateMs = this.lastUpdateMs * 0.9 + (t1 - t0) * 0.1;
+    this.lastFrameMs = this.lastFrameMs * 0.9 + (performance.now() - t0) * 0.1;
   }
 }

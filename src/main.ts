@@ -34,6 +34,7 @@ import { BOOK_ICON } from './ui/icons';
 import { Toolbar } from './ui/toolbar';
 import { cursorFor } from './ui/cursors';
 import { InfoCard } from './ui/info-card';
+import { splashDone, splashStage } from './ui/splash';
 import { infoCard } from './ui/info';
 
 function required(id: string): HTMLElement {
@@ -42,6 +43,7 @@ function required(id: string): HTMLElement {
   return found;
 }
 
+await splashStage(0.12, 'Arando a terra…');
 const params = new URLSearchParams(window.location.search);
 if (params.has('reset')) {
   new SaveManager().reset();
@@ -504,6 +506,7 @@ const startHour = Number.isFinite(parsedHour) ? parsedHour : 9;
 const truckParam = params.get('truck');
 const shopButton = required('shop-btn');
 const container = required('game');
+await splashStage(0.3, 'Plantando árvores e montando a fazenda…');
 const game = new Game(container, farm, {
   onTileTap: handleTap,
   onObjectTap: handleObjectTap,
@@ -527,6 +530,7 @@ const game = new Game(container, farm, {
   },
 }, startHour, params.has('freeze'));
 
+await splashStage(0.7, 'Pintando as sementes…');
 cropIcons = game.renderCropIcons();
 treeIcons = game.renderTreeIcons();
 game.setToolCursor(cursorFor('olhar'));
@@ -630,7 +634,7 @@ if (params.has('spray')) game.forceSpray(true);
 if (params.has('tier')) farm.barn = Math.min(4, Math.max(1, Number(params.get('tier')) || 1)); // debug: look at a barn tier
 
 // Debug hook for the end-to-end checks (only with ?demo).
-if (isDemo) (window as unknown as Record<string, unknown>)['__lh'] = { farm, tileAt: (i: number, j: number) => game.screenPositionOf({ i, j }) };
+if (isDemo) (window as unknown as Record<string, unknown>)['__lh'] = { farm, tileAt: (i: number, j: number) => game.screenPositionOf({ i, j }), stats: () => game.stats(), breakdown: () => game.breakdown(), detail: (n: number) => game.detail(n) };
 
 const view = params.get('view')?.split(',').map(Number);
 if (view && view.length === 3 && view.every(Number.isFinite)) {
@@ -677,7 +681,10 @@ if (truckParam !== null && Number.isFinite(Number(truckParam))) {
   if (params.has('stopclock')) game.freezeClockAt(at);
   else game.setClockOffset(at - nowMs);
 }
+await splashStage(0.88, 'Acendendo o sol…');
+await game.warmUp();
 game.start();
+void splashDone();
 
 // Debug: `?fx` replays every particle burst on the plot, once a second (handy for screenshots).
 if (params.has('fx')) {

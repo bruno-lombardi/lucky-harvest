@@ -7,6 +7,7 @@ import {
   Group,
   IcosahedronGeometry,
   InstancedMesh,
+  PlaneGeometry,
   Matrix4,
   Mesh,
   MeshToonMaterial,
@@ -73,11 +74,24 @@ function buildGround(gradientMap: DataTexture): Group {
     }
   }
 
-  const mesh = new InstancedMesh(new BoxGeometry(1, 0.5, 1), new MeshToonMaterial({ color: 0xffffff, gradientMap }), cells.length);
+  // Only the plowed furrows (and cells beside them) have visible sides: everything else is a flat tile.
+  const plowedAt = new Set(cells.filter((c) => c.kind === 'plowed').map((c) => `${c.x},${c.z}`));
+  const deep = (c: { x: number; z: number; kind: FieldKind }): boolean =>
+    c.kind === 'plowed' ||
+    plowedAt.has(`${c.x + 1},${c.z}`) || plowedAt.has(`${c.x - 1},${c.z}`) ||
+    plowedAt.has(`${c.x},${c.z + 1}`) || plowedAt.has(`${c.x},${c.z - 1}`);
+  const boxes = cells.filter(deep);
+  const flats = cells.filter((c) => !deep(c));
+  const material = new MeshToonMaterial({ color: 0xffffff, gradientMap });
+  const tile = new PlaneGeometry(1, 1);
+  tile.rotateX(-Math.PI / 2);
+  const mesh = new InstancedMesh(new BoxGeometry(1, 0.5, 1), material, boxes.length);
+  const flatMesh = new InstancedMesh(tile, material, flats.length);
   mesh.receiveShadow = true;
+  flatMesh.receiveShadow = true;
   const color = new Color();
   const m = new Matrix4();
-  cells.forEach((c, n) => {
+  const place = (c: { x: number; z: number; kind: FieldKind }, n: number, target: InstancedMesh, flat: boolean): void => {
     const noise = fbm2D(c.x * 0.18, c.z * 0.18, 77);
     const fine = fbm2D(c.x * 0.7, c.z * 0.7, 5);
     const row = Math.floor(c.x) & 1;
@@ -100,15 +114,19 @@ function buildGround(gradientMap: DataTexture): Group {
         color.setHSL(0.245 + (noise - 0.5) * 0.03, 0.62, 0.53 + (noise - 0.5) * 0.1);
         break;
     }
-    // Cells are 0.5 tall with their top at `top`.
-    m.makeTranslation(c.x, top - 0.25, c.z);
-    mesh.setMatrixAt(n, m);
-    mesh.setColorAt(n, color);
-  });
-  mesh.instanceMatrix.needsUpdate = true;
-  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  mesh.frustumCulled = false;
-  group.add(mesh);
+    // Boxes are 0.5 tall with their top at `top`; flat tiles sit right at it.
+    m.makeTranslation(c.x, flat ? top : top - 0.25, c.z);
+    target.setMatrixAt(n, m);
+    target.setColorAt(n, color);
+  };
+  boxes.forEach((c, n) => place(c, n, mesh, false));
+  flats.forEach((c, n) => place(c, n, flatMesh, true));
+  for (const t of [mesh, flatMesh]) {
+    t.instanceMatrix.needsUpdate = true;
+    if (t.instanceColor) t.instanceColor.needsUpdate = true;
+    t.frustumCulled = false;
+  }
+  group.add(mesh, flatMesh);
   return group;
 }
 
@@ -205,7 +223,7 @@ function buildHedges(palette: Palette): Group {
   const rand = mulberry32(4242);
   const blobs: Matrix4[] = [];
   const colors: Color[] = [];
-  const geometry = new IcosahedronGeometry(1, 1);
+  const geometry = new IcosahedronGeometry(1, 0);
   geometry.computeVertexNormals();
   const add = (x: number, z: number): void => {
     if (insideGrid(x, z) || onRoad(x, z, 1.2)) return;
@@ -223,6 +241,7 @@ function buildHedges(palette: Palette): Group {
   }
   const hedges = instanced(geometry, palette.toon(0xffffff), blobs, colors);
   addInstancedHullOutline(hedges, 0.05);
+  hedges.castShadow = false; // out past the shadow camera
   const group = new Group();
   group.add(hedges);
   return group;
@@ -283,7 +302,7 @@ function buildWoods(palette: Palette): Group {
     // A few strays in the open, so fields do not look clipped.
     return (kind === 'meadow' || kind === 'pasture') && hashUnit(Math.floor(x * 3), Math.floor(z * 3), 9) < 0.05;
   };
-  group.add(buildForest(palette, { seed: 777, extent: REACH - 2, trees: 260, bushes: 120, rocks: 30, free }));
+  group.add(buildForest(palette, { seed: 777, extent: REACH - 2, trees: 260, bushes: 120, rocks: 30, free, distant: true }));
   return group;
 }
 

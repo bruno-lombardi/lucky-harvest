@@ -651,8 +651,8 @@ function buildPond(palette: Palette): Group {
 type Spot = { x: number; z: number; s: number; rot: number };
 
 /** A low-poly ball with per-face normals, so toon shading shows crisp facets. */
-function faceted(): BufferGeometry {
-  const geometry = new IcosahedronGeometry(1, 1);
+function faceted(detail = 1): BufferGeometry {
+  const geometry = new IcosahedronGeometry(1, detail);
   geometry.computeVertexNormals(); // non-indexed, so this yields flat face normals
   return geometry;
 }
@@ -686,6 +686,8 @@ export interface ForestOptions {
   rocks: number;
   /** Where something may stand. */
   free: (x: number, z: number) => boolean;
+  /** Distant woodland: coarser meshes and no shadow casting (it lies outside the shadow camera anyway). */
+  distant?: boolean;
 }
 
 /** The trees, bushes and rocks between the fence and the countryside road. */
@@ -794,18 +796,23 @@ export function buildForest(palette: Palette, options: ForestOptions): Group {
     rockC.push(new Color().setHSL(0.6, 0.04, 0.55 + rand() * 0.15));
   });
 
-  const trunks = instanced(new CylinderGeometry(0.75, 1, 1, 7), palette.toon(0x8a5a34), trunkM);
+  const far = options.distant === true;
+  const seg = far ? 5 : 7;
+  const trunks = instanced(new CylinderGeometry(0.75, 1, 1, seg), palette.toon(0x8a5a34), trunkM);
   addInstancedHullOutline(trunks, 0.02);
-  const crowns = instanced(faceted(), palette.toon(0xffffff), crownM, crownC);
+  const crowns = instanced(faceted(far ? 0 : 1), palette.toon(0xffffff), crownM, crownC);
   addInstancedHullOutline(crowns, 0.04);
-  const pines = instanced(new ConeGeometry(1, 1, 9), palette.toon(0xffffff), pineM, pineC);
+  const pines = instanced(new ConeGeometry(1, 1, far ? 6 : 9), palette.toon(0xffffff), pineM, pineC);
   addInstancedHullOutline(pines, 0.03);
-  const apples = instanced(new SphereGeometry(1, 10, 8), palette.toon(0xe0332a), appleM);
-  const shrubs = instanced(faceted(), palette.toon(0xffffff), bushM, bushC);
+  const apples = instanced(new SphereGeometry(1, far ? 5 : 10, far ? 4 : 8), palette.toon(0xe0332a), appleM);
+  const shrubs = instanced(faceted(far ? 0 : 1), palette.toon(0xffffff), bushM, bushC);
   addInstancedHullOutline(shrubs, 0.06);
-  const berries = instanced(new SphereGeometry(1, 8, 6), palette.toon(0xff4f7a), berryM);
+  const berries = instanced(new SphereGeometry(1, far ? 4 : 8, far ? 3 : 6), palette.toon(0xff4f7a), berryM);
   const stones = instanced(new DodecahedronGeometry(1, 0), palette.toon(0xffffff), rockM, rockC);
   addInstancedHullOutline(stones, 0.03);
+  if (far) {
+    for (const mesh of [trunks, crowns, pines, apples, shrubs, berries, stones]) mesh.castShadow = false;
+  }
   group.add(trunks, crowns, pines, apples, shrubs, berries, stones);
   return group;
 }

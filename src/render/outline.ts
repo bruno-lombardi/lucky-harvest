@@ -5,7 +5,7 @@ export const OUTLINE_COLOR = 0x2e1c10;
 const materials = new Map<string, MeshBasicMaterial>();
 
 /** Back-face material pushed outward along vertex normals: the classic inverted-hull toon outline. */
-function outlineMaterial(thickness: number, color: number): MeshBasicMaterial {
+export function outlineMaterial(thickness: number, color: number): MeshBasicMaterial {
   const key = `${thickness.toFixed(5)}|${color}`;
   let material = materials.get(key);
   if (!material) {
@@ -17,6 +17,7 @@ function outlineMaterial(thickness: number, color: number): MeshBasicMaterial {
       );
     };
     material.customProgramCacheKey = () => key;
+    material.userData['outline'] = { thickness, color };
     materials.set(key, material);
   }
   return material;

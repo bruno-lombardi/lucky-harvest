@@ -762,10 +762,18 @@ function buildMoon(c: Context): Group {
 }
 
 /** A thin glowing ring under ripe rare and epic crops, so they stand out from the field. */
+const RING_GEOMETRY = new RingGeometry(0.34, 0.4, 28);
+const ringMaterials = new Map<number, MeshBasicMaterial>();
+
 function rarityRing(def: CropDef): Mesh | null {
   const color = def.rarity === 'epica' ? 0xffd75a : def.rarity === 'rara' ? 0x6aa8ff : 0;
   if (color === 0) return null;
-  const ring = new Mesh(new RingGeometry(0.34, 0.4, 28), new MeshBasicMaterial({ color, transparent: true, opacity: 0.75, side: DoubleSide }));
+  let material = ringMaterials.get(color);
+  if (!material) {
+    material = new MeshBasicMaterial({ color, transparent: true, opacity: 0.75, side: DoubleSide });
+    ringMaterials.set(color, material);
+  }
+  const ring = new Mesh(RING_GEOMETRY, material);
   ring.rotation.x = -Math.PI / 2;
   ring.position.y = 0.025;
   return ring;

@@ -1,3 +1,10 @@
+/**
+ * @module core/levels
+ *
+ * The XP curve (`25 * (level - 1) * level`, level cap 50). Most unlock levels in the other tables are read against it, so changing
+ * the curve shifts the pacing of the whole game; check `tests/pace.test.ts`.
+ */
+
 export const MAX_LEVEL = 50;
 
 /** Total XP needed to reach `level`. Level 1 = 0, 2 = 50, 3 = 150, 4 = 300... */

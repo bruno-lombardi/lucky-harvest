@@ -1,3 +1,16 @@
+/**
+ * @module persistence
+ *
+ * `SaveManager`: everything that touches `localStorage` (save, rolling backup, autosave, import/export, reset). The file format and the
+ * validation are in src/core/save.ts, so a server can share them.
+ *
+ * The save carries `sync.baseline` + `sync.outbox` (every successful command since the baseline). Nothing sends them anywhere yet.
+ *
+ * NEXT(backend): add a `SyncManager` beside this class: POST the outbox, adopt the server snapshot as the new baseline, drop acknowledged
+ *   commands and re-apply the rest. Give `LoggedCommand` a `seq` for idempotent retries. The outbox cap (`MAX_OUTBOX`) then becomes
+ *   "drain on acknowledgement". Design in docs/Roadmap-Backend-Multiplayer-Social.md.
+ */
+
 import { Command, LoggedCommand } from './core/commands';
 import { Farm, FarmSnapshot } from './core/farm';
 import { DecodeResult, SaveData, decodeSave, encodeSave } from './core/save';
@@ -27,6 +40,7 @@ export interface Loaded {
  */
 export class SaveManager {
   private farm: Farm | null = null;
+  /** Random per device today. NEXT(backend): becomes the anonymous device id that an account can later adopt. */
   private playerId = newPlayerId();
   private baseline: FarmSnapshot | null = null;
   private outbox: LoggedCommand[] = [];

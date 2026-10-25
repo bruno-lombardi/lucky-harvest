@@ -1,3 +1,10 @@
+/**
+ * @module render/indicators
+ *
+ * Billboard icons over things: a gold coin (ripe), water drop (thirsty), alert (pest), unpaid-helper coin, baked-goods bubble, animal
+ * need badges. Drawn once on small canvases and reused, so they stay crisp. Their `userData.kind` lets `FarmView` animate them.
+ */
+
 import { AdditiveBlending, CanvasTexture, Group, SRGBColorSpace, Sprite, SpriteMaterial } from 'three';
 
 /**

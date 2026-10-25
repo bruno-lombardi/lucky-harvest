@@ -1,3 +1,11 @@
+/**
+ * @module render/particles
+ *
+ * A fixed-size pool of camera-facing point sprites (one draw call) for every burst of the game: dirt, splashes, sparkles, confetti.
+ * `Effects.burst(kind, ...)` has a recipe per action (`BurstKind`); `Fireflies` is a separate ambient pool that appears at night.
+ * Purely cosmetic and not part of the game state.
+ */
+
 import {
   AdditiveBlending,
   BufferAttribute,

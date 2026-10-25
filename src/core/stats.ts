@@ -1,3 +1,11 @@
+/**
+ * @module core/stats
+ *
+ * Lifetime counters. `Farm` bumps them inside the same methods that change state, so replaying commands reproduces them exactly.
+ * Goals and achievements (`progress.ts`) are pure functions of these counters and the farm. To track something new, add a field to
+ * `Stats`, `emptyStats`, `cloneStats` and `normalizeStats` (saves from before it existed must load as zero).
+ */
+
 import { CROP_ORDER, CropId } from './crops';
 import { PRODUCT_ORDER, ProductId } from './animals';
 import { GOOD_ORDER, GoodId } from './goods';

@@ -3,6 +3,11 @@ import { FailReason, Farm } from '../core/farm';
 import { TREES } from '../core/trees';
 import { isOrchardTile } from '../core/trees';
 
+/**
+ * Player-facing text for every failure reason.
+ * NEXT(content): all UI strings live here, in info.ts and in the core data tables (`name`, `lore`). Before adding a second language,
+ * route them through one lookup, since social features will bring players who do not read Portuguese.
+ */
 export function reasonMessage(reason: FailReason): string {
   switch (reason) {
     case 'locked-land':

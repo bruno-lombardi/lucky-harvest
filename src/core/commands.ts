@@ -50,12 +50,23 @@ export type Command =
   | { type: 'collectBakery' }
   | { type: 'sellGood'; good: GoodId; qty: number };
 
-/** A command that succeeded, with the time it was applied: the unit of replay and sync. */
+/**
+ * A command that succeeded, with the time it was applied: the unit of replay and sync.
+ *
+ * NEXT(backend): add `seq` (a per-farm counter) so the server can treat retries idempotently, and an `origin: 'client' | 'server'`
+ *   marker. Server-origin entries (gift received, crop stolen) would be appended to a farm's log by the server and applied like any
+ *   other command, which keeps one ordered, replayable log per farm. See "Cross-farm operations" in docs/Roadmap-Backend-Multiplayer-Social.md.
+ */
 export interface LoggedCommand {
   command: Command;
   now: number;
 }
 
+/**
+ * The single entry point for changing a farm. `now` is the caller's clock.
+ * NEXT(backend): on a server `now` must come from the server's clock (or be a client value checked against it: non-decreasing and not
+ *   ahead of server time plus a small skew), never trusted blindly.
+ */
 export function applyCommand(farm: Farm, command: Command, now: number): ActionResult {
   // Helpers work in the background, so catch their routines up to this moment first.
   farm.runHelpers(now);

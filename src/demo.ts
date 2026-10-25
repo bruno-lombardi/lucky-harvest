@@ -1,3 +1,10 @@
+/**
+ * @module demo
+ *
+ * A showcase farm for `?demo`: every crop at every stage, trees, animals, helpers, decorations, a rich inventory. Used for screenshots,
+ * profiling (`window.__lh`) and eyeballing new models. It never touches the player's real save. When you add content, add it here too.
+ */
+
 import { AnimalState, SPECIES, SpeciesId } from './core/animals';
 import { CROPS, CROP_ORDER, CropId } from './core/crops';
 import { HOME, HelperState } from './core/helpers';

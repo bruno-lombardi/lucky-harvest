@@ -1,3 +1,9 @@
+/**
+ * @module render/highlight
+ *
+ * The hover glow and the pulsing frame around the selected tile. Pure view state.
+ */
+
 import { DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Shape, ShapeGeometry } from 'three';
 import { TileCoord, tileToWorld } from '../core/grid';
 

@@ -6,6 +6,8 @@ import { hashUnit } from './noise';
  * (wall-clock aligned, so every device agrees without any state beyond "last slot delivered").
  * What is on the truck depends only on the farm's seed, the slot and the player's level.
  */
+// NEXT(content): themed or event trucks (a harvest festival load, a rare-seed day) fit here: the slot grid and `rollDelivery` are
+// pure, so a calendar rule that picks a different load table stays deterministic.
 export const DELIVERY_INTERVAL_MS = 5 * 60 * 1000;
 /** Seeds on every truck. */
 export const DELIVERY_SEEDS = 6;

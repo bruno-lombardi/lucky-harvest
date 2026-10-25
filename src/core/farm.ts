@@ -1,3 +1,31 @@
+/**
+ * @module core/farm
+ *
+ * The `Farm` class: the whole game state and every rule that changes it. If a rule exists, it is a method here.
+ *
+ * Reading guide (search for the section comments):
+ *   - Types and constants       snapshot shape, FailReason, land steps (top of file)
+ *   - Crops and tiles           plow / plant / water / care / harvest / clear, `status()` growth maths
+ *   - Orchard                   fruit trees (Pomar)
+ *   - Shop                      buying seeds, selling crops, products, fruit and goods
+ *   - The Confeitaria           bakery jobs, ingredients, collecting
+ *   - Pens and animals, Feed    the animal loop and feed milling, and land expansion
+ *   - Helpers                   hiring, wages, `runHelpers`, the walkers' state machine, sprinklers, the seed truck
+ *   - Truck, barn, decorations  upgrades bought in the shop, goal and achievement claims
+ *   - Persistence               `toSnapshot` / `fromSnapshot`
+ *
+ * Ground rules (see docs/Core-Rules-Engine.md):
+ *   1. Time is a parameter (`now`), never read from a clock. No `Math.random`; use `hashUnit(seed, revision, ...)`.
+ *   2. A player action returns `ActionResult` (`fail(reason)` or `done(...)`) and changes nothing on failure.
+ *   3. Every successful change goes through `done()` (or bumps `revision` itself): `revision` feeds the random stream.
+ *   4. Never put view data here. The renderer's queues (`helperEvents`, `deliveryEvents`) are the one exception and are not saved.
+ *
+ * NEXT(backend): this is the class a server will run. It is large (about 1,400 lines); before the server work, split it by area
+ *   (crops, pens, helpers, bakery, orchard) behind this same facade so the pieces can be tested and owned separately.
+ * NEXT(multiplayer): everything here is about ONE player. Cross-farm effects (gifts, helping a neighbor, stealing) must not be
+ *   added as methods that touch two farms; see docs/Roadmap-Backend-Multiplayer-Social.md ("Cross-farm operations").
+ */
+
 import {
   AnimalState,
   PRODUCTS,
@@ -362,6 +390,10 @@ export class Farm {
 
   /** Every random outcome comes from `seed`, so a server can replay the same commands to the same result. */
   constructor(options: FarmOptions = {}) {
+    // The only Math.random in the rules, and it runs once per new farm. The seed then lives in the snapshot and drives every pest and
+    // golden-harvest roll.
+    // NEXT(backend): a server must assign the seed at account creation and ignore a client-supplied one; a client that picks its own
+    //   seed could pre-compute which plantings get pests. Keep this path for offline/new-game only.
     this.seed = (options.seed ?? Math.floor(Math.random() * 0xffffffff)) >>> 0;
     this.pestChance = options.pestChance ?? PEST_CHANCE;
     this.treePestChance = options.pestChance ?? TREE_PEST_CHANCE;
@@ -375,6 +407,8 @@ export class Farm {
   isUnlocked(i: number, j: number): boolean {
     return isUnlockedFor(this.landSize, i, j);
   }
+
+  // ---- Crops and tiles ----------------------------------------------------
 
   /** The state of a tile (untouched tiles are plain grass). */
   tile(i: number, j: number): TileState {
@@ -657,6 +691,9 @@ export class Farm {
   }
 
   /** Sells harvested produce from the barn. Pass Infinity to sell everything of that crop. */
+  // NEXT(multiplayer): prices here are fixed by the tables. A player market (listings, fees, price bounds) must be server-side;
+  //   do not let clients trade directly. Extend tests/support/pace-bot.ts with the bakery and a market before opening one, because
+  //   goods multiply income.
   sell(cropId: CropId, qty: number): ActionResult {
     const count = Math.min(Number.isFinite(qty) ? qty : this.produce[cropId], this.produce[cropId]);
     if (count < 1) return fail('nothing-to-sell');
@@ -1039,9 +1076,14 @@ export class Farm {
   }
 
   /**
-   * Plays the helpers' routines forward to `now`, one event at a time in time order.
-   * Called before every command and every frame; since each event depends only on the state and its
-   * own timestamp, running it at any moment gives the same result, which a server can reproduce.
+   * Plays the helpers' routines (and the seed truck) forward to `now`, one event at a time in time order.
+   * Called before every command and every frame. Each event depends only on the state and its own timestamp, so splitting a span
+   * into many small calls or doing it in one gives the same result, EXCEPT across the offline caps below.
+   *
+   * KNOWN GAP (NEXT(backend), "Blocker 1" in docs/Roadmap-Backend-Multiplayer-Social.md): the caps are evaluated against the `now` of
+   * the call. A tab that stays open calls this every frame and never trips them; a server replaying commands hours apart calls it
+   * once and does. The two then disagree (see tests/known-issues.test.ts). Planned fix: base the cap on a logged `lastSeenAt`
+   * (advanced by a `heartbeat` command) instead of on call cadence.
    */
   runHelpers(now: number): void {
     // Away for ages: the truck only left the last few deliveries at the door.
@@ -1090,6 +1132,8 @@ export class Farm {
     if (this.helperEvents.length > 80) this.helperEvents.splice(0, this.helperEvents.length - 80);
     if (this.deliveryEvents.length > 20) this.deliveryEvents.splice(0, this.deliveryEvents.length - 20);
   }
+
+  // ---- Truck, barn and decorations ---------------------------------------
 
   /** Buys a seed-truck upgrade. The faster clock restarts from now: the next truck is at most one new interval away. */
   upgradeTruck(id: TruckUpgradeId, now: number): ActionResult {

@@ -1,3 +1,11 @@
+/**
+ * @module render/farm-view
+ *
+ * Draws the plowed soil and the crops from `Farm` state, and diffs every frame: one soil mesh per tile, one crop entry per planted tile,
+ * rebuilt only when the crop's visible *signature* (crop, stage, thirst, withering, pest) changes. Read-only: it never mutates the farm.
+ * Merged model templates are cached per signature (see `modelFor`), so a field of 100 carrots shares geometry and materials.
+ */
+
 import { BoxGeometry, BufferGeometry, Color, DataTexture, Float32BufferAttribute, Group, Mesh, MeshToonMaterial, Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mergeStatic } from './merge';

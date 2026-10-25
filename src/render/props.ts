@@ -1,3 +1,15 @@
+/**
+ * @module render/props
+ *
+ * The farm's fixed scenery: barn (4 tiers), windmill, fence and gate, pond, scarecrow, hay, lamp, sign, and the forest ring.
+ * Also exports the shared building blocks the other views use: `Palette` (colour → shared MeshToonMaterial), `box()` (a box with an
+ * outline), `instanced()` and `buildForest()`.
+ *
+ * Conventions: positions are world units (1 tile = 1 unit); the camera looks from +x, +z, so +x/+z faces are the visible ones.
+ * Build with `Palette`/`box` so materials stay shared; use instancing for anything repeated. When you place a new building, keep the
+ * forest away from it (see the `free` function of the inner forest near the end of the file).
+ */
+
 import {
   AdditiveBlending,
   BoxGeometry,

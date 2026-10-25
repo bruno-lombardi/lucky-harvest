@@ -63,10 +63,14 @@ Debug URLs: `?demo` loads a showcase farm with every crop at every stage; `?view
 | Zoom | Mouse wheel | Pinch |
 | Use tool | Click | Tap |
 
+## Documentation
+
+The full wiki lives in [`docs/`](docs/Home.md): architecture, the rules engine, rendering, UI, saves, testing, step-by-step recipes for adding content, and the plan for a backend, multiplayer and social features. In the code, grep for `NEXT(backend)`, `NEXT(multiplayer)` and `NEXT(content)` to find the places where those plans plug in.
+
 ## Project layout
 
 ```
-src/core/     Pure game logic: grid, noise, crops, levels, Farm rules (inventory, shop, land, pests), tool actions. No Three.js,
+src/core/     Pure game logic: grid, noise, crops, trees, animals, helpers, bakery goods, progress, saves, Farm rules, commands. No Three.js,
               no clock (time is passed in), so a future server can reuse it as-is.
 src/render/   Three.js: iso camera, terrain, countryside (fields, road, poles, hills), seed truck, clouds, props (barn, windmill, fence, trees, pond),
               outlines, crop models, pests, particles, day/night, seed-icon renderer, FarmView.
@@ -104,7 +108,7 @@ tests/        Vitest suites for src/core plus render smoke tests and the pace si
 
 The rules in `src/core` are a pure function of *(state, command, now)*; nothing reads a clock or `Math.random`.
 Pests are rolled from `hashUnit(seed, revision, ...)`, so the same farm seed and command history always give the same result.
-Helpers are part of the same rules: `Farm.runHelpers(now)` plays their routines forward in time order (each event depends only on state and its own timestamp), and `applyCommand` calls it first, so the client's per-frame catch-up and a server's replay agree.
+Helpers are part of the same rules: `Farm.runHelpers(now)` plays their routines forward in time order (each event depends only on state and its own timestamp), and `applyCommand` calls it first, so the client's per-frame catch-up and a server's replay agree **as long as no gap exceeds the 30-minute offline cap**. Past that, the result depends on how often the function was called; this is a known gap with a planned fix (see `docs/Roadmap-Backend-Multiplayer-Social.md` and `tests/known-issues.test.ts`).
 The seed truck rides the same timeline: delivery slot *k* happens at `k * 5 min` of wall-clock time, its contents are `rollDelivery(seed, slot, level)` (pure hash draws), and `Farm.deliveredSlot` is the only state. Deliveries and helper steps are processed in one time-ordered loop, so the level used for a roll never depends on how often the client ticked. A long absence leaves at most 6 deliveries. The truck on screen is a pure function of the clock, so it needs no state at all.
 Counters (`Farm.stats`) are bumped inside the same actions that change state, and goal and achievement claims are commands (`claimGoal`, `claimAchievement`), so progress replays like everything else. What counts as done lives in `src/core/progress.ts` as pure functions of the farm.
 Every player action is a plain-data `Command` (`src/core/commands.ts`) applied through `applyCommand`.

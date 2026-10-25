@@ -42,6 +42,8 @@ const animalsOwned = (f: Farm): number => SPECIES_ORDER.reduce((n, s) => n + (f.
 const speciesPicked = (f: Farm): number => TREE_ORDER.filter((t: TreeId) => f.stats.fruitPicked[t] > 0).length;
 const bestHelperLevel = (f: Farm): number => Math.max(0, ...HELPER_ORDER.map((id) => f.helpers[id]?.level ?? 0));
 
+// NEXT(content): daily quests and seasonal events are goals with a time window plus a `claimQuest` command; the data shape already
+// fits. Never renumber or reuse goal ids: `farm.claimed` stores them.
 export const GOALS: readonly Goal[] = [
   { id: 1, chapter: 0, text: 'Arar 3 terrenos', hint: 'Escolha a enxada e toque na grama dentro da cerca.', reward: 20, value: (f) => f.stats.plowed, target: 3, point: 'arar' },
   { id: 2, chapter: 0, text: 'Plantar uma cenoura', hint: 'Escolha o saquinho de sementes e toque na terra arada.', reward: 15, value: (f) => f.stats.planted, target: 1, point: 'semear' },

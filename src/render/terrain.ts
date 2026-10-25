@@ -1,3 +1,10 @@
+/**
+ * @module render/terrain
+ *
+ * The island itself: water, grass tiles, unlocked/locked plot shading, scattered tufts and flowers. `refreshLand()` re-paints when the
+ * player expands the plot. The ground beyond the island is in countryside.ts.
+ */
+
 import {
   BoxGeometry,
   Color,

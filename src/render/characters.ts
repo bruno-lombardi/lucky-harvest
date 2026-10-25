@@ -1,3 +1,13 @@
+/**
+ * @module render/characters
+ *
+ * `CharacterKit`: Tonico, Mingau, Rex, Lúcia and Dona Zefa, built from boxes and spheres in the farm's toon style. Each `Character` exposes a
+ * `root` and an `update(frame)` that the views call every frame with a `CharacterFrame` (pose, dt, time, carried crop, night factor)
+ * to drive the walk cycle, work swing and wave. The poses and routes come from
+ * `core/helpers.ts` (`walkerPose`), so what you see is a function of the farm state and the clock.
+ * Everything faces +z. To add a character: add a builder here, then see docs/How-To-Add-Content.md ("A new helper").
+ */
+
 import {
   BoxGeometry,
   ConeGeometry,

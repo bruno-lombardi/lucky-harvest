@@ -1,3 +1,11 @@
+/**
+ * @module render/pens
+ *
+ * The animal pens: empty plot, then building, yard, trough and animals, per species. The hungry/ready badges over animals come from `indicators.ts`. Layout is
+ * `PEN_LAYOUT` (east side of the island). Animals and their little animations come from `animal-models.ts`. The biggest draw-call cost in
+ * the scene after the crops; merge static parts per pen before adding more animals.
+ */
+
 import {
   CanvasTexture,
   CylinderGeometry,

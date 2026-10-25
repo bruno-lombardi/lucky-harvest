@@ -1,3 +1,20 @@
+/**
+ * @module game
+ *
+ * Owns the WebGLRenderer, the Scene and the frame loop, and builds one view object per feature (terrain, props, farm, pens, helpers,
+ * bakery, ...). Game rules live in src/core; this file only draws them and reports pointer events through `GameEvents`.
+ *
+ * Per frame (`frame()`): camera and day/night → `farm.runHelpers(now)` (background work) → every view's `update` → HUD callback → render.
+ * Also here: adaptive resolution, shader warm-up for the loading screen, occlusion test for helper silhouettes, and the `?demo` debug
+ * helpers (`stats`, `breakdown`, `detail`).
+ *
+ * To add a visible feature: create `render/xxx-view.ts`, construct it below, add its `group` to the scene, call its `update` in `frame()`;
+ * if it can be tapped add its root to the `ObjectPicker` list, and if it is a tall building add it to the occlusion list in `isOccluded`.
+ *
+ * NEXT(multiplayer): `Game` takes a single `Farm` and only reads it, which is what a visitor mode needs. A neighbor's farm could be shown
+ *   by building a second `Game` (or swapping the farm) from a snapshot and the server's `now`, with tool input disabled.
+ */
+
 import {
   Clock,
   DirectionalLight,

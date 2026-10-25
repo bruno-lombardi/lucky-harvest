@@ -1,3 +1,23 @@
+/**
+ * @module main
+ *
+ * The composition root: creates the Farm, the Game (3D) and the DOM dialogs, and connects them. It holds no game rules.
+ *
+ * Reading guide, top to bottom:
+ *   1. Startup           query params, load or create the Farm, SaveManager, audio, HUD
+ *   2. Loading screen    `await splashStage(...)` between heavy steps (see ui/splash.ts)
+ *   3. Feedback          `showHelperEvents`, `showDeliveries`, `showGain`: turn what happened into toasts, floaters, sounds
+ *   4. `refreshUi`       the ~5x/second pull that redraws HUD and open dialogs from the Farm
+ *   5. `dispatch`        THE path for player actions: applyCommand → record in the save outbox → feedback → refreshUi
+ *   6. Input handlers    `handleTap` (tool on a tile), `handleObjectTap` (buildings and helpers), hover tooltips
+ *   7. Game + dialogs    construction, debug URLs (`?demo`, `?tonico`, ...; see docs/Testing-and-Tooling.md), `game.start()`
+ *
+ * NEXT(multiplayer): this file keeps `farm`, `game` and the dialogs as module-level singletons. Visiting a neighbor (or switching accounts)
+ *   needs them inside a `Session` object that can be built for any Farm in `owner` or `visitor` mode.
+ * NEXT(backend): `dispatch` is the single place where a command is applied locally and recorded. A SyncManager would hook in here
+ *   (and in persistence.ts) to ship the outbox to a server and adopt its answers.
+ */
+
 import '@fontsource-variable/fredoka';
 import './ui/style.css';
 import { deliveryInterval, slotOf, slotTime } from './core/delivery';
@@ -358,6 +378,9 @@ function commandEffects(command: Command): void {
 /**
  * The one door for every player action: applies the command, records it for save and server sync,
  * then plays the sounds, particles and floating numbers. Returns whether it succeeded.
+ *
+ * NEXT(backend): this is where a SyncManager would be notified (next to `saves.record`) to ship the command to a server.
+ * NEXT(multiplayer): in a visitor session this must refuse to apply anything to the neighbor's farm.
  */
 function dispatch(command: Command, anchor?: { x: number; y: number }): boolean {
   const now = Date.now();

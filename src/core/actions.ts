@@ -1,3 +1,11 @@
+/**
+ * @module core/actions
+ *
+ * The six player tools (`colher arar semear regar cuidar limpar`) mapped onto `Farm` methods. `applyTool` is the one place that
+ * knows the orchard answers to the same tools as crops (it routes orchard tiles to the tree rules).
+ * The neutral "olhar" (look) tool is UI-only and has no entry here, because it never changes state.
+ */
+
 import { CropId } from './crops';
 import { ActionResult, Farm } from './farm';
 import { TreeId, isOrchardTile } from './trees';

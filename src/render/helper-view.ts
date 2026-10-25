@@ -1,3 +1,11 @@
+/**
+ * @module render/helper-view
+ *
+ * Draws the helpers: sprinkler heads with their spray, and the walkers (Tonico, Mingau, Rex, Lúcia) placed each frame by `walkerPose`.
+ * Each walker also gets a see-through "x-ray" silhouette material that only shows where they are hidden behind a building, so the
+ * player can always follow them. Taps are routed through `userData.pickId = 'helper:<id>'`.
+ */
+
 import {
   DataTexture,
   DynamicDrawUsage,

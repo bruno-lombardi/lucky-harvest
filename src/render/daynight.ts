@@ -1,3 +1,13 @@
+/**
+ * @module render/daynight
+ *
+ * The 8-minute day: hour keyframes (sky, sun, water, clouds, night factor) interpolated by `atmosphereAt(hour)`. This is *visual only*; no rule
+ * reads the hour. Windows, lamps and fireflies follow the `night` value.
+ *
+ * NEXT(content): seasons or weather could extend `Keyframe` (or add a second layer on top). If weather ever changes growth it must move
+ *   into src/core as a function of the wall clock, because the server has to compute it too.
+ */
+
 import { Color, MathUtils } from 'three';
 
 /** Everything the time of day changes. Colours are hex so keyframes read like a palette. */

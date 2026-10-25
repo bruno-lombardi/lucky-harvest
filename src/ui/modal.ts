@@ -4,6 +4,10 @@ export interface ModalTab<T extends string> {
   label: string;
 }
 
+/**
+ * NEXT(multiplayer): dialogs build HTML strings from trusted data tables. Anything a player types (names, messages) must be escaped or
+ * set with `textContent` before it reaches `html()`.
+ */
 export abstract class Modal<T extends string = string> {
   protected readonly body: HTMLElement;
   protected readonly titleEl: HTMLElement;

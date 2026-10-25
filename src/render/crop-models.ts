@@ -1,3 +1,14 @@
+/**
+ * @module render/crop-models
+ *
+ * Procedural crop models. `CropKit` holds shared geometries and materials; `buildCropModel(kit, def, look)` returns the model for one
+ * (crop, stage, thirsty, withered) combination, delegating to one builder per `CropShape` (`buildRoot`, `buildGrain`, `buildCane`, ...).
+ * A new crop usually reuses a shape and only changes colours (see `CropDef.colors`).
+ *
+ * `FarmView` merges each finished model into one mesh per material and shares it between tiles (render/merge.ts), so builders may
+ * freely use many small parts without costing draw calls on the farm.
+ */
+
 import {
   BufferAttribute,
   BufferGeometry,

@@ -1,3 +1,11 @@
+/**
+ * @module core/trees
+ *
+ * The Pomar (orchard): fruit tree species, where the orchard sits (`POMAR`, `isOrchardTile`), and the growth cycle (young tree needs one
+ * watering, then fruit ripens every cycle and waits on the tree). Like crops, a tree's state is an anchor plus timestamps, so
+ * `treeStatus(state, now)` is a pure function. Trees never wither.
+ */
+
 import { Rarity } from './crops';
 
 export type TreeId = 'laranjeira' | 'goiabeira' | 'mangueira' | 'jabuticabeira' | 'coqueiro';

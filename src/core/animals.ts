@@ -1,3 +1,11 @@
+/**
+ * @module core/animals
+ *
+ * Animal species, pens and their upgrade tiers, products, and feed recipes. An animal's state is just `readyAt` (null while hungry, the
+ * ready timestamp once fed); `animalStatus(species, animal, now)` derives "hungry / working / ready", so nothing ticks.
+ * The pen UI (`ui/pen.ts`), the 3D pens (`render/pens.ts`) and Rex and Lúcia (`Farm.walk`) all read these tables.
+ */
+
 import { CropId } from './crops';
 
 /** Each species lives in its own pen and eats its own feed. */

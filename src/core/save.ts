@@ -17,6 +17,11 @@ import { Farm, FarmSnapshot, LegacySnapshot } from './farm';
  * its outbox on top of a newer baseline.
  */
 export const SAVE_FORMAT = 'lucky-harvest';
+/**
+ * Version of the file envelope (not of the farm inside it, see `FarmSnapshot.version`).
+ * NEXT(backend): a server protocol should carry its own version and refuse old clients with a clear "please update" instead of
+ * misreading their commands.
+ */
 export const SAVE_VERSION = 1;
 
 export interface SaveData {

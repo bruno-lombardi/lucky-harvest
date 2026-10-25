@@ -8,6 +8,7 @@ export type DecorId = 'banco' | 'flores' | 'lanterna' | 'balanco' | 'fonte' | 'c
 export const DECOR_ORDER: readonly DecorId[] = ['banco', 'flores', 'lanterna', 'balanco', 'fonte', 'coreto'];
 
 /** The shop opens at this player level. */
+// NEXT(content): cosmetics as medal rewards would reuse this table (unlock by `claimed` achievement instead of coins).
 export const DECOR_UNLOCK_LEVEL = 14;
 
 export interface DecorDef {

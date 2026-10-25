@@ -1,3 +1,15 @@
+/**
+ * @module core/crops
+ *
+ * The crop table: ids, rarity, prices, growth times and colours, as plain data. The rules in `farm.ts` read it; the renderer
+ * picks a procedural model from `shape`; the shop, the seed truck and the saves all derive their lists from `CROP_ORDER`.
+ *
+ * To add a crop: see docs/How-To-Add-Content.md. Always run `tests/pace.test.ts` after touching prices or times.
+ *
+ * NEXT(content): seasons or weather would be a growth multiplier applied in `Farm.growth`; keep it a pure function of the wall clock
+ *   so replays still agree.
+ */
+
 export type CropId =
   | 'cenoura'
   | 'trigo'

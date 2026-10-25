@@ -2021,3 +2021,12 @@ h4.section small {
   height: 100%;
   margin: 0;
 }
+
+/* Brand: the logo at the top of the menu. */
+.menu-logo {
+  display: block;
+  width: min(220px, 64%);
+  height: auto;
+  margin: 2px auto 10px;
+  pointer-events: none;
+}

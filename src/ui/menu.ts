@@ -59,6 +59,7 @@ export class MenuDialog extends Modal {
          <button type="button" class="big-action alt" data-act="reset-no">Cancelar</button></div>`
       : `<button type="button" class="big-action danger" data-act="reset">Começar de novo</button>`;
     return `
+      <img class="menu-logo" src="${import.meta.env.BASE_URL}logo-horizontal.svg" alt="Lucky Harvest" width="220" height="auto" draggable="false" />
       <p class="tip">Seu jogo é salvo sozinho neste aparelho. Último salvamento: <b>${when}</b>.</p>
       ${this.message ? `<p class="tip ok">${this.message}</p>` : ''}
       <button type="button" class="big-action" data-act="save">Salvar agora</button>

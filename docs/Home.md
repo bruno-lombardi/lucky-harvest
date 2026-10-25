@@ -14,6 +14,7 @@ This wiki explains how the codebase is organised, why it is organised that way, 
 | [Rendering](Rendering.md) | work on 3D models, the camera, lighting, performance |
 | [UI and audio](UI-and-Audio.md) | add or change a dialog, the HUD, tooltips, sounds |
 | [Persistence and saves](Persistence-and-Saves.md) | touch the save format, versions, import/export |
+| [Brand and visual identity](Brand.md) | use or regenerate the logo, favicon, palette and typography |
 | [Testing and tooling](Testing-and-Tooling.md) | run tests, use debug URLs, profile, deploy |
 | [How to add content](How-To-Add-Content.md) | step-by-step recipes: new crop, recipe, helper, command, dialog… |
 | [Roadmap: backend, multiplayer, social](Roadmap-Backend-Multiplayer-Social.md) | plan the next big steps, including known blockers |

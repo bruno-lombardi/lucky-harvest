@@ -1,6 +1,7 @@
 import { SPECIES_ORDER, penCapacity } from './animals';
 import { CROP_ORDER, CropId } from './crops';
 import { DECOR_ORDER } from './decor';
+import { FertilizerGift } from './fertilizer';
 import { Farm, MAX_LAND } from './farm';
 import { GOOD_ORDER } from './goods';
 import { HELPERS, HELPER_ORDER } from './helpers';
@@ -10,7 +11,7 @@ import { TREE_ORDER, TreeId } from './trees';
 /**
  * Goals (Metas) and achievements (Conquistas), as plain data. Whether something is done is a pure
  * function of the farm, so the screen never decides and a server can verify a claim.
- * Rewards are coins only; cosmetics come later.
+ * Rewards are coins, plus a few fertilizers on some achievement medals (see `gifts`); cosmetics come later.
  */
 
 export interface Goal {
@@ -106,6 +107,8 @@ export interface Achievement {
   readonly steps: readonly number[];
   /** Coins for each step. */
   readonly rewards: readonly number[];
+  /** Fertilizers handed out with each step's coins (optional; only some achievements carry them). */
+  readonly gifts?: readonly (FertilizerGift | undefined)[];
 }
 
 const tiered = (
@@ -116,9 +119,19 @@ const tiered = (
   value: (f: Farm) => number,
   steps: [number, number, number],
   rewards: [number, number, number] = [100, 1000, 6000],
-): Achievement => ({ id, category, name, describe, value, steps, rewards });
+  gifts?: [FertilizerGift?, FertilizerGift?, FertilizerGift?],
+): Achievement => ({ id, category, name, describe, value, steps, rewards, ...(gifts ? { gifts } : {}) });
 
-const single = (id: string, category: string, name: string, text: string, value: (f: Farm) => number, target: number, reward: number): Achievement => ({
+const single = (
+  id: string,
+  category: string,
+  name: string,
+  text: string,
+  value: (f: Farm) => number,
+  target: number,
+  reward: number,
+  gift?: FertilizerGift,
+): Achievement => ({
   id,
   category,
   name,
@@ -126,7 +139,15 @@ const single = (id: string, category: string, name: string, text: string, value:
   value,
   steps: [target],
   rewards: [reward],
+  ...(gift ? { gifts: [gift] } : {}),
 });
+
+/**
+ * Fertilizer gifts for medals, one per step. A three-medal achievement that carries a gift follows the same ladder:
+ * bronze a few Esterco, silver Composto, gold Húmus (and, on the hardest ones, Poeira de lua). Not every achievement has one.
+ */
+const GIFT_LADDER: [FertilizerGift, FertilizerGift, FertilizerGift] = [{ esterco: 3 }, { composto: 2 }, { humus: 2 }];
+const GIFT_LADDER_RICH: [FertilizerGift, FertilizerGift, FertilizerGift] = [{ composto: 1 }, { humus: 1 }, { humus: 1, lua: 1 }];
 
 const harvestedOf = (crop: CropId) => (f: Farm): number => f.stats.harvested[crop];
 const maxedPens = (f: Farm): number =>
@@ -137,19 +158,20 @@ const maxedPens = (f: Farm): number =>
 const helperLevelsBought = (f: Farm): number => f.stats.helperUpgrades;
 
 export const ACHIEVEMENTS: readonly Achievement[] = [
-  tiered('colheitas', 'Lavoura', 'Mão na terra', (n) => `Colher ${n.toLocaleString('pt-BR')} culturas`, (f) => totalHarvested(f.stats), [50, 500, 5000]),
-  tiered('variedade', 'Lavoura', 'Colheita variada', (n) => `Colher ${n} tipos de cultura`, (f) => CROP_ORDER.filter((c) => f.stats.harvested[c] > 0).length, [3, 6, CROP_ORDER.length], [100, 1000, 6000]),
-  tiered('arado', 'Lavoura', 'Terra arada', (n) => `Arar ${n.toLocaleString('pt-BR')} terrenos`, (f) => f.stats.plowed, [100, 1000, 10000]),
-  tiered('regador', 'Lavoura', 'Sede de vencer', (n) => `Regar ${n.toLocaleString('pt-BR')} plantas`, (f) => f.stats.watered, [100, 1000, 10000]),
-  tiered('abobora', 'Lavoura', 'Rei da abóbora', (n) => `Colher ${n.toLocaleString('pt-BR')} abóboras`, harvestedOf('abobora'), [10, 100, 1000]),
-  tiered('pragas', 'Lavoura', 'Mão amiga', (n) => `Cuidar de ${n.toLocaleString('pt-BR')} pragas`, (f) => f.stats.cared, [10, 100, 1000]),
-  tiered('garimpeiro', 'Lavoura', 'Garimpeiro', (n) => `Colher ${n.toLocaleString('pt-BR')} culturas raras ou épicas`, (f) => f.stats.rareHarvested, [5, 50, 500], [300, 2500, 12000]),
+  tiered('colheitas', 'Lavoura', 'Mão na terra', (n) => `Colher ${n.toLocaleString('pt-BR')} culturas`, (f) => totalHarvested(f.stats), [50, 500, 5000], [100, 1000, 6000], GIFT_LADDER),
+  tiered('variedade', 'Lavoura', 'Colheita variada', (n) => `Colher ${n} tipos de cultura`, (f) => CROP_ORDER.filter((c) => f.stats.harvested[c] > 0).length, [3, 6, CROP_ORDER.length], [100, 1000, 6000], GIFT_LADDER),
+  tiered('arado', 'Lavoura', 'Terra arada', (n) => `Arar ${n.toLocaleString('pt-BR')} terrenos`, (f) => f.stats.plowed, [100, 1000, 10000], [100, 1000, 6000], GIFT_LADDER),
+  tiered('regador', 'Lavoura', 'Sede de vencer', (n) => `Regar ${n.toLocaleString('pt-BR')} plantas`, (f) => f.stats.watered, [100, 1000, 10000], [100, 1000, 6000], GIFT_LADDER),
+  tiered('abobora', 'Lavoura', 'Rei da abóbora', (n) => `Colher ${n.toLocaleString('pt-BR')} abóboras`, harvestedOf('abobora'), [10, 100, 1000], [100, 1000, 6000], GIFT_LADDER),
+  tiered('pragas', 'Lavoura', 'Mão amiga', (n) => `Cuidar de ${n.toLocaleString('pt-BR')} pragas`, (f) => f.stats.cared, [10, 100, 1000], [100, 1000, 6000], GIFT_LADDER),
+  tiered('garimpeiro', 'Lavoura', 'Garimpeiro', (n) => `Colher ${n.toLocaleString('pt-BR')} culturas raras ou épicas`, (f) => f.stats.rareHarvested, [5, 50, 500], [300, 2500, 12000], GIFT_LADDER_RICH),
+  tiered('adubo', 'Lavoura', 'Mão de adubo', (n) => `Usar ${n.toLocaleString('pt-BR')} adubos`, (f) => f.stats.fertilized, [5, 50, 500]),
   tiered('ovos', 'Pecuária', 'Galinha dos ovos de ouro', (n) => `Coletar ${n.toLocaleString('pt-BR')} ovos`, (f) => f.stats.collected.ovo, [25, 250, 2500]),
   tiered('leite', 'Pecuária', 'Leiteiro', (n) => `Coletar ${n.toLocaleString('pt-BR')} leites`, (f) => f.stats.collected.leite, [15, 150, 1500]),
   tiered('trufas', 'Pecuária', 'Caçador de trufas', (n) => `Coletar ${n.toLocaleString('pt-BR')} trufas`, (f) => f.stats.collected.trufa, [10, 100, 1000]),
   tiered('alimentados', 'Pecuária', 'Bicho bem tratado', (n) => `Alimentar ${n.toLocaleString('pt-BR')} animais`, (f) => f.stats.fed, [50, 500, 5000]),
   tiered('sitio', 'Pecuária', 'Sítio completo', (n) => (n === 1 ? 'Encher 1 abrigo' : `Encher ${n} abrigos`), maxedPens, [1, 2, 3], [200, 1500, 8000]),
-  tiered('caixa', 'Comércio', 'Primeiro caixa', (n) => `Ganhar ${n.toLocaleString('pt-BR')} moedas vendendo`, (f) => f.stats.coinsEarned, [1000, 25_000, 500_000], [100, 2500, 25_000]),
+  tiered('caixa', 'Comércio', 'Primeiro caixa', (n) => `Ganhar ${n.toLocaleString('pt-BR')} moedas vendendo`, (f) => f.stats.coinsEarned, [1000, 25_000, 500_000], [100, 2500, 25_000], GIFT_LADDER_RICH),
   tiered('negocio', 'Comércio', 'Bom negócio', (n) => `Fazer uma venda de ${n.toLocaleString('pt-BR')} moedas`, (f) => f.stats.bestSale, [200, 1000, 5000]),
   tiered('racao', 'Comércio', 'Mestre da ração', (n) => `Moer ${n.toLocaleString('pt-BR')} lotes de ração`, (f) => f.stats.milled, [10, 100, 1000]),
   tiered('salarios', 'Ajudantes', 'Patrão justo', (n) => `Pagar ${n.toLocaleString('pt-BR')} salários`, (f) => f.stats.wagesPaid, [5, 50, 500]),
@@ -157,21 +179,21 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   tiered('capricho', 'Ajudantes', 'Capricho de patrão', (n) => `Melhorar ajudantes ${n} vezes`, helperLevelsBought, [1, 4, HELPER_ORDER.reduce((n, id) => n + HELPERS[id].upgradeCost.length, 0)], [150, 1500, 8000]),
   tiered('entregas', 'Entregas', 'Caminhão amigo', (n) => `Receber ${n.toLocaleString('pt-BR')} entregas`, (f) => f.stats.deliveries, [5, 50, 500]),
   tiered('feira', 'Entregas', 'Dia de feira', (n) => `Receber ${n.toLocaleString('pt-BR')} sementes do caminhão`, (f) => f.stats.seedsReceived, [30, 300, 3000]),
-  tiered('nivel', 'Fazendeiro', 'Subindo na vida', (n) => `Chegar ao nível ${n}`, (f) => f.level, [5, 15, 30], [150, 2000, 10_000]),
+  tiered('nivel', 'Fazendeiro', 'Subindo na vida', (n) => `Chegar ao nível ${n}`, (f) => f.level, [5, 15, 30], [150, 2000, 10_000], GIFT_LADDER_RICH),
   tiered('terra', 'Fazendeiro', 'Dono da terra', (n) => `Ter um terreno de ${n}×${n}`, (f) => f.landSize, [8, 10, MAX_LAND], [300, 1500, 8000]),
   tiered('celeiro', 'Fazendeiro', 'Celeiro dos sonhos', (n) => `Ter o celeiro no nível ${n}`, (f) => f.barn, [2, 3, 4], [300, 1500, 8000]),
   tiered('enfeites', 'Fazendeiro', 'Meu cantinho', (n) => `Ter ${n} ${n === 1 ? 'enfeite' : 'enfeites'}`, (f) => DECOR_ORDER.filter((d) => f.decor[d]).length, [1, 3, DECOR_ORDER.length], [100, 1000, 6000]),
-  tiered('frutas', 'Pomar', 'Pomareiro', (n) => `Colher ${n.toLocaleString('pt-BR')} frutas`, (f) => totalFruit(f.stats), [50, 500, 5000], [200, 2000, 10_000]),
+  tiered('frutas', 'Pomar', 'Pomareiro', (n) => `Colher ${n.toLocaleString('pt-BR')} frutas`, (f) => totalFruit(f.stats), [50, 500, 5000], [200, 2000, 10_000], GIFT_LADDER_RICH),
   tiered('bosque', 'Pomar', 'Bosque', (n) => `Ter ${n} árvores no Pomar`, (f) => f.treeCount(), [3, 8, 18], [200, 1500, 8000]),
   tiered('pomarvar', 'Pomar', 'Variedade de pomar', (n) => `Colher ${n} tipos de fruta`, speciesPicked, [2, 4, 5], [300, 1500, 6000]),
-  tiered('quitutes', 'Confeitaria', 'Mão na massa', (n) => `Fazer ${n.toLocaleString('pt-BR')} quitutes`, (f) => f.stats.baked, [20, 250, 2500], [300, 2500, 12_000]),
+  tiered('quitutes', 'Confeitaria', 'Mão na massa', (n) => `Fazer ${n.toLocaleString('pt-BR')} quitutes`, (f) => f.stats.baked, [20, 250, 2500], [300, 2500, 12_000], GIFT_LADDER_RICH),
   tiered('sabores', 'Confeitaria', 'Cardápio completo', (n) => `Fazer ${n} receitas diferentes`, (f) => GOOD_ORDER.filter((g) => f.stats.bakedBy[g] > 0).length, [5, 12, GOOD_ORDER.length], [300, 2500, 10_000]),
   tiered('doceria', 'Confeitaria', 'Doceria dos sonhos', (n) => `Ter a confeitaria no nível ${n}`, (f) => f.bakery?.level ?? 0, [1, 2, 3], [300, 1500, 8000]),
-  single('ouro', 'Especiais', 'Fruta de ouro', 'Colher uma fruta dourada', (f) => f.stats.goldenFruit, 1, 600),
-  single('resgate', 'Especiais', 'Resgate', 'Plantar uma semente com a carteira vazia', (f) => f.stats.rescues, 1, 100),
-  single('mingau', 'Especiais', 'Mingau no comando', 'O gato cuidar de 25 pragas', (f) => f.stats.catCares, 25, 500),
-  single('tonico', 'Especiais', 'Tonico trabalhador', 'O Tonico colher 100 culturas', (f) => f.stats.farmhandHarvests, 100, 800),
-  single('sorte', 'Especiais', 'Sorte grande', 'Receber uma semente rara no caminhão', (f) => f.stats.rareSeedsReceived, 1, 500),
+  single('ouro', 'Especiais', 'Fruta de ouro', 'Colher uma fruta dourada', (f) => f.stats.goldenFruit, 1, 600, { lua: 1 }),
+  single('resgate', 'Especiais', 'Resgate', 'Plantar uma semente com a carteira vazia', (f) => f.stats.rescues, 1, 100, { esterco: 2 }),
+  single('mingau', 'Especiais', 'Mingau no comando', 'O gato cuidar de 25 pragas', (f) => f.stats.catCares, 25, 500, { composto: 1 }),
+  single('tonico', 'Especiais', 'Tonico trabalhador', 'O Tonico colher 100 culturas', (f) => f.stats.farmhandHarvests, 100, 800, { composto: 2 }),
+  single('sorte', 'Especiais', 'Sorte grande', 'Receber uma semente rara no caminhão', (f) => f.stats.rareSeedsReceived, 1, 500, { humus: 1 }),
   single(
     'mestre',
     'Especiais',
@@ -184,6 +206,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     },
     1,
     5000,
+    { lua: 3 },
   ),
 ];
 

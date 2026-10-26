@@ -101,6 +101,14 @@ export function reasonMessage(reason: FailReason): string {
       return 'Quantidade inválida';
     case 'already-paid':
       return 'O pagamento já está em dia';
+    case 'no-fertilizer':
+      return 'Sem esse adubo: ele vem ao subir de nível e em medalhas';
+    case 'not-watered':
+      return 'Regue a planta antes de adubar';
+    case 'pest-active':
+      return 'Cuide da praga antes de adubar';
+    case 'already-ripe':
+      return 'Já está madura: é só colher';
   }
 }
 

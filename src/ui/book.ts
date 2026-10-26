@@ -1,5 +1,6 @@
 import { CROPS, CROP_ORDER } from '../core/crops';
 import { Farm } from '../core/farm';
+import { giftText } from '../core/fertilizer';
 import {
   ACHIEVEMENTS,
   Achievement,
@@ -215,13 +216,17 @@ export class BookDialog extends Modal<BookTab> {
     const text = a.describe(target);
     const button =
       claimStep >= 0
-        ? `<button type="button" class="sell wide" data-act="medal" data-id="${a.id}" data-step="${claimStep}">Resgatar ${coin(a.rewards[claimStep]!)}</button>`
+        ? `<button type="button" class="sell wide" data-act="medal" data-id="${a.id}" data-step="${claimStep}">Resgatar ${coin(a.rewards[claimStep]!)}${a.gifts?.[claimStep] ? ' + adubo' : ''}</button>`
         : '';
     const progress = finished ? '' : `${bar(value, target)}<small>${fmt(value)}/${fmt(target)}</small>`;
+    // The fertilizers that come with the medal being worked on (or waiting to be collected).
+    const giftStep = claimStep >= 0 ? claimStep : nextStep;
+    const gift = giftStep >= 0 ? a.gifts?.[giftStep] : undefined;
+    const giftLine = gift ? `<small class="gift">Presente: ${giftText(gift)}</small>` : '';
     return `
       <div class="goal-row medal-row${claimStep >= 0 ? ' ready' : ''}${finished && claimStep < 0 ? ' claimed' : ''}">
         <span class="medals">${medals}</span>
-        <span class="info"><b>${a.name}</b><small>${text}</small>${progress}</span>
+        <span class="info"><b>${a.name}</b><small>${text}</small>${progress}${giftLine}</span>
         <span class="buttons">${button}</span>
       </div>`;
   }

@@ -2,6 +2,8 @@
 export interface ModalTab<T extends string> {
   id: T;
   label: string;
+  /** Inline svg or img markup. Only shown where the tabs become a sidebar (large screens). */
+  icon?: string;
 }
 
 /**
@@ -13,6 +15,7 @@ export abstract class Modal<T extends string = string> {
   protected readonly titleEl: HTMLElement;
   private readonly tabButtons = new Map<T, HTMLButtonElement>();
   private lastHtml = '';
+  private lastTitle = '';
   private pressed = false;
   protected tab: T;
 
@@ -39,11 +42,16 @@ export abstract class Modal<T extends string = string> {
     this.body = root.querySelector('.shop-body') as HTMLElement;
 
     const nav = root.querySelector('.shop-tabs');
-    for (const { id, label: text } of tabs) {
+    for (const { id, label: text, icon } of tabs) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'shop-tab';
-      button.textContent = text;
+      if (icon) {
+        // Labels are trusted constants (see the NEXT(multiplayer) note above), so innerHTML is fine here.
+        button.innerHTML = `<i class="tab-ico">${icon}</i><span>${text}</span>`;
+      } else {
+        button.textContent = text;
+      }
       button.addEventListener('click', () => this.show(id));
       this.tabButtons.set(id, button);
       nav?.appendChild(button);
@@ -94,6 +102,12 @@ export abstract class Modal<T extends string = string> {
 
   private paint(reset: boolean): void {
     for (const [id, button] of this.tabButtons) button.classList.toggle('active', id === this.tab);
+    // The title can show live numbers (the shop's wallet), so it is refreshed on its own, even when the body has not changed.
+    const title = this.title();
+    if (title !== this.lastTitle) {
+      this.lastTitle = title;
+      this.titleEl.innerHTML = title;
+    }
     const html = this.html();
     if (html === this.lastHtml && !reset) return;
     this.lastHtml = html;
@@ -101,7 +115,6 @@ export abstract class Modal<T extends string = string> {
     this.body.innerHTML = html;
     this.body.scrollTop = reset ? 0 : scroll;
     document.dispatchEvent(new CustomEvent('ui-repainted'));
-    this.titleEl.innerHTML = this.title();
   }
 
   /** Re-render now (after an action). */

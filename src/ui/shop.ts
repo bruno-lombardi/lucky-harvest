@@ -11,24 +11,32 @@ import { GOOD_ICONS } from './good-icons';
 import { HELPERS, HELPER_ORDER, HelperId, maxHelperLevel, WAGE_PERIOD_MS, helperWage, nextHelperUpgrade, payWord } from '../core/helpers';
 import { formatDuration } from './messages';
 import { humanDuration } from './info';
-import { BARN_ICON, LAND_ICON, LOCK_ICON, SHOP_ICON, TRUCK_ICON } from './icons';
+import { BARN_ICON, COIN_ICON, LAND_ICON, LOCK_ICON, SHOP_ICON, TOOL_ICONS, TRUCK_ICON } from './icons';
 import { FEED_ICONS, HELPER_ICONS, PRODUCT_ICONS, SPECIES_ICONS } from './item-icons';
 import { Dispatch, coin, empty, heading, img, rarityBadge, row } from './kit';
-import { Modal } from './modal';
+import { Modal, ModalTab } from './modal';
 
 export type ShopTab = 'seeds' | 'trees' | 'feed' | 'sell' | 'animals' | 'helpers' | 'land';
 
-const TABS = [
-  { id: 'seeds', label: 'Sementes' },
-  { id: 'trees', label: 'Árvores' },
-  { id: 'feed', label: 'Ração' },
-  { id: 'sell', label: 'Vender' },
-  { id: 'animals', label: 'Animais' },
-  { id: 'helpers', label: 'Ajudantes' },
-  { id: 'land', label: 'Fazenda' },
-] as const;
+/** Tabs with the icons that show once they become a sidebar on large screens. */
+const tabs = (treeIcons: Record<TreeId, string>): ReadonlyArray<ModalTab<ShopTab>> => [
+  { id: 'seeds', label: 'Sementes', icon: TOOL_ICONS.semear },
+  { id: 'trees', label: 'Árvores', icon: img(treeIcons.laranjeira) },
+  { id: 'feed', label: 'Ração', icon: FEED_ICONS.galinha },
+  { id: 'sell', label: 'Vender', icon: COIN_ICON },
+  { id: 'animals', label: 'Animais', icon: SPECIES_ICONS.vaca },
+  { id: 'helpers', label: 'Ajudantes', icon: HELPER_ICONS.ajudante },
+  { id: 'land', label: 'Fazenda', icon: LAND_ICON },
+];
 
-/** The village market: seeds, feed, selling, animals and pens, and land. */
+/**
+ * The village market: seeds, feed, selling, animals and pens, and land.
+ *
+ * One markup serves every screen; the layout is pure CSS (see "Shop on large screens" in style.css). On phones the tabs scroll along
+ * the top and the rows are a single list. From tablet size up the tabs become a sidebar and the rows become a grid of cards, the
+ * wallet shows in the header, and "Vender tudo" sticks to the bottom. Anything only worth showing with room to spare (a crop's growth
+ * time, say) is rendered with the `extra` class and hidden on small screens.
+ */
 export class Shop extends Modal<ShopTab> {
   constructor(
     root: HTMLElement,
@@ -37,7 +45,7 @@ export class Shop extends Modal<ShopTab> {
     private readonly treeIcons: Record<TreeId, string>,
     private readonly dispatch: Dispatch,
   ) {
-    super(root, 'Loja', TABS, 'seeds');
+    super(root, 'Loja', tabs(treeIcons), 'seeds');
   }
 
   /** Opens Tonico's settings (set by the game). */
@@ -48,7 +56,7 @@ export class Shop extends Modal<ShopTab> {
   }
 
   protected title(): string {
-    return `<i class="ico">${SHOP_ICON}</i>Loja da Vila`;
+    return `<i class="ico">${SHOP_ICON}</i>Loja da Vila<span class="shop-wallet" aria-label="Suas moedas">${coin(this.farm.coins)}</span>`;
   }
 
   protected html(): string {
@@ -155,7 +163,8 @@ export class Shop extends Modal<ShopTab> {
       const badge = rarityBadge(crop.rarity);
       const info = locked
         ? `<b>${crop.name}${badge}</b><small><i class="ico">${LOCK_ICON}</i>Libera no nível ${crop.unlockLevel}</small>`
-        : `<b>${crop.name}${badge}</b><small>${coin(crop.seedCost)} cada · você tem ${farm.seeds[id]}</small>`;
+        : `<b>${crop.name}${badge}</b><small>${coin(crop.seedCost)} cada · você tem ${farm.seeds[id]}</small>` +
+          `<small class="extra">Cresce em ${humanDuration(crop.growthMs)} · vende por ${coin(crop.sellPrice)}</small>`;
       const button = (qty: number): string =>
         `<button type="button" class="buy" data-act="buy" data-crop="${id}" data-qty="${qty}" ${
           locked || farm.coins < crop.seedCost * qty ? 'disabled' : ''

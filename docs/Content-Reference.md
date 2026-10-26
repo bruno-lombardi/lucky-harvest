@@ -71,7 +71,8 @@ Dona Zefa's bakery (level 8, 3 tiers) turns crops, animal products, fruit and ot
 | Barn tiers (4) | `barn.ts` | repaint plus helper buffs: `costMul`, `speedMul` |
 | Truck upgrades (2) | `delivery.ts` | bigger load (level 10), faster clock (level 20) |
 | Decorations (6) | `decor.ts` | cosmetics only, unlock at level 14 |
-| Goals (30) and achievements | `progress.ts` | 7 chapters; achievements are tiered bronze/silver/gold |
+| Goals (30) and achievements | `progress.ts` | 7 chapters; achievements are tiered bronze/silver/gold; some medals also carry fertilizer `gifts` |
+| Fertilizers (4) | `fertilizer.ts` | 10 min / 30 min / 1 h / 2 h skipped; gifts only (level-ups and medals), never sold. See "Fertilizers" in Core-Rules-Engine |
 | XP curve | `levels.ts` | `25 * (level - 1) * level`, level cap 50 |
 | Autoplant settings | `autoplant.ts` | Tonico level 4: mode, allowed seeds, buying, reserve, plow, water, skip rare, humor |
 

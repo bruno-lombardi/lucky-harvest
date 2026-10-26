@@ -14,6 +14,7 @@ const HOTSPOT: Record<ToolMode, [number, number]> = {
   regar: [0.1, 0.55],
   cuidar: [0.5, 0.45],
   limpar: [0.3, 0.88],
+  adubar: [0.55, 0.6],
 };
 
 const cache = new Map<ToolMode, string>();

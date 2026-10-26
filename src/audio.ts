@@ -9,6 +9,7 @@ export type Sfx =
   | 'plant'
   | 'water'
   | 'care'
+  | 'fertilize'
   | 'harvest'
   | 'clear'
   | 'buy'
@@ -150,6 +151,11 @@ export class GameAudio {
         break;
       case 'care':
         [660, 880, 1175].forEach((f, n) => this.tone(t + n * 0.065, 0.14, f, { type: 'triangle', gain: 0.2 }));
+        break;
+      case 'fertilize':
+        // A soft pour of grain, then a small rising chime for the growth spurt.
+        this.noise(t, 0.3, { type: 'bandpass', from: 900, to: 1800, gain: 0.2, attack: 0.04, q: 0.8 });
+        [523, 659, 784].forEach((f, n) => this.tone(t + 0.18 + n * 0.07, 0.16, f, { type: 'sine', gain: 0.16 }));
         break;
       case 'harvest':
         this.tone(t, 0.3, 988, { type: 'triangle', gain: 0.32 });

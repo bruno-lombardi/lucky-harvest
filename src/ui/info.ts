@@ -8,6 +8,7 @@ import { TRUCK_UPGRADES, TruckUpgradeId } from '../core/delivery';
 import { BARN_TIERS, barnPerk } from '../core/barn';
 import { BAKERY_COST, BAKERY_TIERS, GOODS, GoodId, batchCost, bakeMs } from '../core/goods';
 import { ingredientName } from './bakery';
+import { FERTILIZERS, FertilizerId, skipLabel } from '../core/fertilizer';
 import { LOCK_ICON } from './icons';
 import { coin } from './kit';
 
@@ -265,7 +266,30 @@ const TOOL_INFO: Record<string, [string, string]> = {
   regar: ['Regar', 'Planta sem água para na metade do caminho. Regue para ela terminar de crescer. Árvores só precisam de uma rega.'],
   cuidar: ['Cuidar', 'Tira ervas daninhas e espanta bichos que travam o crescimento. Plantas esquecidas murcham.'],
   limpar: ['Limpar', 'Tira plantas murchas, ou devolve a terra arada para grama.'],
+  adubar: ['Adubar', 'Gasta um adubo para pular um pedaço do tempo de crescimento de uma planta já regada. Adubo é presente: vem ao subir de nível e em algumas medalhas.'],
 };
+
+const FERT_SOURCE: Record<FertilizerId, string> = {
+  esterco: 'Quase todo nível a partir do 3 e medalhas de bronze',
+  composto: 'Todo 5º nível e medalhas de prata',
+  humus: 'Todo 10º nível e medalhas de ouro',
+  lua: 'Níveis 25 e 50 e conquistas especiais',
+};
+
+function fertilizerCard(id: FertilizerId, farm: Farm): Card {
+  const f = FERTILIZERS[id];
+  return {
+    title: f.name,
+    tag: f.rarity === 'comum' ? undefined : `<span class="rar rar-${f.rarity}">${RARITIES[f.rarity].name}</span>`,
+    lore: f.lore,
+    stats: [
+      ['Pula', skipLabel(f.ms)],
+      ['Você tem', `${farm.fertilizer[id]}`],
+      ['Como ganhar', FERT_SOURCE[id]],
+    ],
+    note: 'Só vale em planta regada e sem praga. Se a planta amadurecer antes, o que sobrar do adubo se perde.',
+  };
+}
 
 /** The detail card for a `data-info` key such as `crop:cenoura`; null when the key is unknown. */
 export function infoCard(key: string, farm: Farm): string | null {
@@ -303,6 +327,8 @@ export function infoCard(key: string, farm: Farm): string | null {
     }
     case 'truck':
       return id in TRUCK_UPGRADES ? render(truckCard(id as TruckUpgradeId, farm)) : null;
+    case 'fert':
+      return id in FERTILIZERS ? render(fertilizerCard(id as FertilizerId, farm)) : null;
     case 'tool': {
       const t = TOOL_INFO[id];
       return t ? render({ title: t[0], lore: t[1], stats: [] }) : null;

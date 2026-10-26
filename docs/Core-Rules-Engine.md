@@ -8,7 +8,8 @@ Everything that decides *what happens* lives here. The folder has no dependency 
 |---|---|
 | `farm.ts` | The `Farm` class: all state and all rules (plow, plant, water, harvest, shop, pens, helpers, bakery, orchard, snapshots). The biggest file, about 1,400 lines |
 | `commands.ts` | The `Command` union, `applyCommand`, `replay`, `LoggedCommand` |
-| `actions.ts` | The six tools (`colher arar semear regar cuidar limpar`) mapped to `Farm` methods; routes orchard tiles to tree rules |
+| `actions.ts` | The seven tools (`colher arar semear regar cuidar limpar adubar`) mapped to `Farm` methods; routes orchard tiles to tree rules |
+| `fertilizer.ts` | Fertilizers (adubos): the four tiers, the level-up gift table, gift helpers. Data only; the rule is `Farm.fertilize` |
 | `crops.ts` | `CROPS` table, rarities, growth and price data |
 | `trees.ts` | Orchard (the *Pomar*): tree species, growth cycle, fruit |
 | `animals.ts` | Species, pens, feed recipes, products, animal cycle |
@@ -24,6 +25,17 @@ Everything that decides *what happens* lives here. The folder has no dependency 
 | `grid.ts` | Tile ↔ world coordinates (the grid is 24×24 and centred on the origin) |
 | `noise.ts` | `mulberry32` PRNG, `hashUnit`, value noise; deterministic helpers |
 | `save.ts` | Save file encode/decode, versioning, checksum |
+
+## Fertilizers (adubos)
+
+A consumable that skips a **fixed** number of milliseconds of a growing crop's time: Esterco curtido 10 min, Composto da Dona Zefa 30 min, Húmus de minhoca 1 h, Poeira de lua 2 h (the Luz da lua growth time, a test pins that). They are **never sold**; they only arrive as gifts:
+
+- **Level-ups** (`levelGift` in `fertilizer.ts`, paid inside `Farm.done`, so a helper's harvest that crosses a level pays too): from level 3 an Esterco per level; a Composto instead on every 5th; plus a Húmus on every 10th; plus a Poeira de lua at 25 and 50. Through level 50 that is 38 Esterco, 10 Composto, 5 Húmus, 2 Poeira de lua.
+- **Achievement medals** (`gifts` on an `Achievement`, paid by `Farm.claim`): the Lavoura set follows a ladder (bronze 3 Esterco, silver 2 Composto, gold 2 Húmus), the harder ones a richer ladder, and a few special achievements carry one (Fruta de ouro and Mestre da fazenda give Poeira de lua). Goals (*Metas*) give coins only.
+
+`Farm.fertilize(i, j, id, now)` refuses (spending nothing) a thirsty crop (`not-watered`: its growth is capped at half, so the dose would be wasted), a pest-frozen one (`pest-active`), a ripe one (`already-ripe`), a withered one, and an empty tile. It re-anchors the crop, adds the time (never past ripe) and moves a pest still to come earlier by the same share of the remaining growth, so it still strikes at the same point; a crop that ripens on the spot outruns its pest. The command is `{ type: 'tool', tool: 'adubar', ..., fertilizer }`. Orchard trees are not fertilizable yet (`NEXT(content)` in `actions.ts`).
+
+State: `Farm.fertilizer` (saved as an optional `fertilizer` field, no version bump), `stats.fertilized`. Tests: `tests/fertilizer.test.ts`.
 
 ## Determinism: the one rule
 

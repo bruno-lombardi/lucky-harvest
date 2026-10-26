@@ -287,6 +287,21 @@ button .cost .ico {
   display: none;
 }
 
+/* One tray, two jobs: seeds and saplings for Semear, fertilizers for Adubar (the toolbar sets data-mode). */
+#seed-tray[data-mode='adubar'] > :not(.fert),
+#seed-tray:not([data-mode='adubar']) > .fert {
+  display: none;
+}
+
+button.seed.fert .name {
+  font-size: 12px;
+}
+
+button.seed.fert.active {
+  /* the shared .seed.active look is enough; this keeps the sack from being cropped by its own glow */
+  overflow: visible;
+}
+
 button.tool,
 button.seed {
   flex: 0 0 auto;
@@ -2029,4 +2044,237 @@ h4.section small {
   height: auto;
   margin: 2px auto 10px;
   pointer-events: none;
+}
+
+/* ---------- Shop on large screens ----------
+   Tablet size and up (and tall enough, so landscape phones keep the compact dialog): the tabs become a sidebar, the rows become
+   a grid of cards, the wallet shows in the header and "Vender tudo" sticks to the bottom. Scoped to #shop so the barn, pens and
+   the other dialogs keep their own layout. The markup is the same on every screen; see Shop in ui/shop.ts. */
+.shop-wallet,
+.shop-tab .tab-ico,
+.shop-row .extra {
+  display: none;
+}
+
+@media (min-width: 760px) and (min-height: 600px) {
+  #shop {
+    padding: 24px;
+  }
+
+  #shop .shop-panel {
+    display: grid;
+    grid-template-columns: clamp(176px, 19vw, 224px) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    width: min(1160px, 100%);
+    height: min(820px, 100%);
+    max-height: none;
+    border-radius: 26px;
+  }
+
+  #shop .shop-head {
+    grid-column: 1 / -1;
+    padding: 12px 18px 12px 24px;
+    border-radius: 22px 22px 0 0;
+  }
+
+  #shop .shop-title {
+    flex: 1;
+    font-size: 28px;
+  }
+
+  #shop .shop-title > .ico {
+    width: 36px;
+    height: 36px;
+  }
+
+  #shop .shop-wallet {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 16px 0 auto;
+    padding: 3px 16px 3px 8px;
+    font-size: 21px;
+    color: #fff3d6;
+    text-shadow: none;
+    border-radius: 999px;
+    background: rgba(60, 30, 10, 0.55);
+    box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.25);
+  }
+
+  #shop .shop-wallet .ico {
+    width: 28px;
+    height: 28px;
+    margin-right: 6px;
+  }
+
+  #shop .shop-tabs {
+    grid-column: 1;
+    grid-row: 2;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 8px 16px 16px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  #shop .shop-tab {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 14px 9px 10px;
+    font-size: 18px;
+    text-align: left;
+    opacity: 1;
+    border: 2px solid #a9772f;
+    border-radius: 15px;
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.55),
+      0 3px 0 rgba(120, 80, 30, 0.5);
+    transition: transform 0.1s;
+  }
+
+  #shop .shop-tab:hover:not(.active) {
+    transform: translateX(3px);
+  }
+
+  #shop .shop-tab.active {
+    border-color: var(--gold-3);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.7),
+      0 3px 0 rgba(120, 70, 10, 0.6);
+  }
+
+  #shop .shop-tab .tab-ico {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+  }
+
+  #shop .shop-tab .tab-ico svg,
+  #shop .shop-tab .tab-ico img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  #shop .shop-body {
+    grid-column: 2;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+    gap: 14px;
+    align-content: start;
+    min-height: 0;
+    margin: 16px 18px 18px 8px;
+    padding: 20px 22px 22px;
+    border-radius: 18px;
+  }
+
+  #shop .shop-body > h4.section,
+  #shop .shop-body > .tip,
+  #shop .shop-body > .big-action,
+  #shop .shop-body > .land-card,
+  #shop .shop-body > .shop-empty {
+    grid-column: 1 / -1;
+  }
+
+  #shop .shop-body > h4.section {
+    margin: 10px 0 0;
+    font-size: 20px;
+  }
+
+  #shop .shop-body > h4.section:first-child {
+    margin-top: 0;
+  }
+
+  #shop .shop-body > .tip {
+    margin: 0;
+  }
+
+  #shop .shop-body > .land-card {
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  /* Rows turn into cards: big picture on top, text, then the buttons along the bottom. */
+  #shop .shop-row {
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 16px 12px 14px;
+    text-align: center;
+    border-radius: 18px;
+    box-shadow: 0 3px 0 rgba(150, 110, 50, 0.35);
+    transition:
+      transform 0.12s,
+      box-shadow 0.12s;
+  }
+
+  #shop .shop-row .pic {
+    width: 88px;
+    height: 88px;
+  }
+
+  #shop .shop-row .info {
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 4px;
+  }
+
+  #shop .shop-row .info b {
+    font-size: 19px;
+  }
+
+  #shop .shop-row .info small {
+    font-size: 14px;
+  }
+
+  #shop .shop-row .info .extra {
+    display: block;
+    font-size: 13px;
+    opacity: 0.75;
+  }
+
+  #shop .shop-row .buttons {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: auto;
+  }
+
+  #shop .buy,
+  #shop .sell {
+    min-width: 54px;
+    padding: 8px 12px;
+    font-size: 16px;
+  }
+
+  #shop .shop-row .buttons .buy {
+    min-width: 54px;
+  }
+
+  #shop .shop-row .buttons .buy.wide {
+    min-width: 140px;
+  }
+
+  #shop .big-action[data-act='sell-all'] {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin-top: 6px;
+    padding: 14px;
+    font-size: 21px;
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.6),
+      0 3px 0 rgba(30, 80, 15, 0.7),
+      0 0 0 10px rgba(255, 250, 235, 0.92);
+  }
+}
+
+@media (min-width: 760px) and (min-height: 600px) and (hover: hover) {
+  #shop .shop-row:not(.locked):hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 0 rgba(150, 110, 50, 0.4);
+  }
 }

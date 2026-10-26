@@ -55,6 +55,8 @@ export interface Stats {
   /** Fruit picked by species, a golden harvest counting double. */
   fruitPicked: Record<TreeId, number>;
   goldenFruit: number;
+  /** Fertilizers applied to crops. */
+  fertilized: number;
 }
 
 export function emptyStats(): Stats {
@@ -87,6 +89,7 @@ export function emptyStats(): Stats {
     treesPlanted: 0,
     fruitPicked: Object.fromEntries(TREE_ORDER.map((id) => [id, 0])) as Record<TreeId, number>,
     goldenFruit: 0,
+    fertilized: 0,
   };
 }
 

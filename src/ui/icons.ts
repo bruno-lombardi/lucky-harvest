@@ -132,6 +132,33 @@ const look = `${open}>
   <path d="M25.5 28.2 C26 25.8 28 24.4 30.2 24.3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" fill="none"/>
 </svg>`;
 
+/** Adubar: a kraft fertilizer sack tipped over a sprout, with granules falling onto the soil. */
+const fertilize = `${open}>
+  <path d="M6 37 L25 30.5 L44 37 V40 L25 46.5 L6 40Z" fill="#5a3820" ${T}/>
+  <path d="M6 37 L25 30.5 L44 37 L25 44 Z" fill="#8a5527" ${T}/>
+  <path d="M12 38.2 L28 32.8 M18 40.4 L35 34.6" stroke="#b97a3e" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+  <path d="M33.5 34.5 V27" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>
+  <path d="M33.5 34.5 V27" stroke="#3f9a3a" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M33.5 30.8 C29 31 27.3 28 27.5 25.2 C31.6 25.4 33.5 27.4 33.5 30.8Z" fill="#5cbc3f" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M33.5 28.6 C38 28.8 39.8 25.8 39.6 23 C35.4 23.2 33.5 25.2 33.5 28.6Z" fill="#7ed957" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/>
+  <g transform="translate(16.5 15.5) rotate(128) scale(.8)">
+    <path d="M-9.5 -4 H9.5 L11 12 Q11.2 15.2 8 15.2 H-8 Q-11.2 15.2 -11 12 Z" fill="#d6aa6a" ${T}/>
+    <path d="M-10 -4 L-8.6 -11 H8.6 L10 -4 Z" fill="#c2924f" ${T}/>
+    <path d="M-5.5 -7.4 H5.5" stroke="${INK}" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="1.6 2.6"/>
+    <rect x="-6.6" y="1.6" width="13.2" height="9" rx="2.4" fill="#fff4dc" stroke="${INK}" stroke-width="2"/>
+    <path d="M0 9 V5.2" stroke="#3f9a3a" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M0 6.8 C-2.6 6.8 -3.6 5.2 -3.6 3.8 C-1.6 3.8 0 4.8 0 6.8Z" fill="#5cbc3f"/>
+    <path d="M0 5.6 C2.6 5.6 3.6 4 3.6 2.6 C1.6 2.6 0 3.6 0 5.6Z" fill="#7ed957"/>
+    <path d="M-8.4 -1.4 V10" stroke="#fff8e0" stroke-width="1.8" stroke-linecap="round" opacity=".7"/>
+  </g>
+  <g fill="#6b4423" stroke="${INK}" stroke-width="1.4">
+    <circle cx="25.6" cy="23.2" r="1.8"/>
+    <circle cx="28.6" cy="26.2" r="1.6"/>
+    <circle cx="23.6" cy="27.6" r="1.5"/>
+  </g>
+  <path d="M41.5 5 L42.7 8.3 L46 9.5 L42.7 10.7 L41.5 14 L40.3 10.7 L37 9.5 L40.3 8.3Z" fill="#ffe14d" stroke="#c98300" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>`;
+
 /** The neutral "look" mode: inspects tiles and buildings without changing anything. */
 export const LOOK_ICON = look;
 
@@ -142,6 +169,7 @@ export const TOOL_ICONS: Record<Tool, string> = {
   regar: wateringCan,
   cuidar: glove,
   limpar: broom,
+  adubar: fertilize,
 };
 
 export const COIN_ICON = `${open}>

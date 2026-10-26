@@ -254,7 +254,7 @@ export class Fireflies {
   }
 }
 
-export type BurstKind = 'plow' | 'plant' | 'water' | 'care' | 'harvest' | 'levelup' | 'expand' | 'clear';
+export type BurstKind = 'plow' | 'plant' | 'water' | 'care' | 'fertilize' | 'harvest' | 'levelup' | 'expand' | 'clear';
 
 /** Ready-made bursts for every farm action. Positions are world coordinates on the ground. */
 export class Effects {
@@ -270,6 +270,8 @@ export class Effects {
         return this.water(x, z);
       case 'care':
         return this.care(x, z);
+      case 'fertilize':
+        return this.fertilize(x, z);
       case 'harvest':
         return this.harvest(x, z);
       case 'levelup':
@@ -401,6 +403,42 @@ export class Effects {
         color: n % 2 ? 0xfff6a8 : 0xbaf27a,
         shape: Shape.Sparkle,
         gravity: -0.2,
+      });
+    }
+  }
+
+  /** Grain pattering onto the soil, then green sparkles drifting up as the plant jumps ahead. */
+  private fertilize(x: number, z: number): void {
+    const { p } = this;
+    for (let n = 0; n < 10; n++) {
+      p.emit({
+        x: x + this.spread() * 0.25,
+        y: 0.9 + p.random() * 0.4,
+        z: z + this.spread() * 0.25,
+        vx: this.spread() * 0.4,
+        vy: 0,
+        vz: this.spread() * 0.4,
+        life: 0.5,
+        size: 0.09 + p.random() * 0.04,
+        sizeEnd: 0.07,
+        color: [0x6b4423, 0x7a4a26, 0x5e7d2b][n % 3]!,
+        gravity: 9,
+      });
+    }
+    for (let n = 0; n < 14; n++) {
+      p.emit({
+        x: x + this.spread() * 0.35,
+        y: 0.25,
+        z: z + this.spread() * 0.35,
+        vx: this.spread() * 0.5,
+        vy: 1.2 + p.random() * 1.6,
+        vz: this.spread() * 0.5,
+        life: 1,
+        size: 0.26,
+        sizeEnd: 0.04,
+        color: n % 3 === 0 ? 0xfff6a8 : n % 3 === 1 ? 0x9be860 : 0xeaffc4,
+        shape: Shape.Sparkle,
+        gravity: -0.3,
       });
     }
   }

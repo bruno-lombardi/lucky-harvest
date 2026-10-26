@@ -13,6 +13,7 @@ The game's language is Brazilian Portuguese, and so are most ids in code. This t
 | `cuidar` | Cuidar | Care: remove weeds and bugs |
 | `colher` | Colher | Harvest |
 | `limpar` | Limpar | Clear a crop or soil |
+| `adubar` | Adubar | Fertilize: spend an adubo to skip part of a crop's growth time |
 
 ## Places and things
 
@@ -28,6 +29,7 @@ The game's language is Brazilian Portuguese, and so are most ids in code. This t
 | Caminhão / Entrega | The seed truck / delivery |
 | Enfeites | Decorations |
 | Livro da Fazenda | The goals and achievements book |
+| Adubo | Fertilizer, a gift item (`esterco` Esterco curtido 10 min, `composto` Composto da Dona Zefa 30 min, `humus` Húmus de minhoca 1 h, `lua` Poeira de lua 2 h) |
 | Metas / Conquistas | Goals / achievements (medals: bronze, prata, ouro) |
 | Terreno | A tile |
 | Moeda(s) | Coin(s) |

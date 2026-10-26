@@ -98,6 +98,16 @@ import {
 import { inBounds, tileKey } from './grid';
 import { POMAR, TREE_ORDER, TREE_PEST_CHANCE, TREES, TreeId, TreeState, TreeStatus, isOrchardTile, treeGrowth, treeStatus } from './trees';
 import { levelFromXp } from './levels';
+import {
+  FERTILIZERS,
+  FertilizerGift,
+  FertilizerId,
+  FertilizerStock,
+  emptyFertilizer,
+  levelGifts,
+  mergeGifts,
+  normalizeFertilizer,
+} from './fertilizer';
 import { hashUnit } from './noise';
 
 export const START_COINS = 100;
@@ -220,7 +230,11 @@ export type FailReason =
   | 'helper-locked'
   | 'helper-exists'
   | 'no-helper'
-  | 'already-paid';
+  | 'already-paid'
+  | 'no-fertilizer'
+  | 'not-watered'
+  | 'pest-active'
+  | 'already-ripe';
 
 export interface Gain {
   coins: number;
@@ -233,6 +247,10 @@ export interface Gain {
   product?: { productId: ProductId; qty: number };
   /** Fruit added to the barn (tree harvest). */
   fruit?: { tree: TreeId; qty: number; golden?: boolean };
+  /** Fertilizer applied to a crop: which one, how much growth time it really skipped, and whether the crop is now ripe. */
+  fertilized?: { id: FertilizerId; savedMs: number; ripe: boolean };
+  /** Fertilizers handed out by this action (a level-up gift or an achievement medal). */
+  gift?: FertilizerGift;
 }
 
 export type Stock = Record<CropId, number>;
@@ -326,6 +344,8 @@ export interface FarmSnapshot {
   goods?: GoodStock;
   /** Tonico's planting settings. Saves from before this existed leave it out and get the defaults. */
   autoPlant?: AutoPlant;
+  /** Fertilizers in the barn. Saves from before they existed leave it out. */
+  fertilizer?: FertilizerStock;
   tiles: Record<string, TileState>;
 }
 
@@ -377,6 +397,8 @@ export class Farm {
   goods: GoodStock = emptyGoods();
   /** How the level-4 Tonico plants (see autoplant.ts). */
   autoPlant: AutoPlant = defaultAutoPlant();
+  /** Fertilizers owned. Only ever gained as gifts (see fertilizer.ts). */
+  fertilizer: FertilizerStock = emptyFertilizer();
   pomar = false;
   saplings: FruitStock = emptyFruit();
   fruit: FruitStock = emptyFruit();
@@ -525,6 +547,40 @@ export class Farm {
     crop.pestKind = null;
     this.stats.cared++;
     return this.done(0, 2);
+  }
+
+  /**
+   * Fertilizer: skips `FERTILIZERS[id].ms` of growth on a watered crop (never past ripe). A thirsty crop is refused because its
+   * growth is capped at the halfway point, so the dose would be wasted; a pest-frozen one because growth is stopped by design.
+   * The pest, if one is still to come, moves earlier by the same share of the remaining time so it still strikes at the same
+   * point of the growth; a crop that ripens on the spot outruns it.
+   */
+  fertilize(i: number, j: number, id: FertilizerId, now: number): ActionResult {
+    if (!inBounds(i, j) || !this.isUnlocked(i, j)) return fail('locked-land');
+    const crop = this.tile(i, j).crop;
+    if (!crop) return fail('no-crop');
+    const status = this.status(i, j, now);
+    if (!status || status.withered) return fail('withered');
+    if (status.pest) return fail('pest-active');
+    if (status.ripe) return fail('already-ripe');
+    if (!crop.watered) return fail('not-watered');
+    if (!(id in FERTILIZERS) || this.fertilizer[id] < 1) return fail('no-fertilizer');
+
+    const def = getCrop(crop.cropId);
+    this.reanchor(crop, now);
+    const before = crop.anchorGrowth;
+    const after = Math.min(def.growthMs, before + FERTILIZERS[id].ms);
+    crop.anchorGrowth = after;
+    if (crop.pestAt !== null && crop.pestAt > now) {
+      const left = def.growthMs - before;
+      crop.pestAt = after >= def.growthMs ? null : now + Math.max(1, Math.round(((crop.pestAt - now) * (def.growthMs - after)) / left));
+      if (crop.pestAt === null) crop.pestKind = null;
+    }
+    this.fertilizer[id] -= 1;
+    this.stats.fertilized++;
+    const result = this.done(0, 1);
+    if (result.ok) result.gain.fertilized = { id, savedMs: after - before, ripe: after >= def.growthMs };
+    return result;
   }
 
   /** Pick a ripe crop: it goes to the barn (sell it in the shop) and pays XP. */
@@ -1167,10 +1223,21 @@ export class Farm {
   }
 
   /** Pays a goal or achievement reward once (the caller, in commands.ts, has checked it is earned). */
-  claim(key: string, coins: number): ActionResult {
+  claim(key: string, coins: number, gift: FertilizerGift = {}): ActionResult {
     if (this.claimed.includes(key)) return fail('already-claimed');
     this.claimed.push(key);
-    return this.done(coins, 0);
+    const result = this.done(coins, 0);
+    if (result.ok) this.receive(gift, result.gain);
+    return result;
+  }
+
+  /** Puts a gift of fertilizers in the barn and notes it on the gain (for the toast). */
+  private receive(gift: FertilizerGift, gain: Gain): void {
+    for (const id of Object.keys(gift) as FertilizerId[]) {
+      const n = gift[id] ?? 0;
+      if (n > 0 && id in FERTILIZERS) this.fertilizer[id] += n;
+    }
+    if (Object.keys(gift).length > 0) gain.gift = mergeGifts(gain.gift ?? {}, gift);
   }
 
   /** The seed truck pulls up: its load goes straight into the barn. */
@@ -1399,6 +1466,7 @@ export class Farm {
       autoPlant: cloneAutoPlant(this.autoPlant),
       bakery: this.bakery ? { level: this.bakery.level, jobs: this.bakery.jobs.map((j) => ({ ...j })) } : null,
       goods: { ...this.goods },
+      fertilizer: { ...this.fertilizer },
       trees: Object.fromEntries([...this.trees].map(([k, t]) => [k, { ...t }])),
       tiles,
     };
@@ -1434,6 +1502,7 @@ export class Farm {
     if (snapshot.version === 8) {
       farm.barn = Math.min(Math.max(Math.floor(snapshot.barn) || 1, 1), MAX_BARN_LEVEL);
       farm.autoPlant = normalizeAutoPlant(snapshot.autoPlant);
+      farm.fertilizer = normalizeFertilizer(snapshot.fertilizer);
       farm.bakery = normalizeBakery(snapshot.bakery);
       if (typeof snapshot.goods === 'object' && snapshot.goods !== null) {
         for (const id of GOOD_ORDER) {
@@ -1472,6 +1541,7 @@ export class Farm {
     this.xp += xp;
     const after = this.level;
     const gain: Gain = { coins, xp, levelUp: after > before ? after : null };
+    if (after > before) this.receive(levelGifts(before, after), gain);
     if (item) gain.item = item;
     if (product) gain.product = product;
     if (fruit) gain.fruit = fruit;

@@ -1,5 +1,6 @@
 import { ProductId, SpeciesId } from '../core/animals';
 import { HelperId } from '../core/helpers';
+import { FERTILIZER_ORDER, FertilizerId } from '../core/fertilizer';
 
 /** Icons for animal products, feed sacks and species, in the same chunky outlined style as icons.ts. */
 const INK = '#4a2b0f';
@@ -142,3 +143,48 @@ export const HELPER_ICONS: Record<HelperId, string> = {
   <path d="M19 40 L24 44 L29 40" fill="#e9dcc0" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/>
 </svg>`,
 };
+
+const T = `stroke="${INK}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"`;
+
+/** Sack colour, label stripe colour and what spills out, per fertilizer. The stripe follows the rarity colours used on the seeds. */
+const FERT_LOOK: Record<FertilizerId, { sack: string; fold: string; band: string; grain: string; moon: boolean }> = {
+  esterco: { sack: '#d6aa6a', fold: '#c2924f', band: '#9a6b3a', grain: '#6b4423', moon: false },
+  composto: { sack: '#d6aa6a', fold: '#c2924f', band: '#4fae3a', grain: '#5e7d2b', moon: false },
+  humus: { sack: '#cfae78', fold: '#b99358', band: '#3f7fe0', grain: '#3b2a22', moon: false },
+  lua: { sack: '#e4e0f2', fold: '#c9c3e6', band: '#7a5ae0', grain: '#fff1a0', moon: true },
+};
+
+/**
+ * One fertilizer sack per tier: a folded-top kraft sack (not tied like the seed bag) with a coloured band and a label,
+ * a sprout on the label, and the grain heaped beside it. Poeira de lua is silvery with a crescent and sparkles.
+ */
+export const FERTILIZER_ICONS: Record<FertilizerId, string> = Object.fromEntries(
+  FERTILIZER_ORDER.map((id) => {
+    const c = FERT_LOOK[id];
+    const mark = c.moon
+      ? `<path d="M26.5 24 C22 24 19.6 27.6 20.6 31.4 C21.6 35 25.6 36.6 28.8 34.8 C25 34.6 23 31.4 24.2 28.4 C24.8 26.8 25.6 25 26.5 24Z" fill="#ffe14d" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/>`
+      : `<path d="M24 36 V29.5" stroke="${INK}" stroke-width="4.2" stroke-linecap="round"/><path d="M24 36 V29.5" stroke="#3f9a3a" stroke-width="2" stroke-linecap="round"/>` +
+        `<path d="M24 32.6 C20.2 32.6 18.8 30.2 18.8 27.6 C22.2 27.6 24 29.4 24 32.6Z" fill="#5cbc3f" stroke="${INK}" stroke-width="1.7" stroke-linejoin="round"/>` +
+        `<path d="M24 30.8 C27.8 30.8 29.2 28.4 29.2 25.8 C25.8 25.8 24 27.6 24 30.8Z" fill="#7ed957" stroke="${INK}" stroke-width="1.7" stroke-linejoin="round"/>`;
+    const sparkles = c.moon
+      ? `<path d="M40 5 L41.2 8.2 L44.5 9.4 L41.2 10.6 L40 14 L38.8 10.6 L35.5 9.4 L38.8 8.2Z" fill="#ffe14d" stroke="#c98300" stroke-width="1.5" stroke-linejoin="round"/>` +
+        `<path d="M7 11 L7.8 13.2 L10 14 L7.8 14.8 L7 17 L6.2 14.8 L4 14 L6.2 13.2Z" fill="#fff1a0" stroke="#c98300" stroke-width="1.2" stroke-linejoin="round"/>`
+      : '';
+    return [
+      id,
+      `${open}>
+  <ellipse cx="24" cy="45" rx="15" ry="3.4" fill="${INK}" opacity=".22"/>
+  <path d="M10.5 15 C8.4 23 7.4 32 8.6 40.2 Q9.2 43.8 12.8 43.8 H35.2 Q38.8 43.8 39.4 40.2 C40.6 32 39.6 23 37.5 15 Z" fill="${c.sack}" ${T}/>
+  <path d="M10 15 L11.6 6.5 H36.4 L38 15 Z" fill="${c.fold}" ${T}/>
+  <path d="M14.5 10.8 H33.5" stroke="${INK}" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="1.6 3" opacity=".55"/>
+  <path d="M9.6 17.4 H38.4" stroke="${INK}" stroke-width="6.4" stroke-linecap="round"/>
+  <path d="M9.6 17.4 H38.4" stroke="${c.band}" stroke-width="3" stroke-linecap="round"/>
+  <rect x="14" y="21.6" width="20" height="17" rx="3.4" fill="#fff4dc" stroke="${INK}" stroke-width="2.2"/>
+  ${mark}
+  <path d="M11.4 22 C10.6 27 11 33 12.4 38" stroke="#fff8e0" stroke-width="2" stroke-linecap="round" fill="none" opacity=".7"/>
+  <path d="M29.5 44.4 C30.4 40.4 38.4 40.4 40.6 44.4 Z" fill="${c.grain}" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>
+  ${sparkles}
+</svg>`,
+    ];
+  }),
+) as Record<FertilizerId, string>;

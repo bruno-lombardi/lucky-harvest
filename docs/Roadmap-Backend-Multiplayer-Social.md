@@ -132,7 +132,8 @@ Take a snapshot every N commands so loading a farm is `snapshot + short tail`.
 - **More buildings in the Confeitaria mould:** a dairy for butter and cheese, a mill, a sawmill. The recipe is in [How to add content](How-To-Add-Content.md#a-new-building-with-its-own-dialog-the-confeitaria-is-the-template).
 - **Seasons and weather:** `DayNight` keyframes plus a core rule that modifies growth multipliers; deterministic if derived from the wall clock.
 - **Events and daily quests:** goals are already data; add a time window and a `claimQuest` command.
-- **Cosmetics as medal rewards:** the achievements system already tracks medals; rewards are coins only today.
+- **Cosmetics as medal rewards:** the achievements system already tracks medals; rewards are coins plus a few fertilizers today.
+- **Premium currency:** fertilizers are deliberately reward-only (level-ups, medals) so they can become the first premium-currency purchase without breaking the coin economy: give `FertilizerDef` a premium price and a shop entry, and keep `ms` as the tuning knob. Decide first whether premium items may be gifted to neighbors, since a gift is a cross-farm operation (see below). Orchard-tree fertilizing and "fertilize the whole field" are natural follow-ups.
 - **More species and crops:** pure data plus a model each; always run the pace test.
 
 ## Risks and open questions

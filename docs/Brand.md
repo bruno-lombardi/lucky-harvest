@@ -54,6 +54,10 @@ These are the same values as the CSS variables at the top of `src/ui/style.css` 
 
 **Fredoka** (variable, weights 300 to 700) for everything: UI text at 500 to 600, headings and the wordmark at 700. It is bundled with `@fontsource-variable/fredoka`, so there is no network font request. Numbers use the same face (the HUD already sets them heavy).
 
+## Tool icons
+
+The tool icons (`src/ui/icons.ts`) double as the toolbar buttons and the in-game cursors (`cursors.ts` holds each one's click point), so they follow house rules to read as one set with the 3D art and the logo: a 48×48 box with the subject filling about 40×40; a 3-unit dark-brown (`#4a2b0f`) outline on every part with round joins; wooden parts drawn as a thick ink stroke with a lighter stroke on top (`rod`); flat fills from the game palette with one highlight stroke per big shape and no gradients; light from the top left, so shade sits right and below; a small ground shadow or soil tile anchors the subject. Fertilizer sacks (`FERTILIZER_ICONS` in `item-icons.ts`) follow the same rules, with a coloured band per tier that matches the seed rarity colours.
+
 ## Voice
 
 Warm, friendly, a little cheeky, in Brazilian Portuguese; short sentences; characters have personality (Tonico grumbles, Dona Zefa bakes with love). Tagline: **"Sua fazendinha isométrica"**.

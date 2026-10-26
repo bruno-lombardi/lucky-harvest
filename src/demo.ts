@@ -143,6 +143,7 @@ export function createDemoFarm(now: number): Farm {
     produce: Object.fromEntries(CROP_ORDER.map((id, n) => [id, 3 + n * 2])) as FarmSnapshot['produce'],
     products: { ovo: 5, leite: 3, trufa: 1 },
     feed: { galinha: 6, vaca: 3, porco: 2 },
+    fertilizer: { esterco: 12, composto: 4, humus: 2, lua: 1 },
     pens,
     helpers: {
       regador: helper(2, { u: 12, v: 12 }),

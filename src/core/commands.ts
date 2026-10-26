@@ -1,6 +1,7 @@
 import { applyTool, Tool } from './actions';
 import { ProductId, SpeciesId } from './animals';
 import { CropId } from './crops';
+import { FertilizerId } from './fertilizer';
 import { TreeId } from './trees';
 import { achievementKey, findAchievement, findGoal, goalDone, goalKey, stepDone } from './progress';
 import { DecorId } from './decor';
@@ -17,7 +18,7 @@ import { ActionResult, Farm } from './farm';
  * command, the state and the `now` timestamp.
  */
 export type Command =
-  | { type: 'tool'; tool: Tool; i: number; j: number; crop: CropId; tree?: TreeId }
+  | { type: 'tool'; tool: Tool; i: number; j: number; crop: CropId; tree?: TreeId; fertilizer?: FertilizerId }
   | { type: 'buySeeds'; crop: CropId; qty: number }
   | { type: 'sellCrop'; crop: CropId; qty: number }
   | { type: 'sellProduct'; product: ProductId; qty: number }
@@ -72,7 +73,7 @@ export function applyCommand(farm: Farm, command: Command, now: number): ActionR
   farm.runHelpers(now);
   switch (command.type) {
     case 'tool':
-      return applyTool(farm, command.tool, command.i, command.j, now, command.crop, command.tree);
+      return applyTool(farm, command.tool, command.i, command.j, now, command.crop, command.tree, command.fertilizer);
     case 'buySeeds':
       return farm.buySeeds(command.crop, command.qty);
     case 'sellCrop':
@@ -109,7 +110,7 @@ export function applyCommand(farm: Farm, command: Command, now: number): ActionR
       if (!a || !Number.isInteger(command.step) || command.step < 0 || command.step >= a.steps.length || !stepDone(a, command.step, farm)) {
         return { ok: false, reason: 'not-done' };
       }
-      return farm.claim(achievementKey(a.id, command.step), a.rewards[command.step]!);
+      return farm.claim(achievementKey(a.id, command.step), a.rewards[command.step]!, a.gifts?.[command.step]);
     }
     case 'buyAnimal':
       return farm.buyAnimal(command.species);

@@ -26,6 +26,7 @@ import { TREES, TreeId } from './core/trees';
 import { SPECIES, SPECIES_ORDER, SpeciesId, animalStatus } from './core/animals';
 import { Command, applyCommand } from './core/commands';
 import { Farm, Gain } from './core/farm';
+import { FERTILIZER_ORDER, FertilizerGift, FertilizerStock, giftCount, giftText, skipLabel } from './core/fertilizer';
 import { SaveManager } from './persistence';
 import { HELPERS, HELPER_ORDER, HOME, HelperId, payWord, walkerPose } from './core/helpers';
 import { PEN_LAYOUT } from './render/pens';
@@ -36,7 +37,7 @@ import { BakeryDialog } from './ui/bakery';
 import { TonicoDialog } from './ui/tonico';
 import { MenuDialog } from './ui/menu';
 import { PenDialog } from './ui/pen';
-import { GEAR_ICON, PRODUCT_ICONS } from './ui/item-icons';
+import { FERTILIZER_ICONS, GEAR_ICON, PRODUCT_ICONS } from './ui/item-icons';
 import { TileCoord } from './core/grid';
 import { createDemoFarm } from './demo';
 import { GameAudio, Sfx } from './audio';
@@ -96,6 +97,7 @@ const TOOL_EFFECTS: Record<string, { sfx: Sfx; burst: BurstKind }> = {
   regar: { sfx: 'water', burst: 'water' },
   cuidar: { sfx: 'care', burst: 'care' },
   limpar: { sfx: 'clear', burst: 'clear' },
+  adubar: { sfx: 'fertilize', burst: 'fertilize' },
 };
 
 const soundButton = required('sound-btn');
@@ -142,6 +144,8 @@ function countPests(now: number): number {
 
 const unpaidKnown = new Set<HelperId>();
 let knownLevel = 0;
+/** Fertilizers owned at the last refresh, so a gift (level-up, medal) can be announced once. Null until the first refresh. */
+let knownFertilizer: FertilizerStock | null = null;
 /** Goals and medal steps already announced, so each toasts once when it first completes. */
 const announced = new Set<string>();
 let announcedReady = false;
@@ -258,15 +262,30 @@ function refreshGoals(): void {
   }
 }
 
+/** The fertilizers that arrived since the last refresh (level-ups, medals), and remembers the new totals. */
+function newGift(): FertilizerGift {
+  const gift: FertilizerGift = {};
+  if (knownFertilizer) {
+    for (const id of FERTILIZER_ORDER) if (farm.fertilizer[id] > knownFertilizer[id]) gift[id] = farm.fertilizer[id] - knownFertilizer[id];
+  }
+  knownFertilizer = { ...farm.fertilizer };
+  return gift;
+}
+
 function refreshUi(now: number): void {
   showHelperEvents(now);
   showDeliveries(now);
+  const gift = newGift();
+  const gifted = giftCount(gift) > 0;
   if (farm.level > knownLevel) {
     if (knownLevel > 0) {
-      toast.show(`Você chegou ao nível ${farm.level}!`, 2800);
+      toast.show(`Você chegou ao nível ${farm.level}!${gifted ? ` Presente: ${giftText(gift)}` : ''}`, gifted ? 3600 : 2800);
       audio.play('levelup');
     }
     knownLevel = farm.level;
+  } else if (gifted) {
+    toast.show(`Presente: ${giftText(gift)}`, 3200);
+    audio.play('levelup', 0.6);
   }
   hud.update(farm);
   toolbar.refresh(farm);
@@ -424,6 +443,10 @@ function showGain(gain: Gain, at: { x: number; y: number }): void {
   if (gain.product) emit(`+${gain.product.qty}`, 'coins', PRODUCT_ICONS[gain.product.productId]);
   if (gain.coins > 0) emit(`+${gain.coins}`, 'coins', COIN_ICON);
   if (gain.coins < 0) emit(`${gain.coins}`, 'spend', COIN_ICON);
+  if (gain.fertilized) {
+    emit(`−${skipLabel(gain.fertilized.savedMs)}`, 'coins', FERTILIZER_ICONS[gain.fertilized.id]);
+    if (gain.fertilized.ripe) emit('Pronta!', 'level');
+  }
   if (gain.xp > 0) emit(`+${gain.xp} XP`, 'xp');
   if (gain.levelUp !== null) emit(`Nível ${gain.levelUp}!`, 'level');
 }
@@ -439,7 +462,7 @@ function handleTap(tile: TileCoord | null): void {
     refreshUi(Date.now());
     return;
   }
-  const command: Command = { type: 'tool', tool: toolbar.tool, i: tile.i, j: tile.j, crop: toolbar.crop, tree: toolbar.tree };
+  const command: Command = { type: 'tool', tool: toolbar.tool, i: tile.i, j: tile.j, crop: toolbar.crop, tree: toolbar.tree, fertilizer: toolbar.fertilizer };
   const ok = dispatch(command, game.screenPositionOf(tile));
   if (ok) {
     const fx = TOOL_EFFECTS[toolbar.tool];

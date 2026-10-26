@@ -99,6 +99,17 @@ import { inBounds, tileKey } from './grid';
 import { POMAR, TREE_ORDER, TREE_PEST_CHANCE, TREES, TreeId, TreeState, TreeStatus, isOrchardTile, treeGrowth, treeStatus } from './trees';
 import { levelFromXp } from './levels';
 import {
+  LIGHT_COLORS,
+  LightColorId,
+  LightColors,
+  LightSettings,
+  defaultLights,
+  isLightColor,
+  normalizeLightColors,
+  normalizeLights,
+  ownsLightColor,
+} from './lights';
+import {
   FERTILIZERS,
   FertilizerGift,
   FertilizerId,
@@ -234,7 +245,8 @@ export type FailReason =
   | 'no-fertilizer'
   | 'not-watered'
   | 'pest-active'
-  | 'already-ripe';
+  | 'already-ripe'
+  | 'no-light-color';
 
 export interface Gain {
   coins: number;
@@ -346,6 +358,9 @@ export interface FarmSnapshot {
   autoPlant?: AutoPlant;
   /** Fertilizers in the barn. Saves from before they existed leave it out. */
   fertilizer?: FertilizerStock;
+  /** The farm lights (on or off, which colour) and the colours bought. Saves from before them leave both out: lights on, amber. */
+  lights?: LightSettings;
+  lightColors?: LightColors;
   tiles: Record<string, TileState>;
 }
 
@@ -399,6 +414,9 @@ export class Farm {
   autoPlant: AutoPlant = defaultAutoPlant();
   /** Fertilizers owned. Only ever gained as gifts (see fertilizer.ts). */
   fertilizer: FertilizerStock = emptyFertilizer();
+  /** Farm lights: free to have and to switch; only the colours are bought (see lights.ts). */
+  lights: LightSettings = defaultLights();
+  lightColors: LightColors = {};
   pomar = false;
   saplings: FruitStock = emptyFruit();
   fruit: FruitStock = emptyFruit();
@@ -1222,6 +1240,27 @@ export class Farm {
     return this.done(-def.cost, 0);
   }
 
+  /** Turns the farm lights on or off and/or picks a colour already owned. Free. */
+  setLights(patch: { on?: boolean; color?: LightColorId }): ActionResult {
+    if (patch.color !== undefined && (!isLightColor(patch.color) || !ownsLightColor(this.lightColors, patch.color))) return fail('no-light-color');
+    if (patch.on !== undefined && typeof patch.on !== 'boolean') return fail('bad-qty');
+    if (patch.on === undefined && patch.color === undefined) return fail('bad-qty');
+    this.lights = { on: patch.on ?? this.lights.on, color: patch.color ?? this.lights.color };
+    return this.done(0, 0);
+  }
+
+  /** Buys a light colour (a farm decoration, same unlock level as the others) and starts using it. */
+  buyLightColor(id: LightColorId): ActionResult {
+    if (!isLightColor(id)) return fail('no-light-color');
+    if (this.level < DECOR_UNLOCK_LEVEL) return fail('decor-locked');
+    if (ownsLightColor(this.lightColors, id)) return fail('max-level');
+    const cost = LIGHT_COLORS[id].cost;
+    if (this.coins < cost) return fail('no-coins');
+    this.lightColors[id] = true;
+    this.lights = { on: true, color: id };
+    return this.done(-cost, 0);
+  }
+
   /** Pays a goal or achievement reward once (the caller, in commands.ts, has checked it is earned). */
   claim(key: string, coins: number, gift: FertilizerGift = {}): ActionResult {
     if (this.claimed.includes(key)) return fail('already-claimed');
@@ -1467,6 +1506,8 @@ export class Farm {
       bakery: this.bakery ? { level: this.bakery.level, jobs: this.bakery.jobs.map((j) => ({ ...j })) } : null,
       goods: { ...this.goods },
       fertilizer: { ...this.fertilizer },
+      lights: { ...this.lights },
+      lightColors: { ...this.lightColors },
       trees: Object.fromEntries([...this.trees].map(([k, t]) => [k, { ...t }])),
       tiles,
     };
@@ -1503,6 +1544,8 @@ export class Farm {
       farm.barn = Math.min(Math.max(Math.floor(snapshot.barn) || 1, 1), MAX_BARN_LEVEL);
       farm.autoPlant = normalizeAutoPlant(snapshot.autoPlant);
       farm.fertilizer = normalizeFertilizer(snapshot.fertilizer);
+      farm.lightColors = normalizeLightColors(snapshot.lightColors);
+      farm.lights = normalizeLights(snapshot.lights, farm.lightColors);
       farm.bakery = normalizeBakery(snapshot.bakery);
       if (typeof snapshot.goods === 'object' && snapshot.goods !== null) {
         for (const id of GOOD_ORDER) {

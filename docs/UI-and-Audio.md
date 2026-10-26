@@ -52,3 +52,7 @@ Any element with `data-info="crop:milho"` gets a card on hover (mouse) or long-p
 - Escape nothing by hand: dialogs build HTML from trusted data tables only. **If you ever show player-authored text (neighbor names, chat), escape it** or build nodes with `textContent`.
 - Prices are formatted with `toLocaleString('pt-BR')` (see `coin()`).
 - Keep strings that the player reads in `messages.ts`/`info.ts`/the data tables rather than scattered in logic, so a future i18n pass has one place to look.
+
+## Lights controls
+
+A bulb button in the HUD (`#lights-btn`) switches the farm lights on and off. The shop's Fazenda tab has a "Luzes da fazenda" section with the same switch and one row per colour (Usar, Comprar or Em uso). Info cards use `light:<colour>`.

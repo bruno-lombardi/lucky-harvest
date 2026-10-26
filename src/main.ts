@@ -37,6 +37,7 @@ import { BakeryDialog } from './ui/bakery';
 import { TonicoDialog } from './ui/tonico';
 import { MenuDialog } from './ui/menu';
 import { PenDialog } from './ui/pen';
+import { LIGHT_COLORS } from './core/lights';
 import { FERTILIZER_ICONS, GEAR_ICON, PRODUCT_ICONS } from './ui/item-icons';
 import { TileCoord } from './core/grid';
 import { createDemoFarm } from './demo';
@@ -47,7 +48,7 @@ import { atmosphereAt } from './render/daynight';
 import { Floaters, Toast } from './ui/feedback';
 import { Hud } from './ui/hud';
 import { describeTile, reasonMessage } from './ui/messages';
-import { COIN_ICON, MOON_ICON, SOUND_OFF_ICON, SOUND_ON_ICON, SUN_ICON, hydrateIcons } from './ui/icons';
+import { COIN_ICON, MOON_ICON, bulbIcon, SOUND_OFF_ICON, SOUND_ON_ICON, SUN_ICON, hydrateIcons } from './ui/icons';
 import { BookDialog } from './ui/book';
 import { Shop, ShopTab } from './ui/shop';
 import { CHIP_GOALS, achievementKey, claimableSteps, claimableGoals, currentGoal, goalDone, goalKey } from './core/progress';
@@ -99,6 +100,21 @@ const TOOL_EFFECTS: Record<string, { sfx: Sfx; burst: BurstKind }> = {
   limpar: { sfx: 'clear', burst: 'clear' },
   adubar: { sfx: 'fertilize', burst: 'fertilize' },
 };
+
+const lightsButton = required('lights-btn');
+let lightsKey = '';
+const syncLightsButton = (): void => {
+  const { on, color } = farm.lights;
+  if (lightsKey === `${on}${color}`) return;
+  lightsKey = `${on}${color}`;
+  lightsButton.innerHTML = bulbIcon(`#${(LIGHT_COLORS[color].bulbs[0] ?? 0xffc95a).toString(16).padStart(6, '0')}`, on);
+  lightsButton.setAttribute('aria-pressed', String(on));
+  lightsButton.title = on ? 'Apagar as luzes da fazenda' : 'Acender as luzes da fazenda';
+};
+lightsButton.addEventListener('click', () => {
+  audio.unlock();
+  dispatch({ type: 'setLights', on: !farm.lights.on });
+});
 
 const soundButton = required('sound-btn');
 const syncSoundButton = (): void => {
@@ -273,6 +289,7 @@ function newGift(): FertilizerGift {
 }
 
 function refreshUi(now: number): void {
+  syncLightsButton();
   showHelperEvents(now);
   showDeliveries(now);
   const gift = newGift();
@@ -360,6 +377,12 @@ function commandEffects(command: Command): void {
     case 'upgradeBarn':
     case 'buyDecor':
       audio.play('build');
+      break;
+    case 'buyLightColor':
+      audio.play('build');
+      break;
+    case 'setLights':
+      audio.play('select');
       break;
     case 'buyBakery':
     case 'upgradeBakery':

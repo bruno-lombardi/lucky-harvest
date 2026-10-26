@@ -86,3 +86,16 @@ A new piece of content usually needs a matching entry in these places (the compi
 - **Shop and dialog rows:** `src/ui/shop.ts` and friends loop over the `*_ORDER` arrays, so most new entries appear on their own.
 - **Goals and achievements:** `progress.ts`, if the new content should teach or reward something.
 - **Demo farm:** `src/demo.ts`, so it can be seen in `?demo`.
+
+## Farm lights (luzes da fazenda)
+
+Defined in `src/core/lights.ts`. The lights themselves are free and on by default; only the colours are bought, as farm Enfeites in the shop's Fazenda tab (level 14, like the other decor).
+
+| Colour | Price | Notes |
+|---|---|---|
+| Âmbar | free | default, always owned |
+| Rosa | 300 | |
+| Verde vaga-lume | 300 | |
+| Azul luar | 500 | |
+| Roxo | 500 | |
+| Festa | 1500 | several bulb colours, handed out bulb by bulb |

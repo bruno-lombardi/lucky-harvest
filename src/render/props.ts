@@ -48,11 +48,14 @@ import { addHullOutline, addInstancedHullOutline } from './outline';
  */
 
 /** The fence stands this far outside the plot's edge tiles. */
-const FENCE_MARGIN = 0.45;
-const GATE_Z = 1.0;
+export const FENCE_MARGIN = 0.45;
+export const GATE_Z = 1.0;
+
+/** Half the side of the fence square for a plot of `size` tiles per side. */
+export const fenceHalf = (size: number): number => size / 2 + FENCE_MARGIN;
 
 export const BARN = { x: -9.6, z: 1.0 };
-const WINDMILL = { x: 7.8, z: -8.2 };
+export const WINDMILL = { x: 7.8, z: -8.2 };
 const POND = { x: -6.2, z: 8.2, radius: 2.0 };
 const SCARECROW = { x: 6.5, z: 1.6 };
 

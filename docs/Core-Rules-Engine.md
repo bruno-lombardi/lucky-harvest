@@ -108,3 +108,7 @@ The catch: the skip is evaluated against *the `now` of the call*. A browser tab 
 ## Snapshots
 
 `Farm.toSnapshot()` returns a plain-JSON `FarmSnapshot` (currently `version: 8`); `Farm.fromSnapshot()` rebuilds a farm, upgrading older versions. See [Persistence and saves](Persistence-and-Saves.md) for the rules about adding fields.
+
+## Farm lights
+
+`Farm.lights` (`{on, color}`) and `Farm.lightColors` (owned colours; amber is implicit) are optional snapshot fields, so no version bump. Commands: `setLights` (free: switch and/or choose an owned colour, else `no-light-color`) and `buyLightColor` (needs decor level 14 and the coins; buying also selects the colour and turns the lights on). An unowned or unknown colour in a save falls back to amber (`normalizeLights`).

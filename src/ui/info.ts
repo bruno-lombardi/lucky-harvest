@@ -3,6 +3,7 @@ import { CROPS, CropId, RARITIES } from '../core/crops';
 import { Farm, LAND_STEPS } from '../core/farm';
 import { HELPERS, HelperId, maxHelperLevel, WAGE_PERIOD_MS, helperWage, payWord } from '../core/helpers';
 import { DECOR, DecorId } from '../core/decor';
+import { LIGHT_COLORS, LightColorId, ownsLightColor } from '../core/lights';
 import { POMAR, TREES, TreeId, coinsPerMinute } from '../core/trees';
 import { TRUCK_UPGRADES, TruckUpgradeId } from '../core/delivery';
 import { BARN_TIERS, barnPerk } from '../core/barn';
@@ -315,6 +316,17 @@ export function infoCard(key: string, farm: Farm): string | null {
       return id in DECOR
         ? render({ title: DECOR[id as DecorId].name, tag: farm.decor[id as DecorId] ? 'Na fazenda' : undefined, lore: DECOR[id as DecorId].text, stats: [['Preço', coin(DECOR[id as DecorId].cost)]] })
         : null;
+    case 'light': {
+      if (!(id in LIGHT_COLORS)) return null;
+      const def = LIGHT_COLORS[id as LightColorId];
+      const owned = ownsLightColor(farm.lightColors, def.id);
+      return render({
+        title: `Luzes ${def.name.toLowerCase()}`,
+        tag: owned ? (farm.lights.color === def.id ? 'Em uso' : 'Sua') : undefined,
+        lore: def.text,
+        stats: [['Preço', def.cost === 0 ? 'Grátis' : coin(def.cost)]],
+      });
+    }
     case 'barn': {
       const n = Number(id);
       return n >= 1 && n <= BARN_TIERS.length ? render(barnCard(n, farm)) : null;

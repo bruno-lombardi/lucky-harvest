@@ -60,7 +60,7 @@ export enum Shape {
 }
 
 /** Fixed-size pool of camera-facing point sprites with per-particle size, colour, alpha and shape. */
-class PointPool {
+export class PointPool {
   readonly points: Points;
   readonly position: Float32Array;
   readonly size: Float32Array;
@@ -96,6 +96,12 @@ class PointPool {
 
   setScale(pixelsPerUnit: number): void {
     this.material.uniforms['uScale']!.value = pixelsPerUnit;
+  }
+
+  /** Frees the GPU buffers (a pool that is rebuilt, like the farm lights, must call this). */
+  dispose(): void {
+    this.points.geometry.dispose();
+    this.material.dispose();
   }
 
   upload(): void {

@@ -218,6 +218,15 @@ export const LAND_ICON = `${open}>
   <path d="M9 40 H39" stroke="${INK}" stroke-width="2.6" stroke-linecap="round" opacity=".0"/>
 </svg>`;
 
+/** A string-light bulb: `lit` glows (the HUD toggle), `color` tints the glass (the shop swatches). */
+export const bulbIcon = (color = '#ffc95a', lit = true): string => `${open}>
+  <path d="M6 12 Q24 24 42 12" fill="none" stroke="#4a3a2a" stroke-width="3" stroke-linecap="round"/>
+  ${lit ? `<circle cx="24" cy="30" r="14" fill="${color}" opacity=".28"/>` : ''}
+  <path d="M24 17 C16 17 13 23 13 28 C13 34 18 37 19.5 40 H28.5 C30 37 35 34 35 28 C35 23 32 17 24 17 Z" fill="${lit ? color : '#9a9186'}" ${line}/>
+  <rect x="19.5" y="40" width="9" height="5" rx="1.5" fill="#6b4423" ${line}/>
+  <path d="M18 25 Q19 21 23 20" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="2.4" stroke-linecap="round"/>
+</svg>`;
+
 export const SOUND_ON_ICON = `${open}>
   <path d="M8 18 H15 L25 9 V39 L15 30 H8 Z" fill="#fff4dc" ${line}/>
   <path d="M31 17 Q36 24 31 31 M35.5 12 Q44 24 35.5 36" fill="none" stroke="${INK}" stroke-width="3.2" stroke-linecap="round"/>

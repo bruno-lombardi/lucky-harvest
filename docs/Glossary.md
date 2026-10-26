@@ -69,3 +69,5 @@ Rarities: comum common, incomum uncommon, rara rare, épica epic. A **colheita d
 | View | A render class that reads the farm and draws it (`FarmView`, `Pens`, …) |
 | Hull outline | The toon outline made by a slightly larger back-face copy of a mesh |
 | Splash | The loading screen in `index.html` |
+
+- **Luzes da fazenda**: the fairy lights, lamp posts and glow that come on at dusk. Free; the colours are Enfeites.

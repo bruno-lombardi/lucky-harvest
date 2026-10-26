@@ -35,6 +35,7 @@ import { renderCropIcons, renderTreeIcons } from './render/icons';
 import { Props } from './render/props';
 import { DayNight, atmosphereAt, createAtmosphere, lightPosition } from './render/daynight';
 import { BurstKind, Effects, Fireflies, Particles } from './render/particles';
+import { LightsView } from './render/lights-view';
 import { FarmView } from './render/farm-view';
 import { OrchardView } from './render/orchard-view';
 import { TileHighlight } from './render/highlight';
@@ -88,6 +89,7 @@ export class Game {
   private readonly particles = new Particles();
   private readonly effects = new Effects(this.particles);
   private readonly fireflies = new Fireflies();
+  private readonly lightsView: LightsView;
   readonly dayNight: DayNight;
   private readonly atmosphere = createAtmosphere();
   private sun!: DirectionalLight;
@@ -133,6 +135,7 @@ export class Game {
     this.helperView.isHidden = (point) => this.isOccluded(point);
     this.decorView = new DecorView(farm, gradient);
     this.bakeryView = new BakeryView(farm, gradient);
+    this.lightsView = new LightsView(farm, gradient);
     this.deliveryView = new DeliveryView(gradient);
     this.deliveryView.onCue = (cue) => this.events.onTruck?.(cue);
     this.deliveryView.onDust = (x, z) => this.effects.burst('clear', x, z);
@@ -150,6 +153,7 @@ export class Game {
       this.orchardView.group,
       this.clouds.group,
       this.highlight.group,
+      this.lightsView.group,
       this.particles.object,
       this.fireflies.object,
     );
@@ -402,6 +406,8 @@ export class Game {
     const scale = this.renderer.domElement.height / unitsHigh;
     this.particles.setScale(scale);
     this.fireflies.setScale(scale);
+    this.lightsView.setScale(scale);
+    this.lightsView.update(dt, this.atmosphere.night);
     this.particles.update(dt);
     this.fireflies.update(this.elapsed, this.atmosphere.night);
   }

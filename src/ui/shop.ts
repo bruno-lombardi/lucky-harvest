@@ -1,6 +1,7 @@
 import { PRODUCTS, PRODUCT_ORDER, SPECIES, SPECIES_ORDER, SpeciesId, penCapacity } from '../core/animals';
 import { CROPS, CROP_ORDER, CropId } from '../core/crops';
 import { DECOR, DECOR_ORDER, DECOR_UNLOCK_LEVEL, DecorId } from '../core/decor';
+import { LIGHT_COLORS, LIGHT_COLOR_ORDER, LightColorId, ownsLightColor } from '../core/lights';
 import { TRUCK_UPGRADES, TRUCK_UPGRADE_ORDER, TruckUpgradeId } from '../core/delivery';
 import { BARN_TIERS, barnPerk, barnTier, nextBarnTier } from '../core/barn';
 import { Farm } from '../core/farm';
@@ -11,7 +12,7 @@ import { GOOD_ICONS } from './good-icons';
 import { HELPERS, HELPER_ORDER, HelperId, maxHelperLevel, WAGE_PERIOD_MS, helperWage, nextHelperUpgrade, payWord } from '../core/helpers';
 import { formatDuration } from './messages';
 import { humanDuration } from './info';
-import { BARN_ICON, COIN_ICON, LAND_ICON, LOCK_ICON, SHOP_ICON, TOOL_ICONS, TRUCK_ICON } from './icons';
+import { BARN_ICON, COIN_ICON, LAND_ICON, bulbIcon, LOCK_ICON, SHOP_ICON, TOOL_ICONS, TRUCK_ICON } from './icons';
 import { FEED_ICONS, HELPER_ICONS, PRODUCT_ICONS, SPECIES_ICONS } from './item-icons';
 import { Dispatch, coin, empty, heading, img, rarityBadge, row } from './kit';
 import { Modal, ModalTab } from './modal';
@@ -37,6 +38,8 @@ const tabs = (treeIcons: Record<TreeId, string>): ReadonlyArray<ModalTab<ShopTab
  * wallet shows in the header, and "Vender tudo" sticks to the bottom. Anything only worth showing with room to spare (a crop's growth
  * time, say) is rendered with the `extra` class and hidden on small screens.
  */
+const hex = (n: number): string => `#${n.toString(16).padStart(6, '0')}`;
+
 export class Shop extends Modal<ShopTab> {
   constructor(
     root: HTMLElement,
@@ -123,6 +126,15 @@ export class Shop extends Modal<ShopTab> {
         break;
       case 'expand':
         this.dispatch({ type: 'expandLand' });
+        break;
+      case 'lights-toggle':
+        this.dispatch({ type: 'setLights', on: !this.farm.lights.on });
+        break;
+      case 'light-use':
+        this.dispatch({ type: 'setLights', color: data['light'] as LightColorId });
+        break;
+      case 'light-buy':
+        this.dispatch({ type: 'buyLightColor', color: data['light'] as LightColorId });
         break;
       case 'decor':
         this.dispatch({ type: 'buyDecor', decor: data['decor'] as DecorId });
@@ -372,7 +384,7 @@ export class Shop extends Modal<ShopTab> {
     const { farm } = this;
     const next = farm.nextExpansion();
     const now = `${farm.landSize}×${farm.landSize}`;
-    return `${this.landCard(next, now)}${this.barnHtml()}${this.bakeryHtml()}${this.truckHtml()}${this.decorHtml()}`;
+    return `${this.landCard(next, now)}${this.barnHtml()}${this.bakeryHtml()}${this.truckHtml()}${this.lightsHtml()}${this.decorHtml()}`;
   }
 
   private barnHtml(): string {
@@ -459,6 +471,38 @@ export class Shop extends Modal<ShopTab> {
       );
     }).join('');
     return `${heading('Caminhão de sementes')}${rows}`;
+  }
+
+  /** The farm lights: the switch is free for everyone, the colours (except amber) are Enfeites to buy. */
+  private lightsHtml(): string {
+    const { farm } = this;
+    const on = farm.lights.on;
+    const toggle = row(
+      `<i class="ico">${bulbIcon(hex(LIGHT_COLORS[farm.lights.color].bulbs[0] ?? 0xffc95a), on)}</i>`,
+      `<b>Luzes da fazenda</b><small>${on ? 'Acendem ao entardecer.' : 'Apagadas: a fazenda fica no escuro à noite.'}</small>`,
+      `<button type="button" class="buy wide alt" data-act="lights-toggle" aria-pressed="${on}">${on ? 'Apagar' : 'Acender'}</button>`,
+      false,
+    );
+    const unlocked = farm.level >= DECOR_UNLOCK_LEVEL;
+    const rows = LIGHT_COLOR_ORDER.map((id) => {
+      const def = LIGHT_COLORS[id];
+      const owned = ownsLightColor(farm.lightColors, id);
+      const using = farm.lights.color === id;
+      const swatch = hex(def.bulbs[0]!);
+      let button: string;
+      if (using) button = `<button type="button" class="buy wide" disabled>Em uso</button>`;
+      else if (owned) button = `<button type="button" class="buy wide alt" data-act="light-use" data-light="${id}">Usar</button>`;
+      else if (!unlocked) button = `<button type="button" class="buy wide" disabled>Nível ${DECOR_UNLOCK_LEVEL}</button>`;
+      else button = `<button type="button" class="buy wide" data-act="light-buy" data-light="${id}" ${farm.coins < def.cost ? 'disabled' : ''}>Comprar</button>`;
+      return row(
+        `<i class="ico">${bulbIcon(swatch, true)}</i>`,
+        `<b>${def.name}</b><small>${owned ? def.text : `${def.text} ${coin(def.cost)}`}</small>`,
+        button,
+        false,
+        `light:${id}`,
+      );
+    }).join('');
+    return `${heading('Luzes da fazenda')}${toggle}${rows}`;
   }
 
   private decorHtml(): string {

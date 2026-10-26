@@ -109,6 +109,8 @@ export function reasonMessage(reason: FailReason): string {
       return 'Cuide da praga antes de adubar';
     case 'already-ripe':
       return 'Já está madura: é só colher';
+    case 'no-light-color':
+      return 'Compre essa cor de luz primeiro';
   }
 }
 

@@ -65,3 +65,7 @@ Remaining hot spots (measure before touching): the animal pens (about 760 meshes
 - Everything faces +z by default.
 - Colours are hex numbers; shared materials come from `Palette`/`CropKit` caches.
 - Dispose nothing that came from a cache. Per-frame allocations (new `Vector3`, new `Color`) in `update` loops are a smell; reuse scratch objects.
+
+## Farm lights (`render/lights-view.ts`)
+
+No real lights: bulbs are one `InstancedMesh`, glows one additive `PointPool`, ground pools one instanced additive mesh and the wire one `LineSegments`. Fairy lights follow the fence, with lamp posts at the corners and by the path and lanterns at the gate, barn and windmill doors. Brightness eases toward `on ? smoothstep(night) : 0`, so switching never pops. The set is rebuilt when the plot grows. Tests: `tests/lights-view.test.ts`.

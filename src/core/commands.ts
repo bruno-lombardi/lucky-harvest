@@ -2,6 +2,7 @@ import { applyTool, Tool } from './actions';
 import { ProductId, SpeciesId } from './animals';
 import { CropId } from './crops';
 import { FertilizerId } from './fertilizer';
+import { LightColorId } from './lights';
 import { TreeId } from './trees';
 import { achievementKey, findAchievement, findGoal, goalDone, goalKey, stepDone } from './progress';
 import { DecorId } from './decor';
@@ -49,7 +50,9 @@ export type Command =
   | { type: 'upgradeBakery' }
   | { type: 'bake'; good: GoodId; batches: number }
   | { type: 'collectBakery' }
-  | { type: 'sellGood'; good: GoodId; qty: number };
+  | { type: 'sellGood'; good: GoodId; qty: number }
+  | { type: 'setLights'; on?: boolean; color?: LightColorId }
+  | { type: 'buyLightColor'; color: LightColorId };
 
 /**
  * A command that succeeded, with the time it was applied: the unit of replay and sync.
@@ -144,6 +147,10 @@ export function applyCommand(farm: Farm, command: Command, now: number): ActionR
       return farm.collectBakery(now);
     case 'sellGood':
       return farm.sellGood(command.good, command.qty);
+    case 'setLights':
+      return farm.setLights({ on: command.on, color: command.color });
+    case 'buyLightColor':
+      return farm.buyLightColor(command.color);
   }
 }
 
